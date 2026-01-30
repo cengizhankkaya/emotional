@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "739508543260",
+    "project_id": "emotional-app-b42af",
+    "storage_bucket": "emotional-app-b42af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739508543260:android:0f2864c26d0329382224d9",
+        "android_client_info": {
+          "package_name": "com.example.emotional"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "739508543260-3dqror1lrf0ppuk3p69689cqr0sc4j8t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.emotional",
+            "certificate_hash": "e22d1df331276ea2ca75bb4dfcb4aa422145b8f4"
+          }
+        },
+        {
+          "client_id": "739508543260-mahh9660gf557g9fe93ca6qpoq8r305j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAW2lRVvVcKUPuz8dys83PEiteza1AIOUg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "739508543260-mahh9660gf557g9fe93ca6qpoq8r305j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
