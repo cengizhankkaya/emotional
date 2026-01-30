@@ -25,6 +25,10 @@ class RoomRepository {
         'driveFileName': null,
         'driveFileSize': null,
       });
+
+      // Set up onDisconnect to remove the user if the app crashes/disconnects
+      await roomRef.child('users/$userId').onDisconnect().remove();
+
       print('RoomRepository: Data written to DB successfully.');
     } catch (e) {
       print('RoomRepository: Failed to write to DB: $e');
@@ -40,6 +44,9 @@ class RoomRepository {
 
     if (snapshot.exists) {
       await roomRef.child('users/$userId').set(userName);
+
+      // Set up onDisconnect to remove the user if the app crashes/disconnects
+      await roomRef.child('users/$userId').onDisconnect().remove();
     } else {
       throw Exception('Room not found');
     }
@@ -47,6 +54,9 @@ class RoomRepository {
 
   Future<void> leaveRoom(String roomId, String userId) async {
     final roomRef = _database.ref('rooms/$roomId');
+
+    // Cancel the onDisconnect listener since we are leaving manually
+    await roomRef.child('users/$userId').onDisconnect().cancel();
 
     // Use a transaction to ensure atomic update and cleanup
     await roomRef.runTransaction((Object? post) {
@@ -123,8 +133,60 @@ class RoomRepository {
     await roomRef.update(updates);
   }
 
+  Future<void> updateUserMediaState(
+    String roomId,
+    String userId, {
+    required bool isVideoEnabled,
+    required bool isAudioEnabled,
+  }) async {
+    final userStateRef = _database.ref('rooms/$roomId/usersState/$userId');
+    await userStateRef.update({
+      'video': isVideoEnabled,
+      'audio': isAudioEnabled,
+      'updatedAt': ServerValue.timestamp,
+    });
+  }
+
   Stream<DatabaseEvent> streamRoom(String roomId) {
     return _database.ref('rooms/$roomId').onValue;
+  }
+
+  Future<void> cleanupEmptyRooms() async {
+    final roomsRef = _database.ref('rooms');
+    try {
+      final snapshot = await roomsRef.get();
+      if (!snapshot.exists) return;
+
+      int deletedCount = 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // 24 hours in milliseconds for stale check
+      const staleThreshold = 24 * 60 * 60 * 1000;
+
+      for (final child in snapshot.children) {
+        final roomData = child.value as Map<dynamic, dynamic>?;
+        if (roomData == null) continue;
+
+        final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
+        final createdAt = roomData['createdAt'] as int? ?? 0;
+
+        // Delete if:
+        // 1. No users are in the room
+        // 2. OR the room is older than 24h (stale cleanup insurance)
+        final isEmpty = users.isEmpty;
+        final isStale = (now - createdAt) > staleThreshold;
+
+        if (isEmpty || isStale) {
+          await child.ref.remove();
+          deletedCount++;
+        }
+      }
+
+      if (deletedCount > 0) {
+        print('RoomRepository: Cleaned up $deletedCount unused/stale rooms.');
+      }
+    } catch (e) {
+      print('RoomRepository: Error cleaning up rooms: $e');
+    }
   }
 
   String _generateRoomId() {

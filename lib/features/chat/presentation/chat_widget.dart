@@ -8,9 +8,9 @@ import 'package:intl/intl.dart';
 
 class ChatWidget extends StatefulWidget {
   final String roomId;
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
 
-  const ChatWidget({super.key, required this.roomId, required this.onClose});
+  const ChatWidget({super.key, required this.roomId, this.onClose});
 
   @override
   State<ChatWidget> createState() => _ChatWidgetState();
@@ -73,7 +73,7 @@ class _ChatWidgetState extends State<ChatWidget> {
     return Container(
       // width: 350, // Controlled by parent
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.8),
+        color: Colors.black.withOpacity(0.5),
         // borderRadius: const BorderRadius.only(
         //   topLeft: Radius.circular(16),
         //   bottomLeft: Radius.circular(16),
@@ -95,10 +95,11 @@ class _ChatWidgetState extends State<ChatWidget> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: widget.onClose,
-                ),
+                if (widget.onClose != null)
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: widget.onClose,
+                  ),
               ],
             ),
           ),

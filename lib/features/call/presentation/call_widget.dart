@@ -56,11 +56,55 @@ class _CallWidgetState extends State<CallWidget> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Local User
-                            _buildVideoItem(state.localRenderer, true),
-                            // Remote Users
-                            ...state.remoteRenderers.entries.map((entry) {
-                              return _buildVideoItem(entry.value, false);
+                            // Local User - Filter if disabled
+                            if (state.isVideoEnabled)
+                              _buildVideoItem(state.localRenderer, true, 'You'),
+
+                            // Remote Users - Iterate strictly over activeUsers
+                            ...state.activeUsers.entries.map((entry) {
+                              final userId = entry.key;
+                              final userName = entry.value;
+
+                              // Skip local user in this loop
+                              if (userId == context.read<CallBloc>().userId)
+                                return const SizedBox.shrink();
+
+                              final renderer = state.remoteRenderers[userId];
+                              bool hasVideo = false;
+
+                              if (renderer != null &&
+                                  renderer.srcObject != null) {
+                                final videoTracks = renderer.srcObject!
+                                    .getVideoTracks();
+                                // Check track enablement
+                                final trackEnabled =
+                                    videoTracks.isNotEmpty &&
+                                    videoTracks.first.enabled;
+
+                                // Check Firebase state (source of truth for "active" video)
+                                final firebaseVideoEnabled =
+                                    state.userVideoStates[userId] ?? false;
+
+                                // Require BOTH for positive video display check to avoid black frames,
+                                // but primarily rely on Firebase state to know if we SHOULD failover to avatar.
+                                if (trackEnabled && firebaseVideoEnabled) {
+                                  hasVideo = true;
+                                }
+                              }
+
+                              if (hasVideo) {
+                                return _buildVideoItem(
+                                  renderer!,
+                                  false,
+                                  userName,
+                                );
+                              } else {
+                                // Only show avatar if controls are visible (expanded)
+                                if (_areControlsVisible) {
+                                  return _buildAvatarItem(userName);
+                                }
+                                return const SizedBox.shrink();
+                              }
                             }),
                           ],
                         ),
@@ -169,7 +213,11 @@ class _CallWidgetState extends State<CallWidget> {
     );
   }
 
-  Widget _buildVideoItem(RTCVideoRenderer renderer, bool isLocal) {
+  Widget _buildVideoItem(
+    RTCVideoRenderer renderer,
+    bool isLocal,
+    String userName,
+  ) {
     return Container(
       width: 160,
       height: 90,
@@ -189,11 +237,61 @@ class _CallWidgetState extends State<CallWidget> {
               mirror: isLocal,
             ),
             if (isLocal)
-              const Positioned(
+              Positioned(
                 bottom: 4,
                 right: 4,
-                child: Icon(Icons.person, color: Colors.white, size: 16),
+                child: Text(
+                  userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                  ),
+                ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarItem(String userName) {
+    // Get initials
+    String initials = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+    if (userName.contains(' ') && userName.split(' ').length > 1) {
+      initials += userName.split(' ')[1][0].toUpperCase();
+    }
+
+    return Container(
+      width: 160,
+      height: 90,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2C2C),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.white10,
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              userName,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

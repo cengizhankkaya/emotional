@@ -54,12 +54,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   // ... existing subscriptions ...
 
-  late RoomBloc _roomBloc;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _roomBloc = context.read<RoomBloc>();
     if (_callOffsetX == null || _callOffsetY == null) {
       final size = MediaQuery.of(context).size;
       // Default to Top-Right (similar to previous fixed position)
@@ -81,22 +78,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    // Leave Room
-    final state = _roomBloc.state;
-    String? roomId;
-    String? userId;
-
-    if (state is RoomJoined) {
-      roomId = state.roomId;
-      userId = state.userId;
-    } else if (state is RoomCreated) {
-      roomId = state.roomId;
-      userId = state.userId;
-    }
-
-    if (roomId != null && userId != null) {
-      _roomBloc.add(LeaveRoomRequested(roomId: roomId, userId: userId));
-    }
+    // Leave logic removed to keep user in room when closing video player
 
     _playingSubscription?.cancel();
     _positionSubscription?.cancel();
@@ -104,41 +86,38 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.dispose();
   }
 
-  void _onToggleCall(BuildContext context) {
+  void _onJoinCall(BuildContext context) {
     final callBloc = context.read<CallBloc>();
     final roomState = context.read<RoomBloc>().state;
 
-    if (callBloc.state is CallConnected) {
-      callBloc.add(LeaveCall());
-    } else {
-      String roomId = '';
-      String userId =
-          ''; // Need to get userId. RoomBloc usually has it or we pass it?
-      // RoomBloc state usually has room details but maybe not current UserId explicitly if it's not stored in state directly?
-      // Actually roomState usually has 'userId' or we can get it from RoomRepository/Auth?
-      // Assuming RoomJoined state has userId or we generated it.
-      // Checking RoomRepository source: createRoom takes userId.
-      // RoomBloc likely stores userId in state.
-      // Let's assume RoomBloc state has userId.
+    String roomId = '';
+    String userId = '';
 
-      if (roomState is RoomJoined) {
-        roomId = roomState.roomId;
-        userId = roomState.userId;
-      } else if (roomState is RoomCreated) {
-        roomId = roomState.roomId;
-        userId = roomState.userId;
-      }
-
-      if (roomId.isNotEmpty && userId.isNotEmpty) {
-        callBloc.add(JoinCall(roomId: roomId, userId: userId));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cannot join call: User/Room info missing'),
-          ),
-        );
-      }
+    if (roomState is RoomJoined) {
+      roomId = roomState.roomId;
+      userId = roomState.userId;
+    } else if (roomState is RoomCreated) {
+      roomId = roomState.roomId;
+      userId = roomState.userId;
     }
+
+    if (roomId.isNotEmpty && userId.isNotEmpty) {
+      callBloc.add(JoinCall(roomId: roomId, userId: userId));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot join call: User/Room info missing'),
+        ),
+      );
+    }
+  }
+
+  void _onToggleVideo(BuildContext context) {
+    context.read<CallBloc>().add(ToggleVideo());
+  }
+
+  void _onLeaveCall(BuildContext context) {
+    context.read<CallBloc>().add(LeaveCall());
   }
 
   Widget _buildVideoPlayer() {
@@ -151,17 +130,44 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 normal: MaterialVideoControlsThemeData(
                   topButtonBar: [
                     const Spacer(),
-                    // Call Button
+                    // Call Controls
                     BlocBuilder<CallBloc, CallState>(
                       builder: (context, callState) {
                         final isConnected = callState is CallConnected;
-                        return MaterialCustomButton(
-                          onPressed: () => _onToggleCall(context),
-                          icon: Icon(
-                            isConnected ? Icons.videocam_off : Icons.videocam,
-                            color: isConnected ? Colors.red : Colors.white,
-                          ),
-                        );
+                        if (!isConnected) {
+                          // Join Button
+                          return MaterialCustomButton(
+                            onPressed: () => _onJoinCall(context),
+                            icon: const Icon(
+                              Icons.videocam,
+                              color: Colors.white,
+                            ),
+                          );
+                        } else {
+                          // Connected: Toggle Video + End Call
+                          final isVideoEnabled = callState.isVideoEnabled;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              MaterialCustomButton(
+                                onPressed: () => _onToggleVideo(context),
+                                icon: Icon(
+                                  isVideoEnabled
+                                      ? Icons.videocam
+                                      : Icons.videocam_off,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              MaterialCustomButton(
+                                onPressed: () => _onLeaveCall(context),
+                                icon: const Icon(
+                                  Icons.call_end,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
                       },
                     ),
                     MaterialCustomButton(
@@ -190,13 +196,38 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     BlocBuilder<CallBloc, CallState>(
                       builder: (context, callState) {
                         final isConnected = callState is CallConnected;
-                        return MaterialCustomButton(
-                          onPressed: () => _onToggleCall(context),
-                          icon: Icon(
-                            isConnected ? Icons.videocam_off : Icons.videocam,
-                            color: isConnected ? Colors.red : Colors.white,
-                          ),
-                        );
+                        if (!isConnected) {
+                          return MaterialCustomButton(
+                            onPressed: () => _onJoinCall(context),
+                            icon: const Icon(
+                              Icons.videocam,
+                              color: Colors.white,
+                            ),
+                          );
+                        } else {
+                          final isVideoEnabled = callState.isVideoEnabled;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              MaterialCustomButton(
+                                onPressed: () => _onToggleVideo(context),
+                                icon: Icon(
+                                  isVideoEnabled
+                                      ? Icons.videocam
+                                      : Icons.videocam_off,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              MaterialCustomButton(
+                                onPressed: () => _onLeaveCall(context),
+                                icon: const Icon(
+                                  Icons.call_end,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
                       },
                     ),
                     MaterialCustomButton(
@@ -275,9 +306,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) => ChatBloc(chatRepository: ChatRepository()),
+          create: (context) =>
+              ChatBloc(chatRepository: context.read<ChatRepository>()),
         ),
-        BlocProvider(create: (_) => CallBloc(roomRepository: RoomRepository())),
+        BlocProvider(
+          create: (context) =>
+              CallBloc(roomRepository: context.read<RoomRepository>()),
+        ),
       ],
       child: BlocListener<RoomBloc, RoomState>(
         listener: (context, state) => _syncManager.onRoomStateChanged(state),

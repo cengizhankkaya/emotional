@@ -46,3 +46,15 @@ class ToggleMute extends CallEvent {}
 class ToggleVideo extends CallEvent {}
 
 class SwitchCamera extends CallEvent {}
+
+class IncomingBye extends CallEvent {
+  final String userId;
+
+  const IncomingBye({required this.userId});
+
+  @override
+  List<Object?> get props => [userId];
+}
+
+/// Bloc içinde remote renderer güncellendiğinde UI'ı yenilemek için kullanılır.
+class InternalUpdateState extends CallEvent {}

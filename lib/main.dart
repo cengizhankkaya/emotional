@@ -3,6 +3,8 @@ import 'package:emotional/features/auth/presentation/login_screen.dart';
 import 'package:emotional/features/home/presentation/home_screen.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/features/chat/bloc/chat_bloc.dart';
+import 'package:emotional/features/chat/repository/chat_repository.dart';
 // import 'package:emotional/features/video_player/view/video_player_view.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -59,6 +61,9 @@ class MyApp extends StatelessWidget {
         RepositoryProvider<RoomRepository>(
           create: (context) => RoomRepository(),
         ),
+        RepositoryProvider<ChatRepository>(
+          create: (context) => ChatRepository(),
+        ),
         RepositoryProvider<DriveService>.value(value: driveService),
       ],
       child: MultiBlocProvider(
@@ -70,6 +75,10 @@ class MyApp extends StatelessWidget {
           BlocProvider<RoomBloc>(
             create: (context) =>
                 RoomBloc(roomRepository: context.read<RoomRepository>()),
+          ),
+          BlocProvider<ChatBloc>(
+            create: (context) =>
+                ChatBloc(chatRepository: context.read<ChatRepository>()),
           ),
         ],
         child: MaterialApp(

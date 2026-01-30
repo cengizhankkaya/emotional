@@ -8,6 +8,7 @@ typedef OnRemoteAnswer =
     void Function(RTCSessionDescription answer, String fromUserId);
 typedef OnIceCandidate =
     void Function(RTCIceCandidate candidate, String fromUserId);
+typedef OnBye = void Function(String fromUserId);
 
 class SignalingService {
   final String roomId;
@@ -15,6 +16,9 @@ class SignalingService {
   final FirebaseDatabase _database = FirebaseDatabase.instance;
 
   late DatabaseReference _roomSignalRef;
+
+  /// Tüm sinyal dinleyicileri - dispose'da iptal edilir.
+  final List<StreamSubscription<DatabaseEvent>> _subscriptions = [];
 
   // Callbacks
   OnRemoteOffer? onRemoteOffer;
@@ -26,10 +30,6 @@ class SignalingService {
   }
 
   void initialize() {
-    _listenToSignal();
-  }
-
-  void _listenToSignal() {
     listenForIncomingSignals();
   }
 
@@ -85,55 +85,101 @@ class SignalingService {
 
   // Listeners for specific user (My ID)
   // We listen to 'signal/{myUserId}' because others will write there for me.
+
+  OnBye? onRemoteBye;
+
+  // Send Bye
+  Future<void> sendBye(String targetUserId) async {
+    await _roomSignalRef
+        .child(targetUserId)
+        .child('bye')
+        .child(userId)
+        .set(ServerValue.timestamp);
+  }
+
+  // Listen for incoming signals for this user (others write to signal/{myUserId})
   void listenForIncomingSignals() {
     final mySignalRef = _roomSignalRef.child(userId);
 
-    // Listen for Offers
-    mySignalRef.child('offers').onChildAdded.listen((event) {
-      if (event.snapshot.value == null) return;
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-      final fromUserId = event.snapshot.key;
+    _subscriptions.add(
+      mySignalRef.child('offers').onChildAdded.listen((event) {
+        if (event.snapshot.value == null) return;
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        final fromUserId = event.snapshot.key;
+        var description = RTCSessionDescription(data['sdp'], data['type']);
+        if (fromUserId != null) {
+          onRemoteOffer?.call(description, fromUserId);
+        }
+      }),
+    );
 
-      var description = RTCSessionDescription(data['sdp'], data['type']);
-      if (fromUserId != null) {
-        onRemoteOffer?.call(description, fromUserId);
-      }
-    });
+    _subscriptions.add(
+      mySignalRef.child('answers').onChildAdded.listen((event) {
+        if (event.snapshot.value == null) return;
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        final fromUserId = event.snapshot.key;
+        var description = RTCSessionDescription(data['sdp'], data['type']);
+        if (fromUserId != null) {
+          onRemoteAnswer?.call(description, fromUserId);
+        }
+      }),
+    );
 
-    // Listen for Answers
-    mySignalRef.child('answers').onChildAdded.listen((event) {
-      if (event.snapshot.value == null) return;
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-      final fromUserId = event.snapshot.key;
-      var description = RTCSessionDescription(data['sdp'], data['type']);
-      if (fromUserId != null) {
-        onRemoteAnswer?.call(description, fromUserId);
-      }
-    });
+    _subscriptions.add(
+      mySignalRef.child('candidates').onChildAdded.listen((userEvent) {
+        final senderId = userEvent.snapshot.key;
+        if (senderId == null) return;
 
-    // Listen for ICE Candidates
-    mySignalRef.child('candidates').onChildAdded.listen((userEvent) {
-      final senderId = userEvent.snapshot.key;
-      if (senderId == null) return;
+        final innerSub = mySignalRef
+            .child('candidates')
+            .child(senderId)
+            .onChildAdded
+            .listen((candidateEvent) {
+          if (candidateEvent.snapshot.value == null) return;
+          final data = Map<String, dynamic>.from(
+            candidateEvent.snapshot.value as Map,
+          );
+          var candidate = RTCIceCandidate(
+            data['candidate'],
+            data['sdpMid'],
+            data['sdpMLineIndex'],
+          );
+          onRemoteIceCandidate?.call(candidate, senderId);
+        });
+        _subscriptions.add(innerSub);
+      }),
+    );
 
-      mySignalRef.child('candidates').child(senderId).onChildAdded.listen((
-        candidateEvent,
-      ) {
-        if (candidateEvent.snapshot.value == null) return;
-        final data = Map<String, dynamic>.from(
-          candidateEvent.snapshot.value as Map,
-        );
-        var candidate = RTCIceCandidate(
-          data['candidate'],
-          data['sdpMid'],
-          data['sdpMLineIndex'],
-        );
-        onRemoteIceCandidate?.call(candidate, senderId);
-      });
-    });
+    _subscriptions.add(
+      mySignalRef.child('bye').onChildAdded.listen((event) {
+        final fromUserId = event.snapshot.key;
+        if (fromUserId != null) {
+          onRemoteBye?.call(fromUserId);
+          mySignalRef.child('bye').child(fromUserId).remove();
+        }
+      }),
+    );
+  }
+
+  Future<void> clearSignal() async {
+    final mySignalRef = _roomSignalRef.child(userId);
+    await mySignalRef.remove();
+  }
+
+  /// Bye aldığımız kullanıcının bize yazdığı offer/answer/candidates'ı siler.
+  /// Böylece o kullanıcı tekrar aramaya girince aynı path'e yazacağı offer
+  /// yeni child sayılır ve onChildAdded tetiklenir.
+  Future<void> clearIncomingFromUser(String fromUserId) async {
+    final mySignalRef = _roomSignalRef.child(userId);
+    await mySignalRef.child('offers').child(fromUserId).remove();
+    await mySignalRef.child('answers').child(fromUserId).remove();
+    await mySignalRef.child('candidates').child(fromUserId).remove();
   }
 
   void dispose() {
-    // Clean up listeners if stored
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
   }
 }

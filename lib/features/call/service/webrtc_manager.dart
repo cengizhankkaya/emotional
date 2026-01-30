@@ -64,6 +64,12 @@ class WebRTCManager {
     }
   }
 
+  void enableSpeakerphone(bool enable) {
+    if (_localStream != null) {
+      Helper.setSpeakerphoneOn(enable);
+    }
+  }
+
   void toggleMute(bool muted) {
     _localStream?.getAudioTracks().forEach((track) {
       track.enabled = !muted;
