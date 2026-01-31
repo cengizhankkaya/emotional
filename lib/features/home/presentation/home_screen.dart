@@ -89,9 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: BlocConsumer<RoomBloc, RoomState>(
         listenWhen: (previous, current) {
-          // Navigate only if we weren't joined before and now we are.
-          // This prevents pushing multiple routes on state updates (new participants).
-          return previous is! RoomJoined && current is RoomJoined;
+          // Listen for errors, creation success, or joining success
+          return current is RoomError ||
+              current is RoomCreated ||
+              (previous is! RoomJoined && current is RoomJoined);
         },
         listener: (context, state) {
           if (state is RoomError) {
@@ -134,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         },
         builder: (context, state) {
-          if (state is RoomLoading) {
+          if (state is RoomLoading || state is RoomCreated) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -263,6 +264,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
+                              filled: true,
+                              fillColor: Colors.white.withValues(alpha: 0.05),
                             ),
                             keyboardType: TextInputType.number,
                           ),

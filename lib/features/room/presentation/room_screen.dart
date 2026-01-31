@@ -7,6 +7,8 @@ import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/drive_file_picker_screen.dart';
+import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
+import 'package:emotional/features/room/presentation/widgets/armchair_selector_sheet.dart';
 import 'package:emotional/features/room/presentation/widgets/armchair_widget.dart';
 import 'package:emotional/features/room/presentation/widgets/sofa_widget.dart';
 import 'package:emotional/features/room/presentation/widgets/table_widget.dart';
@@ -221,103 +223,127 @@ class _RoomScreenState extends State<RoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<RoomBloc, RoomState>(
-      listener: (context, state) {
-        if (state is RoomInitial) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        } else if (state is RoomJoined) {
-          if (state.driveFileName != null) {
-            _checkFileExists(state.driveFileName!);
+    return BlocProvider(
+      create: (context) => RoomDecorationCubit(),
+      child: BlocConsumer<RoomBloc, RoomState>(
+        listener: (context, state) {
+          if (state is RoomInitial) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          } else if (state is RoomJoined) {
+            if (state.driveFileName != null) {
+              _checkFileExists(state.driveFileName!);
+            }
+
+            // Auto-switch from love theme when 3+ participants
+            final participants = state.participants;
+            if (participants.length >= 3) {
+              final decorationCubit = context.read<RoomDecorationCubit>();
+              if (decorationCubit.state.armchairStyle == ArmchairStyle.love) {
+                decorationCubit.setArmchairStyle(ArmchairStyle.modern);
+              }
+            }
           }
-        }
-      },
-      builder: (context, state) {
-        if (state is! RoomJoined) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+        },
+        builder: (context, state) {
+          if (state is! RoomJoined) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
 
-        final roomId = state.roomId;
-        final participants = state.participants;
-        final hostId = state.hostId;
-        final currentUser =
-            (context.read<AuthBloc>().state as AuthAuthenticated).user;
-        final isHost = currentUser.uid == hostId;
+          final roomId = state.roomId;
+          final participants = state.participants;
+          final hostId = state.hostId;
+          final currentUser =
+              (context.read<AuthBloc>().state as AuthAuthenticated).user;
+          final isHost = currentUser.uid == hostId;
 
-        // Video State
-        final driveFileName = state.driveFileName;
-        final driveFileId = state.driveFileId;
+          // Video State
+          final driveFileName = state.driveFileName;
+          final driveFileId = state.driveFileId;
 
-        return Scaffold(
-          key: _scaffoldKey,
-          endDrawer: Drawer(
-            width: MediaQuery.of(context).size.width * 0.85,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: ChatWidget(
-              roomId: roomId,
-              onClose: () => Navigator.of(context).pop(),
+          return Scaffold(
+            key: _scaffoldKey,
+            endDrawer: Drawer(
+              width: MediaQuery.of(context).size.width * 0.85,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: ChatWidget(
+                roomId: roomId,
+                onClose: () => Navigator.of(context).pop(),
+              ),
             ),
-          ),
-          backgroundColor: const Color(0xFF1A1D21),
-          resizeToAvoidBottomInset: true,
-          body: SafeArea(
-            child: Column(
-              children: [
-                _buildTopBar(context, roomId),
-                const Spacer(flex: 1),
-                Expanded(
-                  flex: 5,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Positioned(
-                            top: constraints.maxHeight * 0.05,
-                            child: _buildSofa(participants),
-                          ),
-                          // Table in the center
-                          Positioned(
-                            top: constraints.maxHeight * 0.35,
-                            child: const TableWidget(),
-                          ),
-                          Positioned(
-                            left: 10,
-                            top: constraints.maxHeight * 0.45,
-                            child: _buildArmchair(
-                              participants.length > 4 ? participants[4] : null,
-                              isLeft: true,
+            backgroundColor: const Color(0xFF1A1D21),
+            resizeToAvoidBottomInset: true,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _buildTopBar(context, roomId),
+                  const Spacer(flex: 1),
+                  Expanded(
+                    flex: 5,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned(
+                              top: constraints.maxHeight * 0.05,
+                              child: _buildSofa(context, participants),
                             ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            top: constraints.maxHeight * 0.45,
-                            child: _buildArmchair(
-                              participants.length > 5 ? participants[5] : null,
-                              isLeft: false,
+                            // Table in the center
+                            Positioned(
+                              top: constraints.maxHeight * 0.35,
+                              child: const TableWidget(),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                            if (context
+                                    .watch<RoomDecorationCubit>()
+                                    .state
+                                    .armchairStyle !=
+                                ArmchairStyle.love) ...[
+                              Positioned(
+                                left: 10,
+                                top: constraints.maxHeight * 0.45,
+                                child: _buildArmchair(
+                                  context,
+                                  participants.length > 4
+                                      ? participants[4]
+                                      : null,
+                                  isLeft: true,
+                                ),
+                              ),
+                              Positioned(
+                                right: 10,
+                                top: constraints.maxHeight * 0.45,
+                                child: _buildArmchair(
+                                  context,
+                                  participants.length > 5
+                                      ? participants[5]
+                                      : null,
+                                  isLeft: false,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-                // Chat Area Removed from here
-                // Video Control Sheet
-                _buildVideoControlSheet(
-                  context,
-                  isHost,
-                  roomId,
-                  driveFileName,
-                  driveFileId,
-                ),
-              ],
+                  // Chat Area Removed from here
+                  // Video Control Sheet
+                  _buildVideoControlSheet(
+                    context,
+                    isHost,
+                    roomId,
+                    driveFileName,
+                    driveFileId,
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -367,6 +393,30 @@ class _RoomScreenState extends State<RoomScreen> {
             ),
           ),
           const Spacer(),
+          IconButton(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                builder: (c) {
+                  // Pass the cubit to the sheet
+                  return BlocProvider.value(
+                    value: context.read<RoomDecorationCubit>(),
+                    child: const ArmchairSelectorSheet(),
+                  );
+                },
+              );
+            },
+            icon: const Icon(Icons.chair, color: Colors.white),
+            tooltip: 'Koltuk Teması',
+            style: IconButton.styleFrom(
+              backgroundColor: const Color.fromARGB(26, 255, 255, 255),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: () {
               _scaffoldKey.currentState?.openEndDrawer();
@@ -577,17 +627,29 @@ class _RoomScreenState extends State<RoomScreen> {
   }
 
   // ... (rest of the file: _buildSofa, _buildArmchair, etc.)
-  Widget _buildSofa(List<String> participants) {
+  Widget _buildSofa(BuildContext context, List<String> participants) {
+    // Watch the decoration state
+    final style = context.watch<RoomDecorationCubit>().state.armchairStyle;
+
     return SofaWidget(
       participants: participants,
       buildAvatarSlot: _buildAvatarSlot,
+      style: style,
     );
   }
 
-  Widget _buildArmchair(String? participant, {required bool isLeft}) {
+  Widget _buildArmchair(
+    BuildContext context,
+    String? participant, {
+    required bool isLeft,
+  }) {
+    // Watch the decoration state
+    final style = context.watch<RoomDecorationCubit>().state.armchairStyle;
+
     return ArmchairWidget(
       participant: participant,
       isLeft: isLeft,
+      style: style,
       child: _buildAvatarSlot(participant),
     );
   }
