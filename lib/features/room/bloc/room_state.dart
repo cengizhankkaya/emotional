@@ -25,6 +25,7 @@ class RoomJoined extends RoomState {
   final String roomId;
   final String userId;
   final List<String> participants;
+  final Map<String, String> userNames; // userId -> userName mapping
   final String? notificationMessage;
 
   final String hostId;
@@ -45,6 +46,7 @@ class RoomJoined extends RoomState {
     this.roomId, {
     required this.userId,
     this.participants = const [],
+    this.userNames = const {},
     this.notificationMessage,
     required this.hostId,
     this.driveFileId,
@@ -64,6 +66,7 @@ class RoomJoined extends RoomState {
     roomId,
     userId,
     participants,
+    userNames,
     notificationMessage,
     hostId,
     driveFileId,
@@ -82,6 +85,7 @@ class RoomJoined extends RoomState {
     String? roomId,
     String? userId,
     List<String>? participants,
+    Map<String, String>? userNames,
     String? notificationMessage,
     String? hostId,
     String? driveFileId,
@@ -99,6 +103,7 @@ class RoomJoined extends RoomState {
       roomId ?? this.roomId,
       userId: userId ?? this.userId,
       participants: participants ?? this.participants,
+      userNames: userNames ?? this.userNames,
       notificationMessage: notificationMessage ?? this.notificationMessage,
       hostId: hostId ?? this.hostId,
       driveFileId: driveFileId ?? this.driveFileId,

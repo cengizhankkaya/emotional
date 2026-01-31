@@ -45,6 +45,7 @@ class LeaveRoomRequested extends RoomEvent {
 class RoomUpdated extends RoomEvent {
   final String roomId;
   final List<String> participants;
+  final Map<String, String> userNames; // userId -> userName mapping
   final String? driveFileId;
   final String? driveFileName;
   final String? driveFileSize;
@@ -64,6 +65,7 @@ class RoomUpdated extends RoomEvent {
   const RoomUpdated({
     required this.roomId,
     required this.participants,
+    this.userNames = const {},
     required this.hostId,
     this.driveFileId,
     this.driveFileName,
@@ -81,6 +83,7 @@ class RoomUpdated extends RoomEvent {
   List<Object?> get props => [
     roomId,
     participants,
+    userNames,
     driveFileId,
     driveFileName,
     driveFileSize,

@@ -10,6 +10,7 @@ import 'package:emotional/features/room/presentation/drive_file_picker_screen.da
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
 import 'package:emotional/features/room/presentation/widgets/armchair_selector_sheet.dart';
 import 'package:emotional/features/room/presentation/widgets/armchair_widget.dart';
+import 'package:emotional/features/room/presentation/widgets/floating_message_bubble.dart';
 import 'package:emotional/features/room/presentation/widgets/sofa_widget.dart';
 import 'package:emotional/features/room/presentation/widgets/table_widget.dart';
 import 'package:emotional/features/video_player/presentation/video_player_screen.dart';
@@ -18,6 +19,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:emotional/features/chat/bloc/chat_bloc.dart';
+import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:emotional/features/chat/presentation/chat_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -38,6 +41,10 @@ class _RoomScreenState extends State<RoomScreen> {
   String? _currentDownloadingFileName;
 
   List<drive.File> _downloadedVideos = [];
+
+  // Floating message system
+  final List<OverlayEntry> _activeFloatingMessages = [];
+  String? _lastProcessedMessageId;
 
   @override
   void initState() {
@@ -78,6 +85,11 @@ class _RoomScreenState extends State<RoomScreen> {
   @override
   void dispose() {
     _unbindBackgroundIsolate();
+    // Clean up any active floating messages
+    for (var entry in _activeFloatingMessages) {
+      entry.remove();
+    }
+    _activeFloatingMessages.clear();
     super.dispose();
   }
 
@@ -244,101 +256,126 @@ class _RoomScreenState extends State<RoomScreen> {
             }
           }
         },
-        builder: (context, state) {
-          if (state is! RoomJoined) {
+        builder: (context, roomState) {
+          if (roomState is! RoomJoined) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
           }
 
-          final roomId = state.roomId;
-          final participants = state.participants;
-          final hostId = state.hostId;
+          final roomId = roomState.roomId;
+          final participants = roomState.participants;
+          final userNames = roomState.userNames;
+          final hostId = roomState.hostId;
           final currentUser =
               (context.read<AuthBloc>().state as AuthAuthenticated).user;
           final isHost = currentUser.uid == hostId;
 
-          // Video State
-          final driveFileName = state.driveFileName;
-          final driveFileId = state.driveFileId;
+          // Map participant IDs to names for display
+          final participantNames = participants
+              .map((id) => userNames[id] ?? id)
+              .toList();
 
-          return Scaffold(
-            key: _scaffoldKey,
-            endDrawer: Drawer(
-              width: MediaQuery.of(context).size.width * 0.85,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              child: ChatWidget(
-                roomId: roomId,
-                onClose: () => Navigator.of(context).pop(),
+          // Load chat messages when room is joined
+          // This ensures bubbles work even when chat drawer is closed
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.read<ChatBloc>().add(LoadMessages(roomId));
+          });
+
+          // Video State
+          final driveFileName = roomState.driveFileName;
+          final driveFileId = roomState.driveFileId;
+
+          return BlocListener<ChatBloc, ChatState>(
+            listener: (context, chatState) {
+              print('🔔 ChatBloc state changed: ${chatState.runtimeType}');
+              if (chatState is ChatLoaded && chatState.messages.isNotEmpty) {
+                final lastMessage = chatState.messages.last;
+                print(
+                  '📨 Last message: ${lastMessage.text} from ${lastMessage.senderName}',
+                );
+                print('👥 Participants: $participants');
+                _showFloatingMessage(lastMessage, participants);
+              }
+            },
+            child: Scaffold(
+              key: _scaffoldKey,
+              endDrawer: Drawer(
+                width: MediaQuery.of(context).size.width * 0.85,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: ChatWidget(
+                  roomId: roomId,
+                  onClose: () => Navigator.of(context).pop(),
+                ),
               ),
-            ),
-            backgroundColor: const Color(0xFF1A1D21),
-            resizeToAvoidBottomInset: true,
-            body: SafeArea(
-              child: Column(
-                children: [
-                  _buildTopBar(context, roomId),
-                  const Spacer(flex: 1),
-                  Expanded(
-                    flex: 5,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned(
-                              top: constraints.maxHeight * 0.05,
-                              child: _buildSofa(context, participants),
-                            ),
-                            // Table in the center
-                            Positioned(
-                              top: constraints.maxHeight * 0.35,
-                              child: const TableWidget(),
-                            ),
-                            if (context
-                                    .watch<RoomDecorationCubit>()
-                                    .state
-                                    .armchairStyle !=
-                                ArmchairStyle.love) ...[
+              backgroundColor: const Color(0xFF1A1D21),
+              resizeToAvoidBottomInset: true,
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    _buildTopBar(context, roomId),
+                    const Spacer(flex: 1),
+                    Expanded(
+                      flex: 5,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
                               Positioned(
-                                left: 10,
-                                top: constraints.maxHeight * 0.45,
-                                child: _buildArmchair(
-                                  context,
-                                  participants.length > 4
-                                      ? participants[4]
-                                      : null,
-                                  isLeft: true,
-                                ),
+                                top: constraints.maxHeight * 0.05,
+                                child: _buildSofa(context, participantNames),
                               ),
+                              // Table in the center
                               Positioned(
-                                right: 10,
-                                top: constraints.maxHeight * 0.45,
-                                child: _buildArmchair(
-                                  context,
-                                  participants.length > 5
-                                      ? participants[5]
-                                      : null,
-                                  isLeft: false,
-                                ),
+                                top: constraints.maxHeight * 0.35,
+                                child: const TableWidget(),
                               ),
+                              if (context
+                                      .watch<RoomDecorationCubit>()
+                                      .state
+                                      .armchairStyle !=
+                                  ArmchairStyle.love) ...[
+                                Positioned(
+                                  left: 10,
+                                  top: constraints.maxHeight * 0.45,
+                                  child: _buildArmchair(
+                                    context,
+                                    participantNames.length > 4
+                                        ? participantNames[4]
+                                        : null,
+                                    isLeft: true,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 10,
+                                  top: constraints.maxHeight * 0.45,
+                                  child: _buildArmchair(
+                                    context,
+                                    participantNames.length > 5
+                                        ? participantNames[5]
+                                        : null,
+                                    isLeft: false,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  // Chat Area Removed from here
-                  // Video Control Sheet
-                  _buildVideoControlSheet(
-                    context,
-                    isHost,
-                    roomId,
-                    driveFileName,
-                    driveFileId,
-                  ),
-                ],
+                    // Chat Area Removed from here
+                    // Video Control Sheet
+                    _buildVideoControlSheet(
+                      context,
+                      isHost,
+                      roomId,
+                      driveFileName,
+                      driveFileId,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -695,6 +732,74 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showFloatingMessage(ChatMessage message, List<String> participants) {
+    print('🎈 _showFloatingMessage called for: ${message.text}');
+    // Don't show duplicate messages
+    if (_lastProcessedMessageId == message.id) {
+      print('   ⚠️ Duplicate message ID, skipping');
+      return;
+    }
+    _lastProcessedMessageId = message.id;
+
+    // Find sender's position in participants list
+    final senderIndex = participants.indexOf(message.senderId);
+    print(
+      '   Sender: ${message.senderId}, Index: $senderIndex, Participants: $participants',
+    );
+    if (senderIndex == -1) {
+      print('   ⚠️ Sender not in participants list!');
+      return;
+    }
+
+    // Calculate position based on participant index
+    Offset? position;
+    final screenSize = MediaQuery.of(context).size;
+    final centerX = screenSize.width / 2;
+
+    if (senderIndex < 4) {
+      // User is on the sofa (positions 0-3)
+      final sofaY = screenSize.height * 0.25;
+      final spacing = 80.0;
+      final startX = centerX - (spacing * 1.5);
+      position = Offset(startX + (senderIndex * spacing), sofaY - 80);
+    } else if (senderIndex == 4) {
+      // Left armchair
+      final armchairY = screenSize.height * 0.5;
+      position = Offset(60, armchairY - 80);
+    } else if (senderIndex == 5) {
+      // Right armchair
+      final armchairY = screenSize.height * 0.5;
+      position = Offset(screenSize.width - 160, armchairY - 80);
+    }
+
+    if (position == null) return;
+
+    // Create overlay entry
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: position!.dx,
+        top: position.dy,
+        child: FloatingMessageBubble(
+          message: message.text,
+          senderName: message.senderName,
+          onComplete: () {
+            entry.remove();
+            _activeFloatingMessages.remove(entry);
+          },
+        ),
+      ),
+    );
+
+    _activeFloatingMessages.add(entry);
+    overlay.insert(entry);
+    print(
+      '   ✨ Bubble created at position $position! Active: ${_activeFloatingMessages.length}',
     );
   }
 }

@@ -95,9 +95,17 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
             final data = event.snapshot.value as Map<dynamic, dynamic>?;
             if (data != null && data['users'] != null) {
               final usersMap = data['users'] as Map<dynamic, dynamic>;
-              final participants = usersMap.values
+              // Use keys (user IDs) instead of values (user names)
+              final participants = usersMap.keys
                   .map((e) => e.toString())
                   .toList();
+
+              // Create userNames map: userId -> userName
+              final userNames = Map<String, String>.fromEntries(
+                usersMap.entries.map(
+                  (e) => MapEntry(e.key.toString(), e.value.toString()),
+                ),
+              );
 
               final driveFileId = data['driveFileId'] as String?;
               final driveFileName = data['driveFileName'] as String?;
@@ -117,6 +125,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
                 RoomUpdated(
                   roomId: roomId,
                   participants: participants,
+                  userNames: userNames,
                   driveFileId: driveFileId,
                   driveFileName: driveFileName,
                   driveFileSize: driveFileSize,
@@ -185,6 +194,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         currentRoomId,
         userId: uid,
         participants: newParticipants,
+        userNames: event.userNames,
         notificationMessage: notification,
         driveFileId: event.driveFileId,
         driveFileName: event.driveFileName,
