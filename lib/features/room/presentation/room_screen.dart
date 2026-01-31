@@ -111,42 +111,48 @@ class _RoomScreenState extends State<RoomScreen> {
       final int status = data[1];
       final int progress = data[2];
 
+      debugPrint('Download Update: status=$status, progress=$progress');
+
       if (mounted) {
         setState(() {
           if (status == 3) {
-            _downloadProgress = null;
-            _downloadStatus = null;
+            // Complete
+            _downloadProgress = 1.0;
+            _downloadStatus = 'İndirme tamamlandı.';
+
+            // Delay clearing to let user see "Competed"
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) {
+                setState(() {
+                  _downloadProgress = null;
+                  _downloadStatus = null;
+                  _currentDownloadingFileName = null; // Clear this too
+                });
+              }
+            });
+
             // Refresh list when a download completes
             _loadDownloadedVideos();
+            if (_currentDownloadingFileName != null) {
+              _checkFileExists(_currentDownloadingFileName!);
+            }
           } else if (status == 4) {
+            // Failed
             _downloadStatus = 'İndirme başarısız.';
             _downloadProgress = null;
+            _currentDownloadingFileName = null;
           } else {
-            _downloadProgress = progress / 100;
+            // Running or Pending
+            _downloadProgress = progress / 100.0;
             _downloadStatus = 'İndiriliyor: $progress%';
           }
         });
-
-        if (status == 3 && _currentDownloadingFileName != null) {
-          _checkFileExists(_currentDownloadingFileName!);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('İndirme tamamlandı.')));
-        }
       }
     });
   }
 
   void _unbindBackgroundIsolate() {
     IsolateNameServer.removePortNameMapping('downloader_send_port');
-  }
-
-  @pragma('vm:entry-point')
-  static void downloadCallback(String id, int status, int progress) {
-    final SendPort? send = IsolateNameServer.lookupPortByName(
-      'downloader_send_port',
-    );
-    send?.send([id, status, progress]);
   }
 
   Future<void> _checkFileExists(String fileName) async {
@@ -288,13 +294,8 @@ class _RoomScreenState extends State<RoomScreen> {
 
           return BlocListener<ChatBloc, ChatState>(
             listener: (context, chatState) {
-              print('🔔 ChatBloc state changed: ${chatState.runtimeType}');
               if (chatState is ChatLoaded && chatState.messages.isNotEmpty) {
                 final lastMessage = chatState.messages.last;
-                print(
-                  '📨 Last message: ${lastMessage.text} from ${lastMessage.senderName}',
-                );
-                print('👥 Participants: $participants');
                 _showFloatingMessage(lastMessage, participants);
               }
             },
@@ -310,7 +311,7 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
               ),
               backgroundColor: const Color(0xFF1A1D21),
-              resizeToAvoidBottomInset: true,
+              resizeToAvoidBottomInset: false,
               body: SafeArea(
                 child: Column(
                   children: [
@@ -503,7 +504,7 @@ class _RoomScreenState extends State<RoomScreen> {
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 100, // Adjusted height for cards
+              height: 70, // Smaller height
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _downloadedVideos.length,
@@ -514,7 +515,7 @@ class _RoomScreenState extends State<RoomScreen> {
                   return GestureDetector(
                     onTap: () => _selectVideo(roomId, video),
                     child: Container(
-                      width: 140,
+                      width: 110, // Smaller width
                       margin: const EdgeInsets.only(right: 12),
                       decoration: BoxDecoration(
                         color: isSelected
@@ -528,7 +529,7 @@ class _RoomScreenState extends State<RoomScreen> {
                               )
                             : Border.all(color: Colors.white10),
                       ),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(4),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -537,16 +538,16 @@ class _RoomScreenState extends State<RoomScreen> {
                             color: isSelected
                                 ? Colors.deepPurpleAccent
                                 : Colors.green,
-                            size: 24,
+                            size: 18,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 2),
                           Text(
                             video.name ?? 'Bilinmeyen',
                             style: TextStyle(
                               color: isSelected
                                   ? Colors.deepPurpleAccent
                                   : Colors.white70,
-                              fontSize: 12,
+                              fontSize: 10,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -736,21 +737,15 @@ class _RoomScreenState extends State<RoomScreen> {
   }
 
   void _showFloatingMessage(ChatMessage message, List<String> participants) {
-    print('🎈 _showFloatingMessage called for: ${message.text}');
     // Don't show duplicate messages
     if (_lastProcessedMessageId == message.id) {
-      print('   ⚠️ Duplicate message ID, skipping');
       return;
     }
     _lastProcessedMessageId = message.id;
 
     // Find sender's position in participants list
     final senderIndex = participants.indexOf(message.senderId);
-    print(
-      '   Sender: ${message.senderId}, Index: $senderIndex, Participants: $participants',
-    );
     if (senderIndex == -1) {
-      print('   ⚠️ Sender not in participants list!');
       return;
     }
 
@@ -798,8 +793,13 @@ class _RoomScreenState extends State<RoomScreen> {
 
     _activeFloatingMessages.add(entry);
     overlay.insert(entry);
-    print(
-      '   ✨ Bubble created at position $position! Active: ${_activeFloatingMessages.length}',
-    );
   }
+}
+
+@pragma('vm:entry-point')
+void downloadCallback(String id, int status, int progress) {
+  final SendPort? send = IsolateNameServer.lookupPortByName(
+    'downloader_send_port',
+  );
+  send?.send([id, status, progress]);
 }

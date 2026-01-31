@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 
-import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/presentation/chat_widget.dart';
-import 'package:emotional/features/chat/repository/chat_repository.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/video_player/presentation/logic/video_sync_manager.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_settings_modal.dart';
@@ -14,7 +13,6 @@ import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/presentation/call_widget.dart';
-import 'package:emotional/features/room/repository/room_repository.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -66,6 +64,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  void _clampCallPosition() {
+    final size = MediaQuery.of(context).size;
+    const callWidgetWidth = 320.0;
+    const callWidgetHeight = 200.0; // Approximate max height
+
+    setState(() {
+      _callOffsetX = (_callOffsetX ?? 0).clamp(
+        0.0,
+        size.width - callWidgetWidth,
+      );
+      _callOffsetY = (_callOffsetY ?? 0).clamp(
+        0.0,
+        size.height - callWidgetHeight,
+      );
+    });
+  }
+
   void _setupListeners() {
     _playingSubscription = _player.stream.playing.listen((isPlaying) {
       _syncManager.onPlayerStateUpdate(isPlaying: isPlaying);
@@ -78,12 +93,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    // Leave logic removed to keep user in room when closing video player
+    // Reset orientation to portrait when leaving
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
     _playingSubscription?.cancel();
     _positionSubscription?.cancel();
     _player.dispose();
     super.dispose();
+  }
+
+  void _toggleFullscreen() {
+    final orientation = MediaQuery.of(context).orientation;
+    if (orientation == Orientation.portrait) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
   }
 
   void _onJoinCall(BuildContext context) {
@@ -121,6 +149,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildVideoPlayer() {
+    // Capture the CallBloc from the current valid context
+    final callBloc = context.read<CallBloc>();
+
     return Stack(
       children: [
         Center(
@@ -128,11 +159,41 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             builder: (context) {
               return MaterialVideoControlsTheme(
                 normal: MaterialVideoControlsThemeData(
+                  padding: const EdgeInsets.only(
+                    bottom: 20,
+                    left: 10,
+                    right: 10,
+                    top: 10,
+                  ),
+                  bottomButtonBar: [
+                    const MaterialPositionIndicator(),
+                    const Spacer(),
+                    MaterialCustomButton(
+                      onPressed: _toggleFullscreen,
+                      icon: const Icon(Icons.fullscreen),
+                    ),
+                  ],
                   topButtonBar: [
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        "Odaya Dön",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                     const Spacer(),
                     // Call Controls
                     BlocBuilder<CallBloc, CallState>(
-                      builder: (context, callState) {
+                      bloc: callBloc, // Explicitly pass the bloc
+                      builder: (blocContext, callState) {
                         final isConnected = callState is CallConnected;
                         if (!isConnected) {
                           // Join Button
@@ -191,10 +252,41 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ],
                 ),
                 fullscreen: MaterialVideoControlsThemeData(
+                  padding: const EdgeInsets.only(
+                    bottom: 24,
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                  ), // More padding for fullscreen
+                  bottomButtonBar: [
+                    // const Expanded(child: MaterialSeekBar()),
+                    const MaterialPositionIndicator(),
+                    const Spacer(),
+                    MaterialCustomButton(
+                      onPressed: _toggleFullscreen,
+                      icon: const Icon(Icons.fullscreen_exit),
+                    ),
+                  ],
                   topButtonBar: [
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        "Odaya Dön",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                     const Spacer(),
                     BlocBuilder<CallBloc, CallState>(
-                      builder: (context, callState) {
+                      bloc: callBloc, // Explicitly pass the bloc
+                      builder: (blocContext, callState) {
                         final isConnected = callState is CallConnected;
                         if (!isConnected) {
                           return MaterialCustomButton(
@@ -303,82 +395,86 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) =>
-              ChatBloc(chatRepository: context.read<ChatRepository>()),
-        ),
-        BlocProvider(
-          create: (context) =>
-              CallBloc(roomRepository: context.read<RoomRepository>()),
-        ),
-      ],
-      child: BlocListener<RoomBloc, RoomState>(
-        listener: (context, state) => _syncManager.onRoomStateChanged(state),
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          backgroundColor: Colors.black,
-          body: SafeArea(
-            child: Stack(
-              children: [
-                OrientationBuilder(
-                  builder: (context, orientation) {
-                    final isLandscape = orientation == Orientation.landscape;
+    return BlocListener<RoomBloc, RoomState>(
+      listener: (context, state) => _syncManager.onRoomStateChanged(state),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              OrientationBuilder(
+                builder: (context, orientation) {
+                  final isLandscape = orientation == Orientation.landscape;
 
-                    if (isLandscape) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(child: _buildVideoPlayer()),
-                          if (_isChatVisible)
-                            _buildChatPanel(isLandscape: true),
-                        ],
-                      );
-                    } else {
-                      return Column(
-                        children: [
-                          _isChatVisible
-                              ? SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.width *
-                                      9 /
-                                      16,
-                                  child: _buildVideoPlayer(),
-                                )
-                              : Expanded(child: _buildVideoPlayer()),
-                          if (_isChatVisible)
-                            Expanded(
-                              child: _buildChatPanel(isLandscape: false),
-                            ),
-                        ],
-                      );
-                    }
+                  if (isLandscape) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: _buildVideoPlayer()),
+                        if (_isChatVisible) _buildChatPanel(isLandscape: true),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        _isChatVisible
+                            ? Column(
+                                children: [
+                                  SizedBox(
+                                    height:
+                                        MediaQuery.of(context).size.width *
+                                        9 /
+                                        16,
+                                    child: _buildVideoPlayer(),
+                                  ),
+                                  Container(
+                                    height: 16,
+                                    color:
+                                        Colors.black, // Explicit spacer color
+                                  ),
+                                  const Divider(
+                                    height: 1,
+                                    color: Colors.white24, // Brighter divider
+                                  ),
+                                ],
+                              )
+                            : Expanded(child: _buildVideoPlayer()),
+                        if (_isChatVisible)
+                          Expanded(child: _buildChatPanel(isLandscape: false)),
+                      ],
+                    );
+                  }
+                },
+              ),
+              // Draggable Call Widget & Controls
+              Positioned(
+                top: _callOffsetY ?? 20,
+                left: _callOffsetX ?? 20,
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      _callOffsetX = (_callOffsetX ?? 20) + details.delta.dx;
+                      _callOffsetY = (_callOffsetY ?? 20) + details.delta.dy;
+                    });
+                    _clampCallPosition();
                   },
-                ),
-                // Draggable Call Widget & Controls if needed
-                // Draggable Call Widget & Controls
-                Positioned(
-                  top: _callOffsetY ?? 20,
-                  left: _callOffsetX ?? 20,
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        _callOffsetX = (_callOffsetX ?? 20) + details.delta.dx;
-                        _callOffsetY = (_callOffsetY ?? 20) + details.delta.dy;
-                      });
+                  child: BlocBuilder<CallBloc, CallState>(
+                    builder: (context, state) {
+                      if (state is! CallConnected)
+                        return const SizedBox.shrink();
+                      return ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 320,
+                          maxHeight: 400,
+                        ),
+                        child: const CallWidget(),
+                      );
                     },
-                    child: BlocBuilder<CallBloc, CallState>(
-                      builder: (context, state) {
-                        if (state is! CallConnected)
-                          return const SizedBox.shrink();
-                        return const CallWidget();
-                      },
-                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

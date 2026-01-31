@@ -171,11 +171,13 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
 
     final currentRoomId = event.roomId;
     final newParticipants = event.participants;
+    final userNames = event.userNames;
     String? notification;
 
     for (final participant in newParticipants) {
       if (!oldParticipants.contains(participant)) {
-        notification = '$participant odaya katıldı';
+        final userName = userNames[participant] ?? participant;
+        notification = '$userName odaya katıldı';
         break;
       }
     }
@@ -183,7 +185,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     if (notification == null) {
       for (final participant in oldParticipants) {
         if (!newParticipants.contains(participant)) {
-          notification = '$participant odadan ayrıldı';
+          final userName = userNames[participant] ?? participant;
+          notification = '$userName odadan ayrıldı';
           break;
         }
       }
@@ -231,9 +234,9 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     SyncVideoAction event,
     Emitter<RoomState> emit,
   ) async {
-    print(
-      'DEBUG: RoomBloc: Received SyncVideoAction. Updating Firebase... isPlaying: ${event.isPlaying}',
-    );
+    // print(
+    //   'DEBUG: RoomBloc: Received SyncVideoAction. Updating Firebase... isPlaying: ${event.isPlaying}',
+    // );
     try {
       await _roomRepository.updateVideoState(
         event.roomId,
@@ -241,7 +244,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         event.position,
         event.userId,
       );
-      print('DEBUG: RoomBloc: Firebase update completed successfully.');
+      // print('DEBUG: RoomBloc: Firebase update completed successfully.');
     } catch (e) {
       print('RoomBloc: Error syncing video: $e');
       // If we are in RoomJoined state, emit an error notification

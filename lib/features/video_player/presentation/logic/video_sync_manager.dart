@@ -58,9 +58,9 @@ class VideoSyncManager {
         }
         if (userId.isEmpty) return;
 
-        debugPrint(
-          'DEBUG: Sync Trigger [Local: $currentIsPlaying] [Remote: $stateIsPlaying] Diff: $diff',
-        );
+        // debugPrint(
+        //   'DEBUG: Sync Trigger [Local: $currentIsPlaying] [Remote: $stateIsPlaying] Diff: $diff',
+        // );
 
         if (state.updatedBy != null && state.updatedBy != userId) {
           if (!state.isPlaying) {
@@ -74,9 +74,9 @@ class VideoSyncManager {
           }
         }
 
-        debugPrint(
-          'DEBUG: Sending SyncVideoAction (isPlaying: $currentIsPlaying)',
-        );
+        // debugPrint(
+        //   'DEBUG: Sending SyncVideoAction (isPlaying: $currentIsPlaying)',
+        // );
 
         // Check if user is Host
         if (state.hostId == userId) {
@@ -102,7 +102,7 @@ class VideoSyncManager {
             );
           }
         } else {
-          debugPrint('DEBUG: User is NOT host. Sync skipped.');
+          // debugPrint('DEBUG: User is NOT host. Sync skipped.');
         }
       }
     }
@@ -112,7 +112,7 @@ class VideoSyncManager {
     if (_lastLocalActionTime != null &&
         DateTime.now().difference(_lastLocalActionTime!).inMilliseconds <
             2000) {
-      debugPrint('DEBUG: Ignoring incoming update (Debounce active)');
+      // debugPrint('DEBUG: Ignoring incoming update (Debounce active)');
       return;
     }
 
@@ -140,7 +140,7 @@ class VideoSyncManager {
       // Sync Seek
       final currentPos = player.state.position.inMilliseconds;
       if ((currentPos - state.position).abs() > 2000) {
-        debugPrint('DEBUG: Executing Remote SEEK to ${state.position}');
+        // debugPrint('DEBUG: Executing Remote SEEK to ${state.position}');
         isSyncing = true;
         await player.seek(Duration(milliseconds: state.position));
         localActionTaken = true;

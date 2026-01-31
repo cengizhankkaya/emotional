@@ -51,62 +51,69 @@ class _CallWidgetState extends State<CallWidget> {
                     // Video List
                     SizedBox(
                       height: 90,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Local User - Filter if disabled
-                            if (state.isVideoEnabled)
-                              _buildVideoItem(state.localRenderer, true, 'You'),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 320),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Local User - Filter if disabled
+                              if (state.isVideoEnabled)
+                                _buildVideoItem(
+                                  state.localRenderer,
+                                  true,
+                                  'You',
+                                ),
 
-                            // Remote Users - Iterate strictly over activeUsers
-                            ...state.activeUsers.entries.map((entry) {
-                              final userId = entry.key;
-                              final userName = entry.value;
+                              // Remote Users - Iterate strictly over activeUsers
+                              ...state.activeUsers.entries.map((entry) {
+                                final userId = entry.key;
+                                final userName = entry.value;
 
-                              // Skip local user in this loop
-                              if (userId == context.read<CallBloc>().userId)
-                                return const SizedBox.shrink();
+                                // Skip local user in this loop
+                                if (userId == context.read<CallBloc>().userId)
+                                  return const SizedBox.shrink();
 
-                              final renderer = state.remoteRenderers[userId];
-                              bool hasVideo = false;
+                                final renderer = state.remoteRenderers[userId];
+                                bool hasVideo = false;
 
-                              if (renderer != null &&
-                                  renderer.srcObject != null) {
-                                final videoTracks = renderer.srcObject!
-                                    .getVideoTracks();
-                                // Check track enablement
-                                final trackEnabled =
-                                    videoTracks.isNotEmpty &&
-                                    videoTracks.first.enabled;
+                                if (renderer != null &&
+                                    renderer.srcObject != null) {
+                                  final videoTracks = renderer.srcObject!
+                                      .getVideoTracks();
+                                  // Check track enablement
+                                  final trackEnabled =
+                                      videoTracks.isNotEmpty &&
+                                      videoTracks.first.enabled;
 
-                                // Check Firebase state (source of truth for "active" video)
-                                final firebaseVideoEnabled =
-                                    state.userVideoStates[userId] ?? false;
+                                  // Check Firebase state (source of truth for "active" video)
+                                  final firebaseVideoEnabled =
+                                      state.userVideoStates[userId] ?? false;
 
-                                // Require BOTH for positive video display check to avoid black frames,
-                                // but primarily rely on Firebase state to know if we SHOULD failover to avatar.
-                                if (trackEnabled && firebaseVideoEnabled) {
-                                  hasVideo = true;
+                                  // Require BOTH for positive video display check to avoid black frames,
+                                  // but primarily rely on Firebase state to know if we SHOULD failover to avatar.
+                                  if (trackEnabled && firebaseVideoEnabled) {
+                                    hasVideo = true;
+                                  }
                                 }
-                              }
 
-                              if (hasVideo) {
-                                return _buildVideoItem(
-                                  renderer!,
-                                  false,
-                                  userName,
-                                );
-                              } else {
-                                // Only show avatar if controls are visible (expanded)
-                                if (_areControlsVisible) {
-                                  return _buildAvatarItem(userName);
+                                if (hasVideo) {
+                                  return _buildVideoItem(
+                                    renderer!,
+                                    false,
+                                    userName,
+                                  );
+                                } else {
+                                  // Only show avatar if controls are visible (expanded)
+                                  if (_areControlsVisible) {
+                                    return _buildAvatarItem(userName);
+                                  }
+                                  return const SizedBox.shrink();
                                 }
-                                return const SizedBox.shrink();
-                              }
-                            }),
-                          ],
+                              }),
+                            ],
+                          ),
                         ),
                       ),
                     ),

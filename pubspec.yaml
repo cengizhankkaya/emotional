@@ -52,6 +52,7 @@ dependencies:
   intl: ^0.20.2
   camera: ^0.11.3
   flutter_webrtc: ^1.3.0
+  easy_localization: ^3.0.8
 
 dev_dependencies:
   flutter_test:
@@ -75,8 +76,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # assets:
-  #   - assets/test_video.mp4
+  assets:
+    - assets/translations/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -67,3 +67,14 @@ Sadece Play/Pause senkronizasyonunu kodlarım.
 Eğer bu temel çalışırsa, Drive ve diğer süslemeler sadece zaman meselesi olur.
 
 Hangi tasktan başlamak istersin? Senin için ilk 'Session' modelini veya BLoC yapısını yazabilirim.
+
+
+
+
+
+Renkler
+
+  static const Color darkBlue = Color(0xFF333463);    // Koyu Lacivert/Mor
+  static const Color mutedBlue = Color(0xFF65B5D);    // Orta Ton Mavi (Soft)
+  static const Color skyBlue = Color(0xFF69A2B8);     // Açık Mavi
+  static const Color cream = Color(0xFFDEBCA4);       // Krem/Ten Tonu
