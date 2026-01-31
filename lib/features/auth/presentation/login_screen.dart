@@ -1,6 +1,9 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:emotional/product/generated/assets.gen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -14,15 +17,13 @@ class LoginScreen extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red.shade400,
+                backgroundColor: ColorsCustom.imperilRead,
               ),
             );
           }
         },
         child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1D21), // Dark background matching home screen
-          ),
+          decoration: const BoxDecoration(color: ColorsCustom.darkBlue),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -30,57 +31,37 @@ class LoginScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // App Icon/Logo
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        size: 80,
-                        color: Colors.white,
+                    ClipOval(
+                      child: Assets.logo.logo.image(
+                        height: 300,
+                        width: 300,
+                        fit: BoxFit.cover,
                       ),
                     ),
                     const SizedBox(height: 48),
-
-                    // App Title
-                    const Text(
-                      'Emotional',
-                      style: TextStyle(
-                        color: Colors.white,
+                    Text(
+                      'Emoti',
+                      style: GoogleFonts.righteous(
+                        color: ColorsCustom.skyBlue.withAlpha(255),
+                        fontWeight: FontWeight.w400,
                         fontSize: 42,
-                        fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Subtitle
                     Text(
                       'Birlikte izlemenin keyfi',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: ColorsCustom.skyBlue.withValues(alpha: 0.9),
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(height: 80),
-
-                    // Google Sign-In Button
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         final isLoading = state is AuthLoading;
-
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           width: double.infinity,
@@ -94,10 +75,8 @@ class LoginScreen extends StatelessWidget {
                                     );
                                   },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(
-                                0xFF7C3AED,
-                              ), // Purple matching home screen
-                              foregroundColor: Colors.white,
+                              backgroundColor: ColorsCustom.cream,
+                              foregroundColor: ColorsCustom.darkBlue,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -114,7 +93,7 @@ class LoginScreen extends StatelessWidget {
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.5,
                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
+                                        ColorsCustom.softGray,
                                       ),
                                     ),
                                   )

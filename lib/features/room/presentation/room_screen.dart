@@ -1,28 +1,21 @@
-import 'dart:io';
-
-import 'dart:ui';
-import 'dart:isolate';
-
 import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/drive_file_picker_screen.dart';
+import 'package:emotional/features/room/presentation/manager/download_manager.dart';
+import 'package:emotional/features/room/presentation/manager/floating_message_manager.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
-import 'package:emotional/features/room/presentation/widgets/armchair_selector_sheet.dart';
 import 'package:emotional/features/room/presentation/widgets/armchair_widget.dart';
-import 'package:emotional/features/room/presentation/widgets/floating_message_bubble.dart';
+import 'package:emotional/features/room/presentation/widgets/room_top_bar.dart';
 import 'package:emotional/features/room/presentation/widgets/sofa_widget.dart';
 import 'package:emotional/features/room/presentation/widgets/table_widget.dart';
+import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
 import 'package:emotional/features/video_player/presentation/video_player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
-import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:emotional/features/chat/presentation/chat_widget.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class RoomScreen extends StatefulWidget {
   const RoomScreen({super.key});
@@ -32,143 +25,33 @@ class RoomScreen extends StatefulWidget {
 }
 
 class _RoomScreenState extends State<RoomScreen> {
-  final ReceivePort _port = ReceivePort();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  double? _downloadProgress;
-  String? _downloadStatus;
-  bool _isVideoDownloaded = false;
-  File? _localVideoFile;
-  String? _currentDownloadingFileName;
-
-  List<drive.File> _downloadedVideos = [];
-
-  // Floating message system
-  final List<OverlayEntry> _activeFloatingMessages = [];
-  String? _lastProcessedMessageId;
+  late final DownloadManager _downloadManager;
+  late final FloatingMessageManager _floatingMessageManager;
 
   @override
   void initState() {
     super.initState();
-    _bindBackgroundIsolate();
-    FlutterDownloader.registerCallback(downloadCallback);
-    _loadDownloadedVideos();
-  }
+    _downloadManager = DownloadManager();
+    _downloadManager.setOnStateChanged(() {
+      if (mounted) setState(() {});
+    });
+    _downloadManager.initialize();
 
-  Future<void> _loadDownloadedVideos() async {
-    try {
+    _floatingMessageManager = FloatingMessageManager();
+
+    // Load downloaded videos after initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final driveService = context.read<DriveService>();
-      final files = await driveService.listVideoFiles();
-      final appDir = await getApplicationDocumentsDirectory();
-
-      final downloaded = <drive.File>[];
-      for (var file in files) {
-        if (file.name != null) {
-          final localFile = File('${appDir.path}/${file.name}');
-          if (await localFile.exists()) {
-            downloaded.add(file);
-          }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _downloadedVideos = downloaded;
-        });
-      }
-    } catch (e) {
-      print('Error loading downloaded videos: $e');
-    }
-  }
-
-  // ... (dispose, bind/unbind/callback methods remain the same)
-
-  @override
-  void dispose() {
-    _unbindBackgroundIsolate();
-    // Clean up any active floating messages
-    for (var entry in _activeFloatingMessages) {
-      entry.remove();
-    }
-    _activeFloatingMessages.clear();
-    super.dispose();
-  }
-
-  void _bindBackgroundIsolate() {
-    final boolean = IsolateNameServer.registerPortWithName(
-      _port.sendPort,
-      'downloader_send_port',
-    );
-    if (!boolean) {
-      IsolateNameServer.removePortNameMapping('downloader_send_port');
-      IsolateNameServer.registerPortWithName(
-        _port.sendPort,
-        'downloader_send_port',
-      );
-    }
-
-    _port.listen((dynamic data) {
-      // final String id = data[0];
-      final int status = data[1];
-      final int progress = data[2];
-
-      debugPrint('Download Update: status=$status, progress=$progress');
-
-      if (mounted) {
-        setState(() {
-          if (status == 3) {
-            // Complete
-            _downloadProgress = 1.0;
-            _downloadStatus = 'İndirme tamamlandı.';
-
-            // Delay clearing to let user see "Competed"
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) {
-                setState(() {
-                  _downloadProgress = null;
-                  _downloadStatus = null;
-                  _currentDownloadingFileName = null; // Clear this too
-                });
-              }
-            });
-
-            // Refresh list when a download completes
-            _loadDownloadedVideos();
-            if (_currentDownloadingFileName != null) {
-              _checkFileExists(_currentDownloadingFileName!);
-            }
-          } else if (status == 4) {
-            // Failed
-            _downloadStatus = 'İndirme başarısız.';
-            _downloadProgress = null;
-            _currentDownloadingFileName = null;
-          } else {
-            // Running or Pending
-            _downloadProgress = progress / 100.0;
-            _downloadStatus = 'İndiriliyor: $progress%';
-          }
-        });
-      }
+      _downloadManager.loadDownloadedVideos(driveService);
     });
   }
 
-  void _unbindBackgroundIsolate() {
-    IsolateNameServer.removePortNameMapping('downloader_send_port');
-  }
-
-  Future<void> _checkFileExists(String fileName) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final file = File('${appDir.path}/$fileName');
-    if (await file.exists()) {
-      setState(() {
-        _isVideoDownloaded = true;
-        _localVideoFile = file;
-      });
-    } else {
-      setState(() {
-        _isVideoDownloaded = false;
-        _localVideoFile = null;
-      });
-    }
+  @override
+  void dispose() {
+    _downloadManager.dispose();
+    _floatingMessageManager.dispose();
+    super.dispose();
   }
 
   Future<void> _pickVideo(String roomId) async {
@@ -194,48 +77,19 @@ class _RoomScreenState extends State<RoomScreen> {
     );
   }
 
-  Future<void> _downloadVideo(String fileId, String fileName) async {
-    try {
-      setState(() {
-        _downloadProgress = 0;
-        _downloadStatus = 'İndirme başlatılıyor...';
-        _currentDownloadingFileName = fileName;
-      });
-
-      if (!mounted) return;
+  void _handleDownloadOrPlay(String fileId, String fileName) {
+    if (_downloadManager.isVideoDownloaded &&
+        _downloadManager.localVideoFile != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              VideoPlayerScreen(videoFile: _downloadManager.localVideoFile!),
+        ),
+      );
+    } else {
       final driveService = context.read<DriveService>();
-
-      if (Platform.isAndroid) {
-        final status = await Permission.notification.request();
-        if (status.isDenied || status.isPermanentlyDenied) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bildirim izni gerekli.')),
-            );
-          }
-        }
-      }
-
-      await driveService.downloadVideoInBackground(fileId, fileName);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('İndirme arka planda başlatıldı...')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _downloadProgress = null;
-          _downloadStatus = 'Hata oluştu';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('İndirme hatası: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _downloadManager.downloadVideo(driveService, fileId, fileName, context);
     }
   }
 
@@ -249,7 +103,7 @@ class _RoomScreenState extends State<RoomScreen> {
             Navigator.of(context).popUntil((route) => route.isFirst);
           } else if (state is RoomJoined) {
             if (state.driveFileName != null) {
-              _checkFileExists(state.driveFileName!);
+              _downloadManager.checkFileExists(state.driveFileName!);
             }
 
             // Auto-switch from love theme when 3+ participants
@@ -283,7 +137,6 @@ class _RoomScreenState extends State<RoomScreen> {
               .toList();
 
           // Load chat messages when room is joined
-          // This ensures bubbles work even when chat drawer is closed
           WidgetsBinding.instance.addPostFrameCallback((_) {
             context.read<ChatBloc>().add(LoadMessages(roomId));
           });
@@ -296,7 +149,11 @@ class _RoomScreenState extends State<RoomScreen> {
             listener: (context, chatState) {
               if (chatState is ChatLoaded && chatState.messages.isNotEmpty) {
                 final lastMessage = chatState.messages.last;
-                _showFloatingMessage(lastMessage, participants);
+                _floatingMessageManager.showFloatingMessage(
+                  context,
+                  lastMessage,
+                  participants,
+                );
               }
             },
             child: Scaffold(
@@ -315,65 +172,29 @@ class _RoomScreenState extends State<RoomScreen> {
               body: SafeArea(
                 child: Column(
                   children: [
-                    _buildTopBar(context, roomId),
+                    RoomTopBar(roomId: roomId, scaffoldKey: _scaffoldKey),
                     const Spacer(flex: 1),
                     Expanded(
                       flex: 5,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned(
-                                top: constraints.maxHeight * 0.05,
-                                child: _buildSofa(context, participantNames),
-                              ),
-                              // Table in the center
-                              Positioned(
-                                top: constraints.maxHeight * 0.35,
-                                child: const TableWidget(),
-                              ),
-                              if (context
-                                      .watch<RoomDecorationCubit>()
-                                      .state
-                                      .armchairStyle !=
-                                  ArmchairStyle.love) ...[
-                                Positioned(
-                                  left: 10,
-                                  top: constraints.maxHeight * 0.45,
-                                  child: _buildArmchair(
-                                    context,
-                                    participantNames.length > 4
-                                        ? participantNames[4]
-                                        : null,
-                                    isLeft: true,
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 10,
-                                  top: constraints.maxHeight * 0.45,
-                                  child: _buildArmchair(
-                                    context,
-                                    participantNames.length > 5
-                                        ? participantNames[5]
-                                        : null,
-                                    isLeft: false,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          );
-                        },
-                      ),
+                      child: _buildRoomLayout(participantNames),
                     ),
-                    // Chat Area Removed from here
-                    // Video Control Sheet
-                    _buildVideoControlSheet(
-                      context,
-                      isHost,
-                      roomId,
-                      driveFileName,
-                      driveFileId,
+                    VideoControlSheet(
+                      isHost: isHost,
+                      roomId: roomId,
+                      fileName: driveFileName,
+                      fileId: driveFileId,
+                      downloadedVideos: _downloadManager.downloadedVideos,
+                      downloadProgress: _downloadManager.downloadProgress,
+                      downloadStatus: _downloadManager.downloadStatus,
+                      isVideoDownloaded: _downloadManager.isVideoDownloaded,
+                      localVideoFile: _downloadManager.localVideoFile,
+                      onPickVideo: () => _pickVideo(roomId),
+                      onSelectVideo: (video) => _selectVideo(roomId, video),
+                      onDownloadOrPlay: () {
+                        if (driveFileId != null && driveFileName != null) {
+                          _handleDownloadOrPlay(driveFileId, driveFileName);
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -385,288 +206,48 @@ class _RoomScreenState extends State<RoomScreen> {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, String roomId) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () {
-              final user =
-                  (context.read<AuthBloc>().state as AuthAuthenticated).user;
-              context.read<RoomBloc>().add(
-                LeaveRoomRequested(roomId: roomId, userId: user.uid),
-              );
-            },
-            icon: const Icon(Icons.no_meeting_room, color: Colors.redAccent),
-            tooltip: 'Odadan Çık',
-            style: IconButton.styleFrom(
-              backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+  Widget _buildRoomLayout(List<String> participantNames) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              top: constraints.maxHeight * 0.05,
+              child: _buildSofa(context, participantNames),
             ),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white24),
+            Positioned(
+              top: constraints.maxHeight * 0.35,
+              child: const TableWidget(),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SelectableText(
-                  'Oda ID: $roomId',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                builder: (c) {
-                  // Pass the cubit to the sheet
-                  return BlocProvider.value(
-                    value: context.read<RoomDecorationCubit>(),
-                    child: const ArmchairSelectorSheet(),
-                  );
-                },
-              );
-            },
-            icon: const Icon(Icons.chair, color: Colors.white),
-            tooltip: 'Koltuk Teması',
-            style: IconButton.styleFrom(
-              backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {
-              _scaffoldKey.currentState?.openEndDrawer();
-            },
-            icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoControlSheet(
-    BuildContext context,
-    bool isHost,
-    String roomId,
-    String? fileName,
-    String? fileId,
-  ) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E2229),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
-        ),
-      ),
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isHost && _downloadedVideos.isNotEmpty) ...[
-            const Text(
-              'İndirilenler',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 70, // Smaller height
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _downloadedVideos.length,
-                itemBuilder: (context, index) {
-                  final video = _downloadedVideos[index];
-                  final isSelected = video.id == fileId;
-
-                  return GestureDetector(
-                    onTap: () => _selectVideo(roomId, video),
-                    child: Container(
-                      width: 110, // Smaller width
-                      margin: const EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Colors.deepPurple.withOpacity(0.2)
-                            : Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: isSelected
-                            ? Border.all(
-                                color: Colors.deepPurpleAccent,
-                                width: 2,
-                              )
-                            : Border.all(color: Colors.white10),
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            color: isSelected
-                                ? Colors.deepPurpleAccent
-                                : Colors.green,
-                            size: 18,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            video.name ?? 'Bilinmeyen',
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.deepPurpleAccent
-                                  : Colors.white70,
-                              fontSize: 10,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Divider(color: Colors.white10),
-            const SizedBox(height: 16),
-          ],
-
-          if (fileName != null) ...[
-            Text(
-              'Selected Video:',
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              fileName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_downloadProgress != null)
-              LinearProgressIndicator(
-                value: _downloadProgress,
-                backgroundColor: Colors.grey[800],
-              ),
-            if (_downloadStatus != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(
-                  _downloadStatus!,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+            if (context.watch<RoomDecorationCubit>().state.armchairStyle !=
+                ArmchairStyle.love) ...[
+              Positioned(
+                left: 10,
+                top: constraints.maxHeight * 0.45,
+                child: _buildArmchair(
+                  context,
+                  participantNames.length > 4 ? participantNames[4] : null,
+                  isLeft: true,
                 ),
               ),
-            const SizedBox(height: 16),
-          ],
-
-          Row(
-            children: [
-              if (isHost)
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _pickVideo(roomId),
-                    icon: const Icon(Icons.video_library),
-                    label: const Text('Tümünü Gör'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white54),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+              Positioned(
+                right: 10,
+                top: constraints.maxHeight * 0.45,
+                child: _buildArmchair(
+                  context,
+                  participantNames.length > 5 ? participantNames[5] : null,
+                  isLeft: false,
                 ),
-              if (isHost && fileName != null) const SizedBox(width: 12),
-
-              if (fileName != null && fileId != null)
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      if (_isVideoDownloaded && _localVideoFile != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                VideoPlayerScreen(videoFile: _localVideoFile!),
-                          ),
-                        );
-                      } else {
-                        _downloadVideo(fileId, fileName);
-                      }
-                    },
-                    icon: Icon(
-                      _isVideoDownloaded ? Icons.play_arrow : Icons.download,
-                    ),
-                    label: Text(_isVideoDownloaded ? 'Oynat' : 'İndir'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isVideoDownloaded
-                          ? Colors.green
-                          : Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
+              ),
             ],
-          ),
-          if (fileName == null && !isHost)
-            const Center(
-              child: Text(
-                'Host video seçimi yapıyor...',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
-  // ... (rest of the file: _buildSofa, _buildArmchair, etc.)
   Widget _buildSofa(BuildContext context, List<String> participants) {
-    // Watch the decoration state
     final style = context.watch<RoomDecorationCubit>().state.armchairStyle;
 
     return SofaWidget(
@@ -681,7 +262,6 @@ class _RoomScreenState extends State<RoomScreen> {
     String? participant, {
     required bool isLeft,
   }) {
-    // Watch the decoration state
     final style = context.watch<RoomDecorationCubit>().state.armchairStyle;
 
     return ArmchairWidget(
@@ -735,71 +315,4 @@ class _RoomScreenState extends State<RoomScreen> {
       ],
     );
   }
-
-  void _showFloatingMessage(ChatMessage message, List<String> participants) {
-    // Don't show duplicate messages
-    if (_lastProcessedMessageId == message.id) {
-      return;
-    }
-    _lastProcessedMessageId = message.id;
-
-    // Find sender's position in participants list
-    final senderIndex = participants.indexOf(message.senderId);
-    if (senderIndex == -1) {
-      return;
-    }
-
-    // Calculate position based on participant index
-    Offset? position;
-    final screenSize = MediaQuery.of(context).size;
-    final centerX = screenSize.width / 2;
-
-    if (senderIndex < 4) {
-      // User is on the sofa (positions 0-3)
-      final sofaY = screenSize.height * 0.25;
-      final spacing = 80.0;
-      final startX = centerX - (spacing * 1.5);
-      position = Offset(startX + (senderIndex * spacing), sofaY - 80);
-    } else if (senderIndex == 4) {
-      // Left armchair
-      final armchairY = screenSize.height * 0.5;
-      position = Offset(60, armchairY - 80);
-    } else if (senderIndex == 5) {
-      // Right armchair
-      final armchairY = screenSize.height * 0.5;
-      position = Offset(screenSize.width - 160, armchairY - 80);
-    }
-
-    if (position == null) return;
-
-    // Create overlay entry
-    final overlay = Overlay.of(context);
-    late OverlayEntry entry;
-
-    entry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: position!.dx,
-        top: position.dy,
-        child: FloatingMessageBubble(
-          message: message.text,
-          senderName: message.senderName,
-          onComplete: () {
-            entry.remove();
-            _activeFloatingMessages.remove(entry);
-          },
-        ),
-      ),
-    );
-
-    _activeFloatingMessages.add(entry);
-    overlay.insert(entry);
-  }
-}
-
-@pragma('vm:entry-point')
-void downloadCallback(String id, int status, int progress) {
-  final SendPort? send = IsolateNameServer.lookupPortByName(
-    'downloader_send_port',
-  );
-  send?.send([id, status, progress]);
 }

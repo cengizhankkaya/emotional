@@ -1,4 +1,4 @@
-package com.example.emotional
+package com.esce.emoti
 
 import io.flutter.embedding.android.FlutterActivity
 

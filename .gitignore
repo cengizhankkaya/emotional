@@ -25,3 +25,29 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# ============================================
+# SECURITY: Sensitive Files (DO NOT COMMIT!)
+# ============================================
+
+# Keystore files
+*.jks
+*.keystore
+key.properties
+
+# Firebase configuration (contains API keys)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Backup files (contains sensitive data)
+backup_files/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+secrets.json
+
+# Local configuration
+local.properties
+backup_files/

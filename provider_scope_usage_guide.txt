@@ -1,0 +1,126 @@
+PROVIDER SCOPE (RIVERPOD) KULLANIM REHBERİ
+=========================================
+
+Bu döküman, Flutter Riverpod paketindeki `ProviderScope` yapısının ne olduğunu, neden kullanıldığını ve farklı senaryolarda (test, override, alt kapsama) nasıl yapılandırılacağını detaylandırır.
+
+1. PROVIDERSCOPE NEDİR?
+-----------------------
+`ProviderScope`, Riverpod ile oluşturulan tüm "provider"ların (veri sağlayıcıların) durumunu (state) saklayan bir kapsayıcıdır (container). 
+
+- **Görevi:** Provider'ların oluşturulduğu, saklandığı ve yok edildiği yerdir.
+- **Konumu:** Genellikle uygulamanın en tepesinde (`main` fonksiyonunda), `App` widget'ını sarmalayacak şekilde kullanılır.
+
+Temel Kullanım:
+```dart
+void main() {
+  runApp(
+    ProviderScope(
+      child: MyApp(),
+    ),
+  );
+}
+```
+
+2. NEDEN `child: App()` ŞEKLİNDE KULLANILIR?
+--------------------------------------------
+Riverpod, "Global" değişkenler gibi görünse de aslında global değildir. State'ler `ProviderScope` içinde yaşar. `App()` widget'ını `ProviderScope` içine koyarak:
+1. Uygulamadaki **herhangi bir widget'ın** provider'lara erişebilmesini sağlarsınız.
+2. Uygulama kapandığında veya `ProviderScope` ağaçtan çıktığında tüm state'lerin temizlenmesini sağlarsınız.
+
+3. GELİŞMİŞ KULLANIM VE ÖZELLEŞTİRME
+------------------------------------
+
+`ProviderScope` sadece bir sarmalayıcı değil, aynı zamanda provider davranışlarını değiştirebileceğiniz bir kontrol mekanizmasıdır.
+
+A. Provider Değerlerini Ezme (Overrides)
+----------------------------------------
+Bazen bir provider'ın değerini başlatma sırasında değiştirmek veya testlerde sahte (mock) veri kullanmak istersiniz. Bunu `overrides` parametresi ile yaparsınız.
+
+Örnek Senaryo:
+Uygulamanızda bir veritabanı servisi var ama henüz hazır değil veya test yapıyorsunuz.
+
+```dart
+// 1. Soyut veya varsayılan bir provider tanımlayın
+final databaseProvider = Provider<Database>((ref) => throw UnimplementedError());
+
+void main() async {
+  // 2. Gerçek veritabanını oluşturun
+  final myDatabase = await Database.init();
+
+  runApp(
+    ProviderScope(
+      // 3. Başlangıçta provider'ın içini gerçek değerle doldurun
+      overrides: [
+        databaseProvider.overrideWithValue(myDatabase),
+      ],
+      child: MyApp(),
+    ),
+  );
+}
+```
+Bu yöntem, "Dependency Injection" (Bağımlılık Enjeksiyonu) için çok güçlüdür. `main` fonksiyonunda asenkron işler yapıp sonucu provider'a enjekte edebilirsiniz.
+
+B. Alt Kapsamlar (Nested Scopes)
+--------------------------------
+Bazen uygulamanın sadece belirli bir bölümü için farklı bir provider değerine ihtiyaç duyarsınız. `ProviderScope` iç içe kullanılabilir.
+
+Örnek Senaryo:
+Bir ürün listesi (ListView) var ve her ürün kartı (`ProductItem`) kendi `productId` değerine ihtiyaç duyuyor.
+
+```dart
+// Mevcut ürün ID'sini tutan bir provider
+final currentProductId = Provider<String>((ref) => throw UnimplementedError());
+
+class ProductList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        return ProviderScope(
+          // Her liste elemanı için farklı bir ID set ediyoruz
+          overrides: [
+            currentProductId.overrideWithValue('id_$index'),
+          ],
+          child: ProductItem(),
+        );
+      },
+    );
+  }
+}
+
+class ProductItem extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Bu widget, kendisini sarmalayan en yakın ProviderScope'taki değeri okur
+    final id = ref.watch(currentProductId);
+    return Text('Ürün ID: $id');
+  }
+}
+```
+
+C. Testlerde Kullanımı
+----------------------
+Riverpod ile test yazarken `ProviderScope` vazgeçilmezdir. Test ortamında uygulamanın tamamını başlatmak yerine sadece test edilen widget'ı sarmalayıp mock servisler verebilirsiniz.
+
+```dart
+testWidgets('Ekrana kullanıcı adı basılıyor mu', (tester) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        // Gerçek API yerine sahte veri dönen bir provider veriyoruz
+        userProvider.overrideWithValue(MockUser(name: 'Ahmet')),
+      ],
+      child: UserProfileScreen(),
+    ),
+  );
+
+  expect(find.text('Ahmet'), findsOneWidget);
+});
+```
+
+4. ÖZET
+-------
+- **Zorunlu:** Riverpod kullanıyorsanız en az bir tane en tepede olmalı.
+- **Esnek:** `overrides` parametresi ile başlatma anında bağımlılıkları yönetebilirsiniz.
+- **Kapsamlı:** İç içe kullanarak (Nested) uygulamanın belli bölümlerine özel state'ler üretebilirsiniz.
+- **Test Dostu:** Widget testlerinde sahte verileri enjekte etmek için kullanılır.

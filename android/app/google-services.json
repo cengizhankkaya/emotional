@@ -1,23 +1,24 @@
 {
   "project_info": {
     "project_number": "739508543260",
+    "firebase_url": "https://emotional-app-b42af-default-rtdb.firebaseio.com",
     "project_id": "emotional-app-b42af",
     "storage_bucket": "emotional-app-b42af.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:739508543260:android:0f2864c26d0329382224d9",
+        "mobilesdk_app_id": "1:739508543260:android:298c6954031493512224d9",
         "android_client_info": {
-          "package_name": "com.example.emotional"
+          "package_name": "com.esce.emoti"
         }
       },
       "oauth_client": [
         {
-          "client_id": "739508543260-3dqror1lrf0ppuk3p69689cqr0sc4j8t.apps.googleusercontent.com",
+          "client_id": "739508543260-in75nci24n7hn5lqmr1tqtq53nur5i8n.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.emotional",
+            "package_name": "com.esce.emoti",
             "certificate_hash": "e22d1df331276ea2ca75bb4dfcb4aa422145b8f4"
           }
         },
