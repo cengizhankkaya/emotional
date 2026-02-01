@@ -1,5 +1,9 @@
-import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 
+// ... (existing imports)
+import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +21,8 @@ class ChatWidget extends StatefulWidget {
 }
 
 class _ChatWidgetState extends State<ChatWidget> {
+  // ... (existing state methods: initState, dispose, _scrollToBottom, _sendMessage, _formatTimestamp)
+
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -58,7 +64,6 @@ class _ChatWidgetState extends State<ChatWidget> {
         ),
       );
       _textController.clear();
-      // Scroll to bottom will be triggered by listening to state change or manually after delay
       Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
     }
   }
@@ -71,39 +76,32 @@ class _ChatWidgetState extends State<ChatWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // width: 350, // Controlled by parent
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
-        // borderRadius: const BorderRadius.only(
-        //   topLeft: Radius.circular(16),
-        //   bottomLeft: Radius.circular(16),
-        // ),
-      ),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(0.5)),
       child: Column(
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(
+            padding: const ProjectPadding.symmetric(
               horizontal: 12.0,
               vertical: 8.0,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Sohbet',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: context.dynamicValue(16),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 if (widget.onClose != null)
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close,
                       color: Colors.white,
-                      size: 20,
+                      size: context.dynamicValue(20),
                     ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -118,7 +116,6 @@ class _ChatWidgetState extends State<ChatWidget> {
             child: BlocConsumer<ChatBloc, ChatState>(
               listener: (context, state) {
                 if (state is ChatLoaded) {
-                  // Wait for list to build then scroll
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _scrollToBottom();
                   });
@@ -139,7 +136,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                   }
                   return ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.all(12),
+                    padding: const ProjectPadding.allMedium(),
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final msg = messages[index];
@@ -161,7 +158,7 @@ class _ChatWidgetState extends State<ChatWidget> {
           const Divider(color: Colors.white24, height: 1),
           // Input Area
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const ProjectPadding.allMedium(),
             child: Row(
               children: [
                 Expanded(
@@ -174,10 +171,10 @@ class _ChatWidgetState extends State<ChatWidget> {
                       filled: true,
                       fillColor: Colors.white.withOpacity(0.1),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: ProjectRadius.large(),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
+                      contentPadding: const ProjectPadding.symmetric(
                         horizontal: 16,
                         vertical: 12,
                       ),
@@ -185,7 +182,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: context.dynamicWidth(0.02)),
                 IconButton(
                   icon: const Icon(Icons.send, color: Colors.blueAccent),
                   onPressed: _sendMessage,
@@ -193,9 +190,7 @@ class _ChatWidgetState extends State<ChatWidget> {
               ],
             ),
           ),
-          SizedBox(
-            height: MediaQuery.of(context).viewInsets.bottom,
-          ), // Push input up when keyboard opens
+          SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
         ],
       ),
     );
@@ -218,26 +213,29 @@ class _ChatWidgetState extends State<ChatWidget> {
               padding: const EdgeInsets.only(left: 4.0, bottom: 2),
               child: Text(
                 msg.senderName,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 10,
+                  fontSize: context.dynamicValue(10),
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const ProjectPadding.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             decoration: BoxDecoration(
               color: isMe ? Colors.blueAccent : Colors.grey[800],
               borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(12),
-                topRight: const Radius.circular(12),
+                topLeft: Radius.circular(context.dynamicValue(12)),
+                topRight: Radius.circular(context.dynamicValue(12)),
                 bottomLeft: isMe
-                    ? const Radius.circular(12)
-                    : const Radius.circular(2),
+                    ? Radius.circular(context.dynamicValue(12))
+                    : Radius.circular(context.dynamicValue(2)),
                 bottomRight: isMe
-                    ? const Radius.circular(2)
-                    : const Radius.circular(12),
+                    ? Radius.circular(context.dynamicValue(2))
+                    : Radius.circular(context.dynamicValue(12)),
               ),
             ),
             child: Column(
@@ -245,14 +243,17 @@ class _ChatWidgetState extends State<ChatWidget> {
               children: [
                 Text(
                   msg.text,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: context.dynamicValue(14),
+                  ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: context.dynamicHeight(0.005)),
                 Text(
                   _formatTimestamp(msg.timestamp),
                   style: TextStyle(
                     color: isMe ? Colors.white70 : Colors.white54,
-                    fontSize: 9,
+                    fontSize: context.dynamicValue(9),
                   ),
                 ),
               ],

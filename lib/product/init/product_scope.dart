@@ -5,6 +5,7 @@ import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/repository/chat_repository.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -50,6 +51,7 @@ class ProductScope extends StatelessWidget {
             create: (context) =>
                 CallBloc(roomRepository: context.read<RoomRepository>()),
           ),
+          BlocProvider<VideoPlayerBloc>(create: (context) => VideoPlayerBloc()),
         ],
         child: child,
       ),

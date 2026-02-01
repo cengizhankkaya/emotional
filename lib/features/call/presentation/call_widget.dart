@@ -1,9 +1,16 @@
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+
+// ... (existing imports)
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:emotional/features/call/presentation/call_settings_sheet.dart';
+import 'package:emotional/features/call/domain/enums/call_video_size.dart';
 
 class CallWidget extends StatefulWidget {
   const CallWidget({super.key});
@@ -24,14 +31,14 @@ class _CallWidgetState extends State<CallWidget> {
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             width: null, // Auto width always
-            constraints: const BoxConstraints(maxWidth: 320),
+            constraints: BoxConstraints(maxWidth: context.dynamicValue(320)),
             padding: _areControlsVisible
-                ? const EdgeInsets.all(8)
+                ? const ProjectPadding.allSmall()
                 : EdgeInsets.zero,
             decoration: _areControlsVisible
                 ? BoxDecoration(
                     color: const Color(0xFF1E1E1E).withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: ProjectRadius.medium(),
                     border: Border.all(color: Colors.white24, width: 1),
                     boxShadow: [
                       BoxShadow(
@@ -50,9 +57,11 @@ class _CallWidgetState extends State<CallWidget> {
                   children: [
                     // Video List
                     SizedBox(
-                      height: 90,
+                      height: context.dynamicValue(90),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 320),
+                        constraints: BoxConstraints(
+                          maxWidth: context.dynamicValue(320),
+                        ),
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -64,6 +73,9 @@ class _CallWidgetState extends State<CallWidget> {
                                   state.localRenderer,
                                   true,
                                   'You',
+                                  state.videoSize,
+                                  userId: context.read<CallBloc>().userId,
+                                  isMuted: state.isMuted,
                                 ),
 
                               // Remote Users - Iterate strictly over activeUsers
@@ -99,10 +111,15 @@ class _CallWidgetState extends State<CallWidget> {
                                 }
 
                                 if (hasVideo) {
+                                  final audioEnabled =
+                                      state.userAudioStates[userId] ?? false;
                                   return _buildVideoItem(
                                     renderer!,
                                     false,
                                     userName,
+                                    state.videoSize,
+                                    userId: userId,
+                                    isMuted: !audioEnabled,
                                   );
                                 } else {
                                   // Only show avatar if controls are visible (expanded)
@@ -126,16 +143,50 @@ class _CallWidgetState extends State<CallWidget> {
                       },
                       behavior: HitTestBehavior.translucent,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
+                        padding: const ProjectPadding.symmetric(
                           vertical: 4,
                           horizontal: 12,
                         ),
-                        child: Icon(
-                          _areControlsVisible
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
-                          color: Colors.white54,
-                          size: 16,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Resize Controls
+                            if (_areControlsVisible) ...[
+                              _buildResizeBtn(Icons.remove, () {
+                                final current = state.videoSize;
+                                if (current == CallVideoSize.large) {
+                                  context.read<CallBloc>().add(
+                                    const ChangeVideoSize(CallVideoSize.medium),
+                                  );
+                                } else if (current == CallVideoSize.medium) {
+                                  context.read<CallBloc>().add(
+                                    const ChangeVideoSize(CallVideoSize.small),
+                                  );
+                                }
+                              }),
+                              const SizedBox(width: 16),
+                              _buildResizeBtn(Icons.add, () {
+                                final current = state.videoSize;
+                                if (current == CallVideoSize.small) {
+                                  context.read<CallBloc>().add(
+                                    const ChangeVideoSize(CallVideoSize.medium),
+                                  );
+                                } else if (current == CallVideoSize.medium) {
+                                  context.read<CallBloc>().add(
+                                    const ChangeVideoSize(CallVideoSize.large),
+                                  );
+                                }
+                              }),
+                              const SizedBox(width: 16),
+                            ],
+                            Icon(
+                              _areControlsVisible
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: Colors.white54,
+                              size: context.dynamicValue(16),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -181,6 +232,22 @@ class _CallWidgetState extends State<CallWidget> {
                               context.read<CallBloc>().add(LeaveCall()),
                           backgroundColor: Colors.white10,
                         ),
+                        const SizedBox(width: 8),
+                        _buildControlBtn(
+                          icon: Icons.settings,
+                          color: Colors.white,
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              builder: (c) => BlocProvider.value(
+                                value: context.read<CallBloc>(),
+                                child: const CallSettingsSheet(),
+                              ),
+                            );
+                          },
+                          backgroundColor: Colors.white10,
+                        ),
                       ],
                     ),
                   ),
@@ -211,9 +278,9 @@ class _CallWidgetState extends State<CallWidget> {
         shape: BoxShape.circle,
       ),
       child: IconButton(
-        icon: Icon(icon, color: color, size: 18),
+        icon: Icon(icon, color: color, size: context.dynamicValue(18)),
         onPressed: onPressed,
-        padding: const EdgeInsets.all(6),
+        padding: const ProjectPadding.allSmall(),
         constraints: const BoxConstraints(),
         visualDensity: VisualDensity.compact,
       ),
@@ -224,18 +291,21 @@ class _CallWidgetState extends State<CallWidget> {
     RTCVideoRenderer renderer,
     bool isLocal,
     String userName,
-  ) {
+    CallVideoSize size, {
+    String? userId,
+    bool isMuted = false,
+  }) {
     return Container(
-      width: 160,
-      height: 90,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: context.dynamicValue(size.width),
+      height: context.dynamicValue(size.height),
+      margin: const ProjectPadding.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.black54,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: ProjectRadius.small(),
         border: Border.all(color: Colors.white24),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: ProjectRadius.small(),
         child: Stack(
           children: [
             RTCVideoView(
@@ -249,10 +319,10 @@ class _CallWidgetState extends State<CallWidget> {
                 right: 4,
                 child: Text(
                   userName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                    fontSize: context.dynamicValue(10),
+                    shadows: const [Shadow(color: Colors.black, blurRadius: 2)],
                   ),
                 ),
               ),
@@ -270,12 +340,12 @@ class _CallWidgetState extends State<CallWidget> {
     }
 
     return Container(
-      width: 160,
-      height: 90,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: context.dynamicValue(160),
+      height: context.dynamicValue(90),
+      margin: const ProjectPadding.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF2C2C2C),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: ProjectRadius.small(),
         border: Border.all(color: Colors.white24),
       ),
       child: Center(
@@ -283,7 +353,7 @@ class _CallWidgetState extends State<CallWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
-              radius: 20,
+              radius: context.dynamicValue(20),
               backgroundColor: Colors.white10,
               child: Text(
                 initials,
@@ -293,14 +363,31 @@ class _CallWidgetState extends State<CallWidget> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: context.dynamicHeight(0.005)),
             Text(
               userName,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: context.dynamicValue(12),
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildResizeBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white10,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, color: Colors.white70, size: 14),
       ),
     );
   }

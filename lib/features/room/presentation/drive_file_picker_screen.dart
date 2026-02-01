@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:emotional/core/services/drive_service.dart';
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -123,48 +126,56 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
   Widget _buildErrorView() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const ProjectPadding.allLarge(),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
-            const SizedBox(height: 16),
+            Icon(
+              Icons.error_outline,
+              size: context.dynamicValue(64),
+              color: Colors.redAccent,
+            ),
+            SizedBox(height: context.dynamicHeight(0.02)),
             Text(
               'Bir Hata Oluştu',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontSize: context.dynamicValue(24),
+              ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.dynamicHeight(0.01)),
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: context.dynamicValue(14),
+              ),
             ),
             if (_error!.contains('etkinleştirin')) ...[
-              const SizedBox(height: 24),
+              SizedBox(height: context.dynamicHeight(0.03)),
               ElevatedButton.icon(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
+                  padding: const ProjectPadding.symmetric(
                     horizontal: 24,
                     vertical: 12,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: ProjectRadius.medium(),
                   ),
                 ),
                 icon: const Icon(Icons.open_in_browser),
                 label: const Text('Konsolu Aç (Tarayıcı)'),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: context.dynamicHeight(0.02)),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const ProjectPadding.allMedium(),
                 decoration: BoxDecoration(
                   color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: ProjectRadius.small(),
                 ),
                 child: const SelectableText(
                   'https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=739508543260',
@@ -189,13 +200,16 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
               isLocal
                   ? Icons.download_done_outlined
                   : Icons.folder_off_outlined,
-              size: 80,
+              size: context.dynamicValue(80),
               color: Colors.white24,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.dynamicHeight(0.02)),
             Text(
               isLocal ? 'İndirilmiş video yok.' : 'Video bulunamadı.',
-              style: const TextStyle(color: Colors.white54, fontSize: 18),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: context.dynamicValue(18),
+              ),
             ),
           ],
         ),
@@ -203,7 +217,7 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const ProjectPadding.allMedium(),
       itemCount: files.length,
       itemBuilder: (context, index) {
         final file = files[index];
@@ -212,81 +226,81 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
           elevation: 4,
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: ProjectRadius.medium(),
             side: const BorderSide(color: Colors.white10),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: ProjectRadius.medium(),
             onTap: () {
               Navigator.pop(context, file);
             },
             child: Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const ProjectPadding.allMedium(),
               child: Row(
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: context.dynamicValue(50),
+                    height: context.dynamicValue(50),
                     decoration: BoxDecoration(
                       color: isLocal
                           ? Colors.green.withOpacity(0.1)
                           : Colors.deepPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ProjectRadius.small(),
                     ),
                     child: Icon(
                       isLocal
                           ? Icons.check_circle_outline
                           : Icons.video_library,
                       color: isLocal ? Colors.green : Colors.deepPurpleAccent,
-                      size: 28,
+                      size: context.dynamicValue(28),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: context.dynamicWidth(0.04)),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           file.name ?? 'Bilinmeyen Dosya',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            fontSize: context.dynamicValue(16),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: context.dynamicHeight(0.005)),
                         Row(
                           children: [
                             if (file.size != null) ...[
                               Icon(
                                 Icons.data_usage,
-                                size: 12,
+                                size: context.dynamicValue(12),
                                 color: Colors.grey[400],
                               ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: context.dynamicWidth(0.01)),
                               Text(
                                 _formatSize(file.size!),
                                 style: TextStyle(
                                   color: Colors.grey[400],
-                                  fontSize: 12,
+                                  fontSize: context.dynamicValue(12),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: context.dynamicWidth(0.03)),
                             ],
                             Icon(
                               Icons.movie_creation_outlined,
-                              size: 12,
+                              size: context.dynamicValue(12),
                               color: Colors.grey[400],
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: context.dynamicWidth(0.01)),
                             Expanded(
                               child: Text(
                                 file.mimeType ?? 'Video',
                                 style: TextStyle(
                                   color: Colors.grey[400],
-                                  fontSize: 12,
+                                  fontSize: context.dynamicValue(12),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

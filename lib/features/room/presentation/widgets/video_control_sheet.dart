@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
@@ -36,50 +39,50 @@ class VideoControlSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E2229),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E2229),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
+          topLeft: Radius.circular(context.dynamicValue(30)),
+          topRight: Radius.circular(context.dynamicValue(30)),
         ),
       ),
-      padding: const EdgeInsets.all(24.0),
+      padding: const ProjectPadding.allLarge(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isHost && downloadedVideos.isNotEmpty) ...[
-            _buildDownloadedVideosSection(),
-            const SizedBox(height: 24),
+            _buildDownloadedVideosSection(context),
+            SizedBox(height: context.dynamicHeight(0.024)),
             const Divider(color: Colors.white10),
-            const SizedBox(height: 16),
+            SizedBox(height: context.dynamicHeight(0.016)),
           ],
           if (fileName != null) ...[
-            _buildSelectedVideoSection(),
-            const SizedBox(height: 16),
+            _buildSelectedVideoSection(context),
+            SizedBox(height: context.dynamicHeight(0.016)),
           ],
-          _buildActionButtons(),
+          _buildActionButtons(context),
           if (fileName == null && !isHost) _buildWaitingMessage(),
         ],
       ),
     );
   }
 
-  Widget _buildDownloadedVideosSection() {
+  Widget _buildDownloadedVideosSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'İndirilenler',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: context.dynamicValue(14),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: context.dynamicHeight(0.012)),
         SizedBox(
-          height: 70,
+          height: context.dynamicValue(70),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: downloadedVideos.length,
@@ -90,18 +93,20 @@ class VideoControlSheet extends StatelessWidget {
               return GestureDetector(
                 onTap: () => onSelectVideo(video),
                 child: Container(
-                  width: 110,
-                  margin: const EdgeInsets.only(right: 12),
+                  width: context.dynamicValue(110),
+                  margin: EdgeInsets.only(
+                    right: context.dynamicValue(12),
+                  ), // Only margin adjusted
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Colors.deepPurple.withOpacity(0.2)
-                        : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
+                        ? Colors.deepPurple.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: ProjectRadius.medium(),
                     border: isSelected
                         ? Border.all(color: Colors.deepPurpleAccent, width: 2)
                         : Border.all(color: Colors.white10),
                   ),
-                  padding: const EdgeInsets.all(4),
+                  padding: const ProjectPadding.allSmall(),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -110,16 +115,16 @@ class VideoControlSheet extends StatelessWidget {
                         color: isSelected
                             ? Colors.deepPurpleAccent
                             : Colors.green,
-                        size: 18,
+                        size: context.dynamicValue(18),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: context.dynamicHeight(0.002)),
                       Text(
                         video.name ?? 'Bilinmeyen',
                         style: TextStyle(
                           color: isSelected
                               ? Colors.deepPurpleAccent
                               : Colors.white70,
-                          fontSize: 10,
+                          fontSize: context.dynamicValue(10),
                           fontWeight: isSelected
                               ? FontWeight.bold
                               : FontWeight.normal,
@@ -139,25 +144,28 @@ class VideoControlSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildSelectedVideoSection() {
+  Widget _buildSelectedVideoSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Selected Video:',
-          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: context.dynamicValue(12),
+          ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: context.dynamicHeight(0.004)),
         Text(
           fileName!,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: context.dynamicValue(16),
             fontWeight: FontWeight.bold,
           ),
         ),
         if (downloadProgress != null) ...[
-          const SizedBox(height: 16),
+          SizedBox(height: context.dynamicHeight(0.016)),
           LinearProgressIndicator(
             value: downloadProgress,
             backgroundColor: Colors.grey[800],
@@ -168,14 +176,17 @@ class VideoControlSheet extends StatelessWidget {
             padding: const EdgeInsets.only(top: 4.0),
             child: Text(
               downloadStatus!,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: context.dynamicValue(12),
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(BuildContext context) {
     return Row(
       children: [
         if (isHost)
@@ -188,12 +199,13 @@ class VideoControlSheet extends StatelessWidget {
                 foregroundColor: Colors.white,
                 side: const BorderSide(color: Colors.white54),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ProjectRadius.medium(),
                 ),
               ),
             ),
           ),
-        if (isHost && fileName != null) const SizedBox(width: 12),
+        if (isHost && fileName != null)
+          SizedBox(width: context.dynamicValue(12)),
         if (fileName != null && fileId != null)
           Expanded(
             flex: 2,
@@ -207,7 +219,7 @@ class VideoControlSheet extends StatelessWidget {
                     : Colors.blueAccent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ProjectRadius.medium(),
                 ),
               ),
             ),

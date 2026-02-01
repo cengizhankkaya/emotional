@@ -16,6 +16,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/presentation/chat_widget.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 
 class RoomScreen extends StatefulWidget {
   const RoomScreen({super.key});
@@ -170,7 +171,7 @@ class _RoomScreenState extends State<RoomScreen> {
             child: Scaffold(
               key: _scaffoldKey,
               endDrawer: Drawer(
-                width: MediaQuery.of(context).size.width * 0.85,
+                width: context.dynamicWidth(0.85),
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 child: ChatWidget(
@@ -234,7 +235,7 @@ class _RoomScreenState extends State<RoomScreen> {
             if (context.watch<RoomDecorationCubit>().state.armchairStyle !=
                 ArmchairStyle.love) ...[
               Positioned(
-                left: 10,
+                left: context.dynamicValue(10),
                 top: constraints.maxHeight * 0.45,
                 child: _buildArmchair(
                   context,
@@ -243,7 +244,7 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
               ),
               Positioned(
-                right: 10,
+                right: context.dynamicValue(10),
                 top: constraints.maxHeight * 0.45,
                 child: _buildArmchair(
                   context,
@@ -284,10 +285,11 @@ class _RoomScreenState extends State<RoomScreen> {
   }
 
   Widget _buildAvatarSlot(String? name) {
+    final size = context.dynamicValue(50);
     if (name == null) {
       return Container(
-        width: 50,
-        height: 50,
+        width: size,
+        height: size,
         decoration: const BoxDecoration(
           color: Color.fromARGB(13, 0, 0, 0),
           shape: BoxShape.circle,
@@ -298,8 +300,8 @@ class _RoomScreenState extends State<RoomScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 50,
-          height: 50,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: Colors.blueAccent,
             shape: BoxShape.circle,
@@ -314,12 +316,12 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
           child: const Icon(Icons.person, color: Colors.white),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: context.dynamicValue(4)),
         Text(
           name.length > 6 ? '${name.substring(0, 6)}...' : name,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black87,
-            fontSize: 10,
+            fontSize: context.dynamicValue(10),
             fontWeight: FontWeight.bold,
           ),
         ),

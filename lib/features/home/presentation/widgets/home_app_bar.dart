@@ -1,6 +1,8 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
+import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33,7 +35,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
         style: GoogleFonts.righteous(
           color: ColorsCustom.skyBlue.withAlpha(255),
           fontWeight: FontWeight.w400,
-          fontSize: 22,
+          fontSize: context.dynamicValue(22),
           letterSpacing: 1.2,
         ),
       ),
@@ -41,7 +43,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       actions: [
         Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const ProjectPadding.allSmall(),
           child: ClipOval(child: Assets.logo.logo.image(fit: BoxFit.cover)),
         ),
       ],

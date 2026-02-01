@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.esce.emoti",
+            "sha256_cert_fingerprints": [
+                "01:8A:8B:CB:67:E3:10:0E:A8:F3:36:D0:E6:20:AC:46:9D:C3:41:15:26:6A:23:8C:62:A8:24:3D:32:1F:40:6F"
+            ]
+        }
+    }
+]

@@ -1,6 +1,9 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,24 +30,24 @@ class LoginScreen extends StatelessWidget {
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const ProjectPadding.allXLarge(),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ClipOval(
                       child: Assets.logo.logo.image(
-                        height: 300,
-                        width: 300,
+                        height: context.dynamicValue(300),
+                        width: context.dynamicValue(300),
                         fit: BoxFit.cover,
                       ),
                     ),
-                    const SizedBox(height: 48),
+                    SizedBox(height: context.dynamicHeight(0.05)),
                     Text(
                       'Emoti',
                       style: GoogleFonts.righteous(
                         color: ColorsCustom.skyBlue.withAlpha(255),
                         fontWeight: FontWeight.w400,
-                        fontSize: 42,
+                        fontSize: context.dynamicValue(42),
                         letterSpacing: 1.5,
                       ),
                     ),
@@ -53,19 +56,19 @@ class LoginScreen extends StatelessWidget {
                       'Birlikte izlemenin keyfi',
                       style: TextStyle(
                         color: ColorsCustom.skyBlue.withValues(alpha: 0.9),
-                        fontSize: 16,
+                        fontSize: context.dynamicValue(16),
                         fontWeight: FontWeight.w400,
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(height: 80),
+                    SizedBox(height: context.dynamicHeight(0.08)),
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         final isLoading = state is AuthLoading;
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           width: double.infinity,
-                          height: 56,
+                          height: context.dynamicValue(56),
                           child: ElevatedButton(
                             onPressed: isLoading
                                 ? null
@@ -79,9 +82,9 @@ class LoginScreen extends StatelessWidget {
                               foregroundColor: ColorsCustom.darkBlue,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: ProjectRadius.medium(),
                               ),
-                              padding: const EdgeInsets.symmetric(
+                              padding: const ProjectPadding.symmetric(
                                 horizontal: 24,
                                 vertical: 12,
                               ),
@@ -111,10 +114,10 @@ class LoginScreen extends StatelessWidget {
                                                 ),
                                       ),
                                       const SizedBox(width: 16),
-                                      const Text(
+                                      Text(
                                         'Google ile Giriş Yap',
                                         style: TextStyle(
-                                          fontSize: 16,
+                                          fontSize: context.dynamicValue(16),
                                           fontWeight: FontWeight.w600,
                                           letterSpacing: 0.5,
                                         ),
@@ -133,7 +136,7 @@ class LoginScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 12,
+                        fontSize: context.dynamicValue(12),
                         height: 1.5,
                       ),
                     ),

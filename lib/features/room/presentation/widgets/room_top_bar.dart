@@ -1,3 +1,7 @@
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
@@ -19,17 +23,17 @@ class RoomTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      padding: const ProjectPadding.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
         children: [
           _buildLeaveButton(context),
           const Spacer(),
-          _buildRoomIdDisplay(),
+          _buildRoomIdDisplay(context),
           const Spacer(),
           _buildInviteButton(context),
-          const SizedBox(width: 8),
+          SizedBox(width: context.dynamicWidth(0.02)),
           _buildThemeButton(context),
-          const SizedBox(width: 8),
+          SizedBox(width: context.dynamicWidth(0.02)),
           _buildChatButton(context),
         ],
       ),
@@ -44,11 +48,15 @@ class RoomTopBar extends StatelessWidget {
           subject: 'Emoti Oda Daveti',
         );
       },
-      icon: const Icon(Icons.share, color: Colors.white),
+      icon: Icon(
+        Icons.share,
+        color: Colors.white,
+        size: context.dynamicValue(24),
+      ),
       tooltip: 'Davet Et',
       style: IconButton.styleFrom(
         backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
       ),
     );
   }
@@ -61,21 +69,25 @@ class RoomTopBar extends StatelessWidget {
           LeaveRoomRequested(roomId: roomId, userId: user.uid),
         );
       },
-      icon: const Icon(Icons.no_meeting_room, color: Colors.redAccent),
+      icon: Icon(
+        Icons.no_meeting_room,
+        color: Colors.redAccent,
+        size: context.dynamicValue(24),
+      ),
       tooltip: 'Odadan Çık',
       style: IconButton.styleFrom(
         backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
       ),
     );
   }
 
-  Widget _buildRoomIdDisplay() {
+  Widget _buildRoomIdDisplay(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const ProjectPadding.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: ProjectRadius.large(),
         border: Border.all(color: Colors.white24),
       ),
       child: Row(
@@ -83,9 +95,9 @@ class RoomTopBar extends StatelessWidget {
         children: [
           SelectableText(
             'Oda ID: $roomId',
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: context.dynamicValue(20),
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
@@ -109,11 +121,15 @@ class RoomTopBar extends StatelessWidget {
           },
         );
       },
-      icon: const Icon(Icons.chair, color: Colors.white),
+      icon: Icon(
+        Icons.chair,
+        color: Colors.white,
+        size: context.dynamicValue(24),
+      ),
       tooltip: 'Koltuk Teması',
       style: IconButton.styleFrom(
         backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
       ),
     );
   }
@@ -123,10 +139,14 @@ class RoomTopBar extends StatelessWidget {
       onPressed: () {
         scaffoldKey.currentState?.openEndDrawer();
       },
-      icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+      icon: Icon(
+        Icons.chat_bubble_outline,
+        color: Colors.white,
+        size: context.dynamicValue(24),
+      ),
       style: IconButton.styleFrom(
         backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
       ),
     );
   }

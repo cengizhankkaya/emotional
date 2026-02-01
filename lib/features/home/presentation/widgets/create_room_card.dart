@@ -1,4 +1,7 @@
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 
 /// Card widget for creating a new room
@@ -13,38 +16,41 @@ class CreateRoomCard extends StatelessWidget {
       color: const Color(0xFF1E2229),
       elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: ProjectRadius.medium(),
         side: const BorderSide(color: Colors.white10),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const ProjectPadding.allLarge(),
         child: Column(
           children: [
-            const Text(
+            Text(
               'Yeni Oda Oluştur',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: context.dynamicValue(18),
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: context.dynamicHeight(0.02)),
+            Text(
               'Yeni bir oturum başlat ve arkadaşlarını davet et.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: context.dynamicValue(14),
+              ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: context.dynamicHeight(0.025)),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: context.dynamicValue(50),
               child: ElevatedButton(
                 onPressed: onCreateRoom,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: ColorsCustom.cream,
                   foregroundColor: ColorsCustom.backgrounddark,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: ProjectRadius.medium(),
                   ),
                 ),
                 child: const Text('ODA OLUŞTUR'),

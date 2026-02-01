@@ -10,7 +10,9 @@ import 'package:emotional/features/home/presentation/widgets/room_divider.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/room_screen.dart';
 import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -127,8 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // ...
-
   Future<bool> _hasRequiredPermissions() async {
     final permissionService = PermissionService();
     final isCameraGranted = await permissionService.isCameraGranted;
@@ -228,23 +228,24 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: const ProjectPadding.allLarge(),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     'Merhaba, $userName!',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontSize: context.dynamicValue(24),
+                    ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 40),
+                  SizedBox(height: context.dynamicHeight(0.05)),
                   CreateRoomCard(onCreateRoom: () => _createRoom(context)),
-                  const SizedBox(height: 24),
+                  SizedBox(height: context.dynamicHeight(0.03)),
                   const RoomDivider(),
-                  const SizedBox(height: 24),
+                  SizedBox(height: context.dynamicHeight(0.03)),
                   JoinRoomCard(
                     roomIdController: _roomIdController,
                     onJoinRoom: () => _joinRoom(context),

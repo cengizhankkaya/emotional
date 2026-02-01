@@ -1,4 +1,7 @@
+import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 
 /// Card widget for joining an existing room
@@ -18,22 +21,22 @@ class JoinRoomCard extends StatelessWidget {
       color: ColorsCustom.darkABlue,
       elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: ProjectRadius.medium(),
         side: const BorderSide(color: ColorsCustom.white10),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const ProjectPadding.allLarge(),
         child: Column(
           children: [
-            const Text(
+            Text(
               'Odaya Katıl',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: context.dynamicValue(18),
                 fontWeight: FontWeight.bold,
                 color: ColorsCustom.white,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.dynamicHeight(0.02)),
             TextField(
               controller: roomIdController,
               style: const TextStyle(color: ColorsCustom.white),
@@ -47,32 +50,32 @@ class JoinRoomCard extends StatelessWidget {
                   color: ColorsCustom.skyBlue,
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ProjectRadius.medium(),
                   borderSide: const BorderSide(color: ColorsCustom.skyBlue),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ProjectRadius.medium(),
                   borderSide: const BorderSide(color: ColorsCustom.skyBlue),
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ProjectRadius.medium(),
                 ),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),
               ),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: context.dynamicHeight(0.025)),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: context.dynamicValue(50),
               child: OutlinedButton(
                 onPressed: onJoinRoom,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: ColorsCustom.skyBlue,
                   side: const BorderSide(color: ColorsCustom.skyBlue, width: 2),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: ProjectRadius.medium(),
                   ),
                 ),
                 child: const Text('ODAYA KATIL'),
