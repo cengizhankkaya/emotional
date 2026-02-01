@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:emotional/core/services/permission_service.dart';
 
 class DownloadManager {
   final ReceivePort _port = ReceivePort();
@@ -16,9 +16,11 @@ class DownloadManager {
   bool _isVideoDownloaded = false;
   File? _localVideoFile;
   String? _currentDownloadingFileName;
+  String? _currentDownloadingFileId;
   List<drive.File> _downloadedVideos = [];
 
   VoidCallback? _onStateChanged;
+  Function(String)? _onError;
 
   // Getters
   double? get downloadProgress => _downloadProgress;
@@ -30,6 +32,10 @@ class DownloadManager {
 
   void setOnStateChanged(VoidCallback callback) {
     _onStateChanged = callback;
+  }
+
+  void setOnError(Function(String) callback) {
+    _onError = callback;
   }
 
   void initialize() {
@@ -74,15 +80,28 @@ class DownloadManager {
           _notifyStateChanged();
         });
 
-        if (_currentDownloadingFileName != null) {
+        // Optimistically update the list
+        if (_currentDownloadingFileName != null &&
+            _currentDownloadingFileId != null) {
+          final newFile = drive.File()
+            ..id = _currentDownloadingFileId
+            ..name = _currentDownloadingFileName;
+
+          // Check if already in list to avoid duplicates
+          if (!_downloadedVideos.any((f) => f.id == newFile.id)) {
+            _downloadedVideos.add(newFile);
+          }
           checkFileExists(_currentDownloadingFileName!);
         }
       } else if (status == 4) {
         // Failed
-        _downloadStatus = 'İndirme başarısız.';
+        const errorMessage =
+            'İndirme başarısız. Lütfen internet bağlantınızı ve izinleri kontrol edin.';
+        _downloadStatus = errorMessage;
         _downloadProgress = null;
         _currentDownloadingFileName = null;
         _notifyStateChanged();
+        _onError?.call(errorMessage);
       } else {
         // Running or Pending
         _downloadProgress = progress / 100.0;
@@ -145,20 +164,36 @@ class DownloadManager {
       _downloadProgress = 0;
       _downloadStatus = 'İndirme başlatılıyor...';
       _currentDownloadingFileName = fileName;
+      _currentDownloadingFileId = fileId;
       _notifyStateChanged();
 
+      bool showNotification = true;
       if (Platform.isAndroid) {
-        final status = await Permission.notification.request();
-        if (status.isDenied || status.isPermanentlyDenied) {
+        final permissionService = PermissionService();
+        final isGranted = await permissionService
+            .requestNotificationPermission();
+
+        // If notification permission is NOT granted, we can still try to download,
+        // but we MUST set showNotification to false, otherwise it might crash on some devices.
+        if (!isGranted) {
+          showNotification = false;
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bildirim izni gerekli.')),
+              const SnackBar(
+                content: Text(
+                  'Bildirim izni verilmedi, indirme bildirimi gösterilmeyecek.',
+                ),
+              ),
             );
           }
         }
       }
 
-      await driveService.downloadVideoInBackground(fileId, fileName);
+      await driveService.downloadVideoInBackground(
+        fileId,
+        fileName,
+        showNotification: showNotification,
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,12 +205,21 @@ class DownloadManager {
       _downloadStatus = 'Hata oluştu';
       _notifyStateChanged();
 
+      String userMessage = 'İndirme başlatılamadı.';
+      final errorString = e.toString();
+
+      if (errorString.contains('User not signed in')) {
+        userMessage = 'Oturum açılmamış. Lütfen giriş yapın.';
+      } else if (errorString.contains('SocketException') ||
+          errorString.contains('Network is unreachable')) {
+        userMessage = 'İnternet bağlantısı kurulamadı.';
+      } else {
+        userMessage = 'İndirme hatası: $errorString';
+      }
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('İndirme hatası: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(userMessage), backgroundColor: Colors.red),
         );
       }
     }

@@ -101,8 +101,9 @@ class DriveService {
   /// Download video in background using flutter_downloader
   Future<String?> downloadVideoInBackground(
     String fileId,
-    String fileName,
-  ) async {
+    String fileName, {
+    bool showNotification = true,
+  }) async {
     try {
       // Get access token
       final authHeaders = await _googleSignIn.currentUser?.authHeaders;
@@ -115,17 +116,22 @@ class DriveService {
       final appDir = await getApplicationDocumentsDirectory();
       final savedDir = appDir.path;
 
+      // 1. Sanitize filename (replace invalid chars with underscore)
+      final safeFileName = fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+
       // URL to download content
       // NOTE: Google Drive API requires 'alt=media' param to download file content
-      final url = 'https://www.googleapis.com/drive/v3/files/$fileId?alt=media';
+      // &acknowledgeAbuse=true bypasses the virus scan warning for large files
+      final url =
+          'https://www.googleapis.com/drive/v3/files/$fileId?alt=media&acknowledgeAbuse=true';
 
       final taskId = await FlutterDownloader.enqueue(
         url: url,
         headers: {"Authorization": accessToken},
         savedDir: savedDir,
-        fileName: fileName,
+        fileName: safeFileName,
         showNotification:
-            true, // show download progress in status bar (for Android)
+            showNotification, // show download progress in status bar (for Android)
         openFileFromNotification:
             false, // click on notification to open downloaded file (for Android)
         saveInPublicStorage: false,

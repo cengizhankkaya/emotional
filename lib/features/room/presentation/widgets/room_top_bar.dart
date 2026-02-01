@@ -4,6 +4,7 @@ import 'package:emotional/features/room/presentation/manager/room_decoration_cub
 import 'package:emotional/features/room/presentation/widgets/armchair_selector_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 
 class RoomTopBar extends StatelessWidget {
   final String roomId;
@@ -25,10 +26,29 @@ class RoomTopBar extends StatelessWidget {
           const Spacer(),
           _buildRoomIdDisplay(),
           const Spacer(),
+          _buildInviteButton(context),
+          const SizedBox(width: 8),
           _buildThemeButton(context),
           const SizedBox(width: 8),
           _buildChatButton(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInviteButton(BuildContext context) {
+    return IconButton(
+      onPressed: () {
+        Share.share(
+          'Emoti odama katıl!\n\nOda Kimliği: $roomId\n\nHızlı Katılma Linki: https://emotional-app-b42af.web.app/join/$roomId\n\nLinki tıklayarak direkt odaya katılabilirsin.',
+          subject: 'Emoti Oda Daveti',
+        );
+      },
+      icon: const Icon(Icons.share, color: Colors.white),
+      tooltip: 'Davet Et',
+      style: IconButton.styleFrom(
+        backgroundColor: const Color.fromARGB(26, 255, 255, 255),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

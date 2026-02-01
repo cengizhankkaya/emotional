@@ -1,0 +1,4 @@
+-keep class vn.hunghd.flutterdownloader.** { *; }
+-keep class androidx.work.** { *; }
+-keep class com.google.common.util.concurrent.** { *; }
+-dontwarn com.google.common.util.concurrent.**

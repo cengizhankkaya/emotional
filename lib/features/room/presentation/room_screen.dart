@@ -36,6 +36,17 @@ class _RoomScreenState extends State<RoomScreen> {
     _downloadManager.setOnStateChanged(() {
       if (mounted) setState(() {});
     });
+    _downloadManager.setOnError((message) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
     _downloadManager.initialize();
 
     _floatingMessageManager = FloatingMessageManager();

@@ -6,6 +6,8 @@ import 'package:emotional/features/call/service/webrtc_manager.dart';
 import 'package:emotional/features/room/repository/room_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:emotional/core/services/permission_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class CallBloc extends Bloc<CallEvent, CallState> {
   final RoomRepository roomRepository;
@@ -60,6 +62,19 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       _roomId = event.roomId;
       _userId = event.userId;
       _connecting.clear();
+
+      // Check Permissions
+      final permissionService = PermissionService();
+      final permissions = await permissionService
+          .requestCameraAndMicrophonePermissions();
+
+      final cameraGranted = permissions[Permission.camera] ?? false;
+      final microphoneGranted = permissions[Permission.microphone] ?? false;
+
+      if (!cameraGranted || !microphoneGranted) {
+        emit(CallError('Kamera ve mikrofon izinleri gerekli.'));
+        return;
+      }
 
       await _cleanup(); // Safety cleanup
 

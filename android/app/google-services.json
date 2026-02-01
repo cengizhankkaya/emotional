@@ -15,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "739508543260-in75nci24n7hn5lqmr1tqtq53nur5i8n.apps.googleusercontent.com",
+          "client_id": "739508543260-b4pv4css0q68clbmu56r2fjnb51r5ect.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.esce.emoti",
-            "certificate_hash": "e22d1df331276ea2ca75bb4dfcb4aa422145b8f4"
+            "certificate_hash": "e584366a66ef85e110761b54faf26f4a994b2d63"
           }
         },
         {
