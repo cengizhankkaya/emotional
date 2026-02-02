@@ -1,6 +1,6 @@
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
-import 'package:emotional/features/room/presentation/widgets/armchair_widget.dart';
+import 'package:emotional/features/room/presentation/widgets/furniture_theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -43,13 +43,17 @@ class ArmchairSelectorSheet extends StatelessWidget {
                     context.watch<RoomDecorationCubit>().state.armchairStyle ==
                     style;
 
-                // Check participants count for Love theme
+                // Check participants count for restricted themes (Love & Esce)
                 final roomState = context.read<RoomBloc>().state;
                 final participants = roomState is RoomJoined
                     ? roomState.participants
                     : <String>[];
-                final bool isLoveTheme = style == ArmchairStyle.love;
-                final bool isEnabled = !isLoveTheme || participants.length <= 2;
+                final bool isRestrictedTheme =
+                    style == ArmchairStyle.love || style == ArmchairStyle.esce;
+                final bool isEnabled =
+                    !isRestrictedTheme || participants.length <= 2;
+
+                final theme = FurnitureThemeData.getTheme(style);
 
                 return GestureDetector(
                   onTap: isEnabled
@@ -62,44 +66,80 @@ class ArmchairSelectorSheet extends StatelessWidget {
                   child: Opacity(
                     opacity: isEnabled ? 1.0 : 0.5,
                     child: Container(
+                      width: 100,
                       margin: const EdgeInsets.only(right: 16),
-                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
+                        color: const Color(0xFF2A2F37),
                         border: isSelected
                             ? Border.all(
                                 color: Colors.deepPurpleAccent,
                                 width: 2,
                               )
-                            : null,
+                            : Border.all(color: Colors.white10, width: 1),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: 60,
-                            height: 60,
-                            child: Transform.scale(
-                              scale: 0.6,
-                              child: ArmchairWidget(
-                                participant: null,
-                                isLeft: false,
-                                style: style,
-                                child: const SizedBox(),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Stack(
+                          children: [
+                            // Theme Image
+                            Positioned.fill(
+                              child: theme.image != null
+                                  ? theme.image!.image(fit: BoxFit.cover)
+                                  : Container(
+                                      color: theme.baseColor,
+                                      child: const Icon(
+                                        Icons.chair,
+                                        color: Colors.white24,
+                                      ),
+                                    ),
+                            ),
+                            // Selection Overlay (optional highlight)
+                            if (isSelected)
+                              Positioned.fill(
+                                child: Container(
+                                  color: Colors.deepPurpleAccent.withOpacity(
+                                    0.1,
+                                  ),
+                                ),
+                              ),
+                            // Info Bar
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                  horizontal: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      Colors.black.withOpacity(0.8),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                                child: Text(
+                                  _getStyleName(style),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.white70,
+                                    fontSize: 11,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _getStyleName(style),
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white70,
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -116,14 +156,22 @@ class ArmchairSelectorSheet extends StatelessWidget {
     switch (style) {
       case ArmchairStyle.modern:
         return 'Modern';
-      case ArmchairStyle.cozy:
-        return 'Sıcak';
       case ArmchairStyle.vintage:
         return 'Retro';
       case ArmchairStyle.clay:
         return 'Pastel';
       case ArmchairStyle.love:
         return 'Aşk';
+      case ArmchairStyle.fwhite:
+        return 'Beyaz';
+      case ArmchairStyle.esce:
+        return 'Antrasit';
+      case ArmchairStyle.lacivert:
+        return 'Lacivert';
+      case ArmchairStyle.mor:
+        return 'Mor';
+      case ArmchairStyle.yesIl:
+        return 'Yeşil';
     }
   }
 }

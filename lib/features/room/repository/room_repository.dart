@@ -43,6 +43,17 @@ class RoomRepository {
     final snapshot = await roomRef.get();
 
     if (snapshot.exists) {
+      final data = snapshot.value as Map<dynamic, dynamic>;
+      final usersMap = data['users'] as Map<dynamic, dynamic>? ?? {};
+      final String? armchairStyleStr = data['armchairStyle'] as String?;
+
+      // Check if room is full based on current theme
+      final bool isRestrictedTheme =
+          armchairStyleStr == 'love' || armchairStyleStr == 'esce';
+      if (isRestrictedTheme && usersMap.length >= 2) {
+        throw Exception('Bu oda/tema şu an dolu (Maksimum 2 kişi)');
+      }
+
       await roomRef.child('users/$userId').set(userName);
 
       // Set up onDisconnect to remove the user if the app crashes/disconnects
@@ -145,6 +156,11 @@ class RoomRepository {
       'audio': isAudioEnabled,
       'updatedAt': ServerValue.timestamp,
     });
+  }
+
+  Future<void> updateArmchairStyle(String roomId, String styleName) async {
+    final roomRef = _database.ref('rooms/$roomId');
+    await roomRef.update({'armchairStyle': styleName});
   }
 
   Stream<DatabaseEvent> streamRoom(String roomId) {

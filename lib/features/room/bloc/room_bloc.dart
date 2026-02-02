@@ -34,22 +34,16 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     CreateRoomRequested event,
     Emitter<RoomState> emit,
   ) async {
-    print(
-      'RoomBloc: CreateRoomRequested for user ${event.userId}, name: ${event.userName}',
-    );
     emit(RoomLoading());
     try {
       _currentUserId = event.userId;
-      print('RoomBloc: Calling repository.createRoom...');
       final roomId = await _roomRepository.createRoom(
         event.userId,
         event.userName,
       );
-      print('RoomBloc: Room created successfully with ID: $roomId');
       emit(RoomCreated(roomId, event.userId));
       _subscribeToRoom(roomId);
     } catch (e) {
-      print('RoomBloc: Error creating room: $e');
       emit(RoomError(e.toString()));
     }
   }
@@ -77,8 +71,11 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     Emitter<RoomState> emit,
   ) async {
     try {
-      await _roomRepository.leaveRoom(event.roomId, event.userId);
+      // Cancel subscription first to avoid getting a null update while leaving
       _roomSubscription?.cancel();
+      _roomSubscription = null;
+
+      await _roomRepository.leaveRoom(event.roomId, event.userId);
       _currentUserId = null;
       emit(RoomInitial());
     } catch (e) {
@@ -93,72 +90,83 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         .listen(
           (event) {
             final data = event.snapshot.value as Map<dynamic, dynamic>?;
-            if (data != null && data['users'] != null) {
-              final usersMap = data['users'] as Map<dynamic, dynamic>;
-              // Use keys (user IDs) instead of values (user names)
-              final participants = usersMap.keys
-                  .map((e) => e.toString())
-                  .toList();
 
-              // Create userNames map: userId -> userName
-              final userNames = Map<String, String>.fromEntries(
-                usersMap.entries.map(
-                  (e) => MapEntry(e.key.toString(), e.value.toString()),
-                ),
-              );
-
-              final driveFileId = data['driveFileId'] as String?;
-              final driveFileName = data['driveFileName'] as String?;
-              final driveFileSize = data['driveFileSize'] as String?;
-              final hostId = data['host'] as String? ?? '';
-
-              final videoState = data['videoState'] as Map<dynamic, dynamic>?;
-              final isPlaying = videoState?['isPlaying'] as bool? ?? false;
-              final position = videoState?['position'] as int? ?? 0;
-              final updatedBy = videoState?['updatedBy'] as String?;
-              final lastUpdatedAt = videoState?['updatedAt'] as int? ?? 0;
-              final speed = (videoState?['speed'] as num?)?.toDouble() ?? 1.0;
-              final audioTrack = videoState?['audioTrack'] as String?;
-              final subtitleTrack = videoState?['subtitleTrack'] as String?;
-
-              add(
-                RoomUpdated(
-                  roomId: roomId,
-                  participants: participants,
-                  userNames: userNames,
-                  driveFileId: driveFileId,
-                  driveFileName: driveFileName,
-                  driveFileSize: driveFileSize,
-                  hostId: hostId,
-                  isPlaying: isPlaying,
-                  position: position,
-                  updatedBy: updatedBy,
-                  lastUpdatedAt: lastUpdatedAt,
-                  speed: speed,
-                  selectedAudioTrack: audioTrack,
-                  selectedSubtitleTrack: subtitleTrack,
-                ),
-              );
+            // Handle room deletion or user removal
+            if (data == null || data['users'] == null) {
+              if (_currentUserId != null) {
+                add(
+                  LeaveRoomRequested(roomId: roomId, userId: _currentUserId!),
+                );
+              }
+              return;
             }
+
+            final usersMap = data['users'] as Map<dynamic, dynamic>;
+
+            // Double check if current user is still in the room
+            if (_currentUserId != null &&
+                !usersMap.containsKey(_currentUserId)) {
+              add(LeaveRoomRequested(roomId: roomId, userId: _currentUserId!));
+              return;
+            }
+
+            // Map participant IDs to list
+            final participants = usersMap.keys
+                .map((e) => e.toString())
+                .toList();
+
+            // Create userNames map: userId -> userName
+            final userNames = Map<String, String>.fromEntries(
+              usersMap.entries.map(
+                (e) => MapEntry(e.key.toString(), e.value.toString()),
+              ),
+            );
+
+            final driveFileId = data['driveFileId'] as String?;
+            final driveFileName = data['driveFileName'] as String?;
+            final driveFileSize = data['driveFileSize'] as String?;
+            final hostId = data['host'] as String? ?? '';
+
+            final videoState = data['videoState'] as Map<dynamic, dynamic>?;
+            final isPlaying = videoState?['isPlaying'] as bool? ?? false;
+            final position = videoState?['position'] as int? ?? 0;
+            final updatedBy = videoState?['updatedBy'] as String?;
+            final lastUpdatedAt = videoState?['updatedAt'] as int? ?? 0;
+            final speed = (videoState?['speed'] as num?)?.toDouble() ?? 1.0;
+            final audioTrack = videoState?['audioTrack'] as String?;
+            final subtitleTrack = videoState?['subtitleTrack'] as String?;
+
+            add(
+              RoomUpdated(
+                roomId: roomId,
+                participants: participants,
+                userNames: userNames,
+                driveFileId: driveFileId,
+                driveFileName: driveFileName,
+                driveFileSize: driveFileSize,
+                hostId: hostId,
+                isPlaying: isPlaying,
+                position: position,
+                updatedBy: updatedBy,
+                lastUpdatedAt: lastUpdatedAt,
+                speed: speed,
+                selectedAudioTrack: audioTrack,
+                selectedSubtitleTrack: subtitleTrack,
+                armchairStyle: data['armchairStyle'] as String?,
+              ),
+            );
           },
           onError: (error) {
             print('RoomBloc: Error observing room: $error');
-            // We can't emit State here directly, we use add event.
-            // But we need to handle error state?
-            // Existing code added RoomUpdated with empty participants.
-            // We need to keep doing valid logic.
-            add(
-              RoomUpdated(roomId: roomId, participants: const [], hostId: ''),
-            );
+            // On error, we try to keep current state but maybe notify
           },
         );
   }
 
   void _onRoomUpdated(RoomUpdated event, Emitter<RoomState> emit) {
-    // If _currentUserId is somehow null (restore from kill?), we have an issue.
-    // For now assume it's set. If null, we might default to '' or handle error.
     final uid = _currentUserId ?? '';
 
+    // If we are not in a room-related state, ignore updates
     if (state is! RoomJoined &&
         state is! RoomCreated &&
         state is! RoomLoading) {
@@ -174,6 +182,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     final userNames = event.userNames;
     String? notification;
 
+    // Detect join/leave for notification
     for (final participant in newParticipants) {
       if (!oldParticipants.contains(participant)) {
         final userName = userNames[participant] ?? participant;
@@ -210,6 +219,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         speed: event.speed,
         selectedAudioTrack: event.selectedAudioTrack,
         selectedSubtitleTrack: event.selectedSubtitleTrack,
+        armchairStyle: event.armchairStyle,
       ),
     );
   }
@@ -234,9 +244,6 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     SyncVideoAction event,
     Emitter<RoomState> emit,
   ) async {
-    // print(
-    //   'DEBUG: RoomBloc: Received SyncVideoAction. Updating Firebase... isPlaying: ${event.isPlaying}',
-    // );
     try {
       await _roomRepository.updateVideoState(
         event.roomId,
@@ -244,10 +251,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         event.position,
         event.userId,
       );
-      // print('DEBUG: RoomBloc: Firebase update completed successfully.');
     } catch (e) {
       print('RoomBloc: Error syncing video: $e');
-      // If we are in RoomJoined state, emit an error notification
       if (state is RoomJoined) {
         final currentState = state as RoomJoined;
         emit(

@@ -224,6 +224,30 @@ class DownloadManager {
       }
     }
   }
+
+  Future<void> deleteDownloadedVideo(
+    String fileName,
+    DriveService driveService,
+  ) async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final file = File('${appDir.path}/$fileName');
+      if (await file.exists()) {
+        await file.delete();
+
+        // Update internal state
+        _downloadedVideos.removeWhere((f) => f.name == fileName);
+        if (_localVideoFile?.path == file.path) {
+          _isVideoDownloaded = false;
+          _localVideoFile = null;
+        }
+
+        _notifyStateChanged();
+      }
+    } catch (e) {
+      debugPrint('Error deleting video: $e');
+    }
+  }
 }
 
 @pragma('vm:entry-point')

@@ -41,6 +41,7 @@ class RoomJoined extends RoomState {
   final double speed;
   final String? selectedAudioTrack;
   final String? selectedSubtitleTrack;
+  final String? armchairStyle;
 
   const RoomJoined(
     this.roomId, {
@@ -59,6 +60,7 @@ class RoomJoined extends RoomState {
     this.speed = 1.0,
     this.selectedAudioTrack,
     this.selectedSubtitleTrack,
+    this.armchairStyle,
   });
 
   @override
@@ -79,6 +81,7 @@ class RoomJoined extends RoomState {
     speed,
     selectedAudioTrack,
     selectedSubtitleTrack,
+    armchairStyle,
   ];
 
   RoomJoined copyWith({
@@ -98,6 +101,7 @@ class RoomJoined extends RoomState {
     double? speed,
     String? selectedAudioTrack,
     String? selectedSubtitleTrack,
+    String? armchairStyle,
   }) {
     return RoomJoined(
       roomId ?? this.roomId,
@@ -117,6 +121,7 @@ class RoomJoined extends RoomState {
       selectedAudioTrack: selectedAudioTrack ?? this.selectedAudioTrack,
       selectedSubtitleTrack:
           selectedSubtitleTrack ?? this.selectedSubtitleTrack,
+      armchairStyle: armchairStyle ?? this.armchairStyle,
     );
   }
 }

@@ -61,6 +61,7 @@ class RoomUpdated extends RoomEvent {
   final double speed;
   final String? selectedAudioTrack;
   final String? selectedSubtitleTrack;
+  final String? armchairStyle;
 
   const RoomUpdated({
     required this.roomId,
@@ -77,6 +78,7 @@ class RoomUpdated extends RoomEvent {
     this.speed = 1.0,
     this.selectedAudioTrack,
     this.selectedSubtitleTrack,
+    this.armchairStyle,
   });
 
   @override
@@ -95,6 +97,7 @@ class RoomUpdated extends RoomEvent {
     speed,
     selectedAudioTrack,
     selectedSubtitleTrack,
+    armchairStyle,
   ];
 }
 

@@ -1,5 +1,5 @@
+import 'dart:ui';
 import 'package:emotional/product/utility/constants/project_padding.dart';
-import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
@@ -28,7 +28,7 @@ class RoomTopBar extends StatelessWidget {
         children: [
           _buildLeaveButton(context),
           const Spacer(),
-          _buildRoomIdDisplay(context),
+          Expanded(flex: 6, child: _buildRoomIdDisplay(context)),
           const Spacer(),
           _buildInviteButton(context),
           SizedBox(width: context.dynamicWidth(0.02)),
@@ -40,75 +40,101 @@ class RoomTopBar extends StatelessWidget {
     );
   }
 
+  Widget _buildGlassButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String tooltip,
+    Color? iconColor,
+    required BuildContext context,
+  }) {
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: context.dynamicValue(45),
+          height: context.dynamicValue(45),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: IconButton(
+            onPressed: onPressed,
+            icon: Icon(
+              icon,
+              color: iconColor ?? Colors.white,
+              size: context.dynamicValue(24),
+            ),
+            tooltip: tooltip,
+            style: IconButton.styleFrom(
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInviteButton(BuildContext context) {
-    return IconButton(
+    return _buildGlassButton(
+      context: context,
       onPressed: () {
         Share.share(
           'Emoti odama katıl!\n\nOda Kimliği: $roomId\n\nHızlı Katılma Linki: https://emotional-app-b42af.web.app/join/$roomId\n\nLinki tıklayarak direkt odaya katılabilirsin.',
           subject: 'Emoti Oda Daveti',
         );
       },
-      icon: Icon(
-        Icons.share,
-        color: Colors.white,
-        size: context.dynamicValue(24),
-      ),
+      icon: Icons.share,
       tooltip: 'Davet Et',
-      style: IconButton.styleFrom(
-        backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
-      ),
     );
   }
 
   Widget _buildLeaveButton(BuildContext context) {
-    return IconButton(
+    return _buildGlassButton(
+      context: context,
       onPressed: () {
         final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
         context.read<RoomBloc>().add(
           LeaveRoomRequested(roomId: roomId, userId: user.uid),
         );
       },
-      icon: Icon(
-        Icons.no_meeting_room,
-        color: Colors.redAccent,
-        size: context.dynamicValue(24),
-      ),
+      icon: Icons.no_meeting_room,
+      iconColor: Colors.redAccent,
       tooltip: 'Odadan Çık',
-      style: IconButton.styleFrom(
-        backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
-      ),
     );
   }
 
   Widget _buildRoomIdDisplay(BuildContext context) {
-    return Container(
-      padding: const ProjectPadding.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: ProjectRadius.large(),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SelectableText(
-            'Oda ID: $roomId',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: context.dynamicValue(20),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SelectableText(
+          'Oda ID: $roomId',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.9), // Slightly softer white
+            fontSize: context.dynamicValue(28),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+            shadows: const [
+              BoxShadow(
+                color: Colors.black45,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildThemeButton(BuildContext context) {
-    return IconButton(
+    return _buildGlassButton(
+      context: context,
       onPressed: () {
         showModalBottomSheet(
           context: context,
@@ -121,33 +147,19 @@ class RoomTopBar extends StatelessWidget {
           },
         );
       },
-      icon: Icon(
-        Icons.chair,
-        color: Colors.white,
-        size: context.dynamicValue(24),
-      ),
+      icon: Icons.chair,
       tooltip: 'Koltuk Teması',
-      style: IconButton.styleFrom(
-        backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
-      ),
     );
   }
 
   Widget _buildChatButton(BuildContext context) {
-    return IconButton(
+    return _buildGlassButton(
+      context: context,
       onPressed: () {
         scaffoldKey.currentState?.openEndDrawer();
       },
-      icon: Icon(
-        Icons.chat_bubble_outline,
-        color: Colors.white,
-        size: context.dynamicValue(24),
-      ),
-      style: IconButton.styleFrom(
-        backgroundColor: const Color.fromARGB(26, 255, 255, 255),
-        shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
-      ),
+      icon: Icons.chat_bubble_outline,
+      tooltip: 'Sohbet',
     );
   }
 }
