@@ -15,6 +15,7 @@ import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/manager/cache_manager.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,6 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _roomIdController = TextEditingController();
+  final _cacheManager = CacheManager();
 
   @override
   void initState() {
@@ -34,7 +36,15 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<RoomRepository>().cleanupEmptyRooms();
       _checkAndRequestPermissions();
       _initDeepLinkListener();
+      _loadLastRoomId();
     });
+  }
+
+  Future<void> _loadLastRoomId() async {
+    final lastRoomId = await _cacheManager.getLastRoomId();
+    if (lastRoomId != null && mounted) {
+      _roomIdController.text = lastRoomId;
+    }
   }
 
   Future<void> _initDeepLinkListener() async {
@@ -186,13 +196,21 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         listener: (context, state) {
           if (state is RoomError) {
+            String errorMessage = state.message;
+            if (errorMessage.contains('Room not found')) {
+              errorMessage = 'Oda bulunamadı.';
+              _cacheManager
+                  .clearLastRoomId(); // Clear invalid room ID from cache
+            }
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(state.message),
+                content: Text(errorMessage),
                 backgroundColor: ColorsCustom.imperilRead,
               ),
             );
           } else if (state is RoomCreated) {
+            _cacheManager.saveLastRoomId(state.roomId);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Oda Oluşturuldu: ${state.roomId}'),
@@ -200,6 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           } else if (state is RoomJoined) {
+            _cacheManager.saveLastRoomId(state.roomId);
             if (state.notificationMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

@@ -83,7 +83,7 @@ class WebRTCService implements ICallService {
   @override
   Future<void> joinRoom(String roomId, String userId) async {
     _signalingService = SignalingService(roomId: roomId, userId: userId);
-    _signalingService!.initialize();
+    await _signalingService!.initialize();
 
     _setupSignalingListeners();
   }
@@ -145,6 +145,7 @@ class WebRTCService implements ICallService {
     // Track handling (Unified Plan)
     pc.onTrack = (event) {
       if (event.streams.isNotEmpty) {
+        print("[WebRTC] onTrack: Received stream from $targetUserId");
         onRemoteStream?.call(event.streams.first, targetUserId);
       }
     };
@@ -157,39 +158,79 @@ class WebRTCService implements ICallService {
     // Peer Connection State (optional logging)
     pc.onConnectionState = (state) {
       print("[WebRTC] Connection state with $targetUserId: $state");
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+          state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
+          state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+        _handleRemoteBye(targetUserId);
+      }
     };
 
     _peerConnections[targetUserId] = pc;
     return pc;
   }
 
+  @override
+  Future<void> connect(String targetUserId) async {
+    if (_peerConnections.containsKey(targetUserId)) {
+      final pc = _peerConnections[targetUserId];
+      final state = await pc?.getConnectionState();
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        print("[WebRTC] Already connected to $targetUserId");
+        return;
+      }
+      // If failed/closed, maybe we should restart? For now, just return to prevent double initialization
+      print("[WebRTC] Connection to $targetUserId exists (state: $state)");
+      return;
+    }
+
+    print("[WebRTC] Creating peer connection for $targetUserId");
+    final pc = await createPeerConnection(targetUserId);
+    final offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await sendOffer(targetUserId, offer);
+  }
+
+  final Map<String, List<RTCIceCandidate>> _remoteCandidateQueues = {};
+  final Set<String> _remoteDescriptionSet = {};
+
   Future<void> _handleRemoteOffer(
     RTCSessionDescription description,
     String fromUserId,
   ) async {
+    print("[WebRTC] Received offer from $fromUserId");
     var pc = _peerConnections[fromUserId];
 
-    // Correct Glare handling or existing connection reuse could significantly complicate this.
-    // For now, if we have a PC, we might need to check its state.
-    // Simplest robust strategy: if offer comes, treat as renegotiation or new call.
     if (pc == null) {
       pc = await createPeerConnection(fromUserId);
     }
 
     await pc.setRemoteDescription(description);
+    _remoteDescriptionSet.add(fromUserId);
+    print("[WebRTC] Remote description set for offer from $fromUserId");
+
+    // Process queued candidates
+    await _processQueuedCandidates(fromUserId);
+
     final answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
     await sendAnswer(fromUserId, answer);
+    print("[WebRTC] Sent answer to $fromUserId");
   }
 
   Future<void> _handleRemoteAnswer(
     RTCSessionDescription description,
     String fromUserId,
   ) async {
+    print("[WebRTC] Received answer from $fromUserId");
     var pc = _peerConnections[fromUserId];
     if (pc != null) {
       await pc.setRemoteDescription(description);
+      _remoteDescriptionSet.add(fromUserId);
+      print("[WebRTC] Remote description set for answer from $fromUserId");
+
+      // Process queued candidates
+      await _processQueuedCandidates(fromUserId);
     }
   }
 
@@ -199,16 +240,40 @@ class WebRTCService implements ICallService {
   ) async {
     var pc = _peerConnections[fromUserId];
     if (pc != null) {
-      await pc.addCandidate(candidate);
+      if (_remoteDescriptionSet.contains(fromUserId)) {
+        print("[WebRTC] Adding ICE candidate from $fromUserId");
+        await pc.addCandidate(candidate);
+      } else {
+        print(
+          "[WebRTC] Queuing ICE candidate from $fromUserId (Remote description not set yet)",
+        );
+        _remoteCandidateQueues.putIfAbsent(fromUserId, () => []).add(candidate);
+      }
+    }
+  }
+
+  Future<void> _processQueuedCandidates(String userId) async {
+    final pc = _peerConnections[userId];
+    final queue = _remoteCandidateQueues.remove(userId);
+    if (pc != null && queue != null) {
+      print(
+        "[WebRTC] Processing ${queue.length} queued candidates for $userId",
+      );
+      for (var candidate in queue) {
+        await pc.addCandidate(candidate);
+      }
     }
   }
 
   Future<void> _handleRemoteBye(String fromUserId) async {
+    print("[WebRTC] Received bye from $fromUserId");
     var pc = _peerConnections[fromUserId];
     if (pc != null) {
       await pc.close();
       _peerConnections.remove(fromUserId);
     }
+    _remoteDescriptionSet.remove(fromUserId);
+    _remoteCandidateQueues.remove(fromUserId);
     onRemoteStreamRemoved?.call(fromUserId);
     await _signalingService?.clearIncomingFromUser(fromUserId);
   }

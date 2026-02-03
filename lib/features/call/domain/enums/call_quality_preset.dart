@@ -9,13 +9,13 @@ extension CallQualityExtension on CallQualityPreset {
   Map<String, dynamic> toConstraints() {
     switch (this) {
       case CallQualityPreset.low:
-        return {'minWidth': '480', 'minHeight': '360', 'minFrameRate': '15'};
+        return {'minWidth': 480, 'minHeight': 360, 'minFrameRate': 15};
       case CallQualityPreset.balanced:
-        return {'minWidth': '640', 'minHeight': '480', 'minFrameRate': '24'};
+        return {'minWidth': 640, 'minHeight': 480, 'minFrameRate': 24};
       case CallQualityPreset.high:
-        return {'minWidth': '1280', 'minHeight': '720', 'minFrameRate': '30'};
+        return {'minWidth': 1280, 'minHeight': 720, 'minFrameRate': 30};
       case CallQualityPreset.ultra:
-        return {'minWidth': '1920', 'minHeight': '1080', 'minFrameRate': '30'};
+        return {'minWidth': 1920, 'minHeight': 1080, 'minFrameRate': 30};
     }
   }
 

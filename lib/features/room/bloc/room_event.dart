@@ -153,3 +153,13 @@ class UpdateRoomVideoRequested extends RoomEvent {
   @override
   List<Object> get props => [roomId, fileId, fileName, fileSize];
 }
+
+class TransferHostRequested extends RoomEvent {
+  final String roomId;
+  final String newHostId;
+
+  const TransferHostRequested({required this.roomId, required this.newHostId});
+
+  @override
+  List<Object> get props => [roomId, newHostId];
+}

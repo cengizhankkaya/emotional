@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 
@@ -30,7 +31,10 @@ final class ApplicationInit {
     // 5. Initialize Firebase
     await _initializeFirebase();
 
-    // 6. Set Orientation (Optional, keeping it simple or flexible for now, but generally good practice to define)
+    // 6. Initialize Remote Config
+    await _initializeRemoteConfig();
+
+    // 7. Set Orientation (Optional, keeping it simple or flexible for now, but generally good practice to define)
     await _setRotation();
   }
 
@@ -55,5 +59,16 @@ final class ApplicationInit {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
+  }
+
+  Future<void> _initializeRemoteConfig() async {
+    final remoteConfig = FirebaseRemoteConfig.instance;
+    await remoteConfig.setConfigSettings(
+      RemoteConfigSettings(
+        fetchTimeout: const Duration(minutes: 1),
+        minimumFetchInterval: const Duration(hours: 1),
+      ),
+    );
+    await remoteConfig.fetchAndActivate();
   }
 }

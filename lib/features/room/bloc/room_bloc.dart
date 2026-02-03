@@ -22,6 +22,18 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     on<UpdateRoomVideoRequested>(_onUpdateRoomVideoRequested);
     on<SyncVideoAction>(_onSyncVideoAction);
     on<SyncSettingsAction>(_onSyncSettingsAction);
+    on<TransferHostRequested>(_onTransferHostRequested);
+  }
+
+  Future<void> _onTransferHostRequested(
+    TransferHostRequested event,
+    Emitter<RoomState> emit,
+  ) async {
+    try {
+      await _roomRepository.reassignHost(event.roomId, event.newHostId);
+    } catch (e) {
+      print('RoomBloc: Error transferring host: $e');
+    }
   }
 
   @override
@@ -94,6 +106,10 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
             // Handle room deletion or user removal
             if (data == null || data['users'] == null) {
               if (_currentUserId != null) {
+                // If data is null, the room probably was deleted
+                print(
+                  'RoomBloc: Room data is null, adding LeaveRoom with notification',
+                );
                 add(
                   LeaveRoomRequested(roomId: roomId, userId: _currentUserId!),
                 );
@@ -125,7 +141,29 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
             final driveFileId = data['driveFileId'] as String?;
             final driveFileName = data['driveFileName'] as String?;
             final driveFileSize = data['driveFileSize'] as String?;
-            final hostId = data['host'] as String? ?? '';
+            String hostId = data['host'] as String? ?? '';
+
+            // --- Host Repair Logic ---
+            // If host is missing from users list, the first user becomes the new host
+            if (hostId.isEmpty || !usersMap.containsKey(hostId)) {
+              if (participants.isNotEmpty) {
+                final newHostId = participants.first;
+                hostId = newHostId; // Update locally for immediate UI response
+
+                // Only the new host candidate (the one who is first in list) triggers the DB update
+                if (_currentUserId == newHostId) {
+                  print(
+                    'RoomBloc: Host missing or left. I am the new host: $newHostId',
+                  );
+                  _roomRepository.reassignHost(roomId, newHostId).catchError((
+                    e,
+                  ) {
+                    print('RoomBloc: Failed to reassign host: $e');
+                  });
+                }
+              }
+            }
+            // -------------------------
 
             final videoState = data['videoState'] as Map<dynamic, dynamic>?;
             final isPlaying = videoState?['isPlaying'] as bool? ?? false;

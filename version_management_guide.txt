@@ -1,0 +1,144 @@
+# VERSION YÖNETİMİ VE GÜNCELLEME KONTROLÜ KURULUM REHBERİ
+
+Bu rehber, projedeki Firebase Remote Config tabanlı versiyon kontrol sistemini başka bir projeye nasıl entegre edeceğinizi adım adım anlatır.
+
+---
+
+## ADIM 1: Gerekli Paketlerin Eklenmesi (pubspec.yaml)
+Aşağıdaki paketleri projenize dahil edin:
+
+```yaml
+dependencies:
+  firebase_core: ^3.9.0
+  firebase_remote_config: ^5.0.2
+  kartal: ^4.1.0 # Versiyon okuma ve extension desteği için
+```
+
+---
+
+## ADIM 2: Dosya Yapısının Oluşturulması
+Aşağıdaki klasör yapısını projenizde oluşturun:
+
+```text
+lib/
+├── product/
+│   ├── model/
+│   │   └── enum/
+│   │       └── firebase_remote_enums.dart
+│   ├── utility/
+│   │   └── validator/
+│   │       └── version_validator.dart
+│   └── widget/
+│       └── dialog/
+│           └── force_update_dialog.dart
+```
+
+---
+
+## ADIM 3: Kodların Eklenmesi
+
+### 3.1. Firebase Remote Enums (Remote Config Anahtarları)
+`lib/product/model/enum/firebase_remote_enums.dart`
+
+```dart
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+
+enum FirebaseRemoteEnums {
+  version; // Firebase Console'daki anahtar ismi
+
+  String get valueString => FirebaseRemoteConfig.instance.getString(name);
+}
+```
+
+### 3.2. Version Validator (Versiyon Karşılaştırma Mantığı)
+`lib/product/utility/validator/version_validator.dart`
+
+```dart
+import 'package:kartal/kartal.dart';
+import 'package:your_project_name/product/model/enum/firebase_remote_enums.dart';
+
+final class VersionValidator {
+  VersionValidator._init();
+
+  static bool check() {
+    // Mevcut uygulamanın versiyonu (pubspec.yaml'dan)
+    final currentVersion = ''.ext.version; 
+    
+    // Remote Config'den gelen minimum versiyon
+    final remoteVersion = FirebaseRemoteEnums.version.valueString;
+    
+    if (remoteVersion.isEmpty) return false;
+
+    // Versiyonları sayıya çevirip karşılaştırır (Örn: 1.0.1 -> 101)
+    final currentVersionNumber = int.parse(currentVersion.split('.').join());
+    final remoteVersionNumber = int.parse(remoteVersion.split('.').join());
+
+    return remoteVersionNumber > currentVersionNumber;
+  }
+}
+```
+
+### 3.3. Force Update Dialog (Güncelleme Ekranı)
+`lib/product/widget/dialog/force_update_dialog.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class ForceUpdateDialog extends StatelessWidget {
+  const ForceUpdateDialog({super.key});
+
+  static Future<void> show(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false, // Kullanıcı kapatamasın
+      builder: (context) => const ForceUpdateDialog(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Güncelleme Gerekli"),
+      content: const Text("Uygulamaya devam edebilmek için lütfen yeni sürümü indirin."),
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            // Mağaza linkinizi buraya ekleyin
+            launchUrl(Uri.parse('https://play.google.com/store/apps/details?id=YOUR_APP_ID'));
+          },
+          child: const Text("Güncelle"),
+        ),
+      ],
+    );
+  }
+}
+```
+
+---
+
+## ADIM 4: Uygulama Başlangıcında Tetikleme
+Splash ekranınızda veya uygulama başlangıcında bu kontrolü yapın:
+
+```dart
+Future<void> controlVersion(BuildContext context) async {
+  // Remote config verilerini çek
+  await FirebaseRemoteConfig.instance.fetchAndActivate();
+
+  if (VersionValidator.check()) {
+    if (context.mounted) {
+      await ForceUpdateDialog.show(context);
+    }
+  } else {
+    // Normal akışa devam et
+  }
+}
+```
+
+---
+
+## ADIM 5: Firebase Console Ayarları
+1. Firebase Console -> Remote Config bölümüne gidin.
+2. `version` isminde bir parametre ekleyin.
+3. Değer olarak minimum olması gereken versiyonu yazın (Örn: `1.0.5`).
+4. Yayınlayın.

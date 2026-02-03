@@ -1,4 +1,5 @@
 import 'package:emotional/features/app.dart';
+import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_event.dart';
 import 'package:emotional/features/video_player/bloc/video_player_state.dart';
@@ -166,13 +167,28 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                 right: 6,
                 child: GestureDetector(
                   onTap: () {
+                    final roomState = context.read<RoomBloc>().state;
+                    String roomId = '';
+                    String userId = '';
+
+                    if (roomState is RoomJoined) {
+                      roomId = roomState.roomId;
+                      userId = roomState.userId;
+                    } else if (roomState is RoomCreated) {
+                      roomId = roomState.roomId;
+                      userId = roomState.userId;
+                    }
+
                     context.read<VideoPlayerBloc>().add(
                       const ToggleMinimize(isMinimized: false),
                     );
                     MyApp.navigatorKey.currentState?.push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            VideoPlayerScreen(videoFile: state.videoFile),
+                        builder: (_) => VideoPlayerScreen(
+                          videoFile: state.videoFile,
+                          roomId: roomId,
+                          userId: userId,
+                        ),
                       ),
                     );
                   },

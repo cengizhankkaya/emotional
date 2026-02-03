@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/features/auth/presentation/auth_status_wrapper.dart';
 import 'package:emotional/product/init/application_theme.dart';
 import 'package:emotional/features/video_player/presentation/widgets/mini_player_overlay.dart';
+import 'package:emotional/product/init/version_check_wrapper.dart';
 import 'package:flutter/material.dart';
 
 class MyApp extends StatelessWidget {
@@ -21,7 +22,9 @@ class MyApp extends StatelessWidget {
       locale: context.locale,
       theme: ApplicationTheme.build(context).themeData,
       builder: (context, child) {
-        return MiniPlayerOverlay(child: child ?? const SizedBox.shrink());
+        return VersionCheckWrapper(
+          child: MiniPlayerOverlay(child: child ?? const SizedBox.shrink()),
+        );
       },
       home: const AuthStatusWrapper(),
     );

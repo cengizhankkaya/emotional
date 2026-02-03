@@ -84,8 +84,14 @@ class RoomRepository {
 
       // If no users left, delete the room
       if (users.isEmpty) {
-        // Return null to delete the node
         return Transaction.success(null);
+      }
+
+      // If the leaving user was the host, assign a new one
+      final currentHost = roomData['host'] as String?;
+      if (currentHost == userId) {
+        // Assign the first available user as the new host
+        roomData['host'] = users.keys.first.toString();
       }
 
       // Update the user list
@@ -161,6 +167,11 @@ class RoomRepository {
   Future<void> updateArmchairStyle(String roomId, String styleName) async {
     final roomRef = _database.ref('rooms/$roomId');
     await roomRef.update({'armchairStyle': styleName});
+  }
+
+  Future<void> reassignHost(String roomId, String newHostId) async {
+    final roomRef = _database.ref('rooms/$roomId');
+    await roomRef.update({'host': newHostId});
   }
 
   Stream<DatabaseEvent> streamRoom(String roomId) {

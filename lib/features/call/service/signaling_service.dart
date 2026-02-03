@@ -29,7 +29,10 @@ class SignalingService {
     _roomSignalRef = _database.ref('rooms/$roomId/signal');
   }
 
-  void initialize() {
+  final Map<String, StreamSubscription> _candidateSubscriptions = {};
+
+  Future<void> initialize() async {
+    await clearSignal();
     listenForIncomingSignals();
   }
 
@@ -130,22 +133,26 @@ class SignalingService {
         final senderId = userEvent.snapshot.key;
         if (senderId == null) return;
 
+        // Prevent duplicate subscriptions for the same user
+        _candidateSubscriptions[senderId]?.cancel();
+
         final innerSub = mySignalRef
             .child('candidates')
             .child(senderId)
             .onChildAdded
             .listen((candidateEvent) {
-          if (candidateEvent.snapshot.value == null) return;
-          final data = Map<String, dynamic>.from(
-            candidateEvent.snapshot.value as Map,
-          );
-          var candidate = RTCIceCandidate(
-            data['candidate'],
-            data['sdpMid'],
-            data['sdpMLineIndex'],
-          );
-          onRemoteIceCandidate?.call(candidate, senderId);
-        });
+              if (candidateEvent.snapshot.value == null) return;
+              final data = Map<String, dynamic>.from(
+                candidateEvent.snapshot.value as Map,
+              );
+              var candidate = RTCIceCandidate(
+                data['candidate'],
+                data['sdpMid'],
+                (data['sdpMLineIndex'] as num?)?.toInt(),
+              );
+              onRemoteIceCandidate?.call(candidate, senderId);
+            });
+        _candidateSubscriptions[senderId] = innerSub;
         _subscriptions.add(innerSub);
       }),
     );
@@ -180,6 +187,10 @@ class SignalingService {
     for (final sub in _subscriptions) {
       sub.cancel();
     }
+    for (final sub in _candidateSubscriptions.values) {
+      sub.cancel();
+    }
     _subscriptions.clear();
+    _candidateSubscriptions.clear();
   }
 }

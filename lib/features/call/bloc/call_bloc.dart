@@ -23,6 +23,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   Map<String, bool> _userVideoStates = {};
   Map<String, bool> _userAudioStates = {};
 
+  final Set<String> _connectionInitiated = {};
+
   StreamSubscription? _roomSubscription;
 
   String? _roomId;
@@ -124,10 +126,10 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       emit(
         CallConnected(
           localRenderer: _localRenderer!,
-          remoteRenderers: const {},
-          activeUsers: const {},
-          userVideoStates: const {},
-          userAudioStates: const {},
+          remoteRenderers: Map.from(_remoteRenderers),
+          activeUsers: Map.from(_activeUsers),
+          userVideoStates: Map.from(_userVideoStates),
+          userAudioStates: Map.from(_userAudioStates),
           videoInputs: videoInputs,
           audioInputs: audioInputs,
           audioOutputs: audioOutputs,
@@ -171,45 +173,18 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       // Connect to new users
       for (final otherUserId in currentUserIds) {
         if (otherUserId == _userId) continue;
-        // We rely on Signaling/WebRTCService to handle connections automatically
-        // essentially via onRemoteOffer/Answer.
-        // BUT, as the "Caller", we might need to initiate.
-        // Simple logic: If I am "Newer" or "Alphabetically First"?
-        // Usually, Mesh topology: everyone calls everyone they see who isn't connected.
-        // OR: Signaling Service handles "User Joined" notification?
-        // Let's stick to the previous ICallService pattern:
-        // We explicitly call createPeerConnection if we want to call them.
 
-        // Wait, WebRTCService doesn't know who is in the room unless we tell it.
-        // So we probably still need to tell WebRTCService to connect to X.
-        // But `createPeerConnection` in `WebRTCService` only creates PC. It doesn't initiate offer?
-        // Ah, `createPeerConnection` in my implementation DOES create events but logic for "Who calls who" is tricky.
-        // Let's keep existing logic: Initiate call if we haven't connected yet.
-        // But we need to track who we are connected to. CallService abstracts this?
-        // Ideally CallService has `connectTo(userId)`.
-        // Let's assume we call `createPeerConnection` and then `createOffer`.
-
-        // Refactor Note: The previous CallBloc handled `_initiateCallTo`.
-        // We should add `connectTo` to ICallService or handle it here via `createPeerConnection` + `createOffer`.
-        // My ICallService has `createPeerConnection`.
-
-        // IMPORTANT: To avoid Glare (both calling each other), we usually let the "New Joiner" call existing users
-        // OR the existing users call the "New Joiner".
-        // Previous logic: `_roomSubscription` listens to room.
-
-        // Let's just create connection if not exists.
-        // Since `WebRTCService` manages `_peerConnections` internally, we can't check it easily unless exposed.
-        // BUT, we can just call `_callService.createPeerConnection(otherUserId)` which creates it.
-        // Then `sendOffer`.
-
-        // We need to know if we are already connected.
-        // Let's assume for now we initiate call to everyone we see who isn't us.
-        // Using a set in Bloc to track like before is safer.
+        // "Initiator" rule: only the user with the alphabetically "smaller" ID initiates.
+        // This is a simple way to prevent "Glare" where both try to call each other at the exact same time.
+        if (_userId!.compareTo(otherUserId) < 0) {
+          if (!_connectionInitiated.contains(otherUserId)) {
+            print("[CallBloc] Initiating connection to $otherUserId");
+            _connectionInitiated.add(otherUserId);
+            _callService.connect(otherUserId);
+          }
+        }
       }
 
-      // Let's re-implement connection initiation logic here slightly differently
-      // or modify WebRTCService to handle "connectToUser".
-      // For this pass, I'll update state.
       add(InternalUpdateState());
     });
   }
@@ -265,6 +240,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     InternalIncomingStream event,
     Emitter<CallState> emit,
   ) async {
+    print("[CallBloc] Incoming stream received from ${event.userId}");
     final renderer = RTCVideoRenderer();
     await renderer.initialize();
     renderer.srcObject = event.stream;
@@ -276,6 +252,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     InternalStreamRemoved event,
     Emitter<CallState> emit,
   ) async {
+    print("[CallBloc] Stream removed for user ${event.userId}");
+    _connectionInitiated.remove(event.userId); // Allow reconnection
     final renderer = _remoteRenderers.remove(event.userId);
     if (renderer != null) {
       renderer.srcObject = null;
@@ -303,6 +281,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       r.dispose();
     }
     _remoteRenderers.clear();
+    _connectionInitiated.clear();
 
     await _callService.dispose();
     // We don't dispose mediaDeviceService fully if we want to preview?

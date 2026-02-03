@@ -13,6 +13,9 @@ abstract class ICallService {
   /// Create a peer connection for a target user
   Future<RTCPeerConnection> createPeerConnection(String targetUserId);
 
+  /// Initiate a call to a target user
+  Future<void> connect(String targetUserId);
+
   /// Send an offer to a user
   Future<void> sendOffer(String targetUserId, RTCSessionDescription offer);
 
