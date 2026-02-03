@@ -181,10 +181,14 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
           );
           Navigator.of(context).pop();
         } else if (state is RoomJoined) {
-          // Join the call when room is joined
-          context.read<CallBloc>().add(
-            JoinCall(roomId: state.roomId, userId: state.userId),
-          );
+          // Join the call when room is joined, but only if not already connected
+          final callState = context.read<CallBloc>().state;
+          if (callState is! CallConnected ||
+              context.read<CallBloc>().userId != state.userId) {
+            context.read<CallBloc>().add(
+              JoinCall(roomId: state.roomId, userId: state.userId),
+            );
+          }
 
           if (state.driveFileName != null) {
             _downloadManager.checkFileExists(state.driveFileName!);

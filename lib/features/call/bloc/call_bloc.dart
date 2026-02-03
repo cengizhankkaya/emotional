@@ -61,6 +61,13 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   }
 
   Future<void> _onJoinCall(JoinCall event, Emitter<CallState> emit) async {
+    // If we are already connected to the SAME room, don't re-join
+    if (state is CallConnected &&
+        _roomId == event.roomId &&
+        _userId == event.userId) {
+      return;
+    }
+
     emit(CallLoading());
     try {
       _roomId = event.roomId;
@@ -81,9 +88,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
       await _cleanup();
 
-      // 2. Initialize Media Devices
+      // 2. Initialize Media Devices (Start with both OFF)
       await _mediaDeviceService.initialize();
       await _mediaDeviceService.enableSpeakerphone(true);
+
+      _mediaDeviceService.toggleVideo(false);
+      _mediaDeviceService.toggleMute(true);
 
       // Update local stream in CallService too (so it can be added to PeerConnections)
       _callService.updateLocalStream(_mediaDeviceService.localStream);
@@ -110,12 +120,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       // 6. Setup Room Listeners (User Discovery)
       _setupRoomListeners();
 
-      // 7. Initialize User Media State in Firebase
+      // 7. Initialize User Media State in Firebase (Start as OFF)
       await roomRepository.updateUserMediaState(
         _roomId!,
         _userId!,
-        isVideoEnabled: true,
-        isAudioEnabled: true,
+        isVideoEnabled: false,
+        isAudioEnabled: false,
       );
 
       // 8. Get Initial Devices List
@@ -133,6 +143,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           videoInputs: videoInputs,
           audioInputs: audioInputs,
           audioOutputs: audioOutputs,
+          isVideoEnabled: false, // Default OFF
+          isMuted: true, // Default OFF
         ),
       );
     } catch (e) {
