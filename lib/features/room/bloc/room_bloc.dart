@@ -108,7 +108,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
               if (_currentUserId != null) {
                 // If data is null, the room probably was deleted
                 print(
-                  'RoomBloc: Room data is null, adding LeaveRoom with notification',
+                  'RoomBloc: Room data is null, adding LeaveRoom with notification. Current User ID: $_currentUserId',
                 );
                 add(
                   LeaveRoomRequested(roomId: roomId, userId: _currentUserId!),
@@ -119,11 +119,26 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
 
             final usersMap = data['users'] as Map<dynamic, dynamic>;
 
-            // Double check if current user is still in the room
+            // --- Re-entry / Stale Data Protection ---
+            // If the user just joined (state is RoomLoading or RoomCreated),
+            // we give it some grace or ignore the "not in users" check for the very first event
+            // if it seems stale.
             if (_currentUserId != null &&
                 !usersMap.containsKey(_currentUserId)) {
-              add(LeaveRoomRequested(roomId: roomId, userId: _currentUserId!));
-              return;
+              if (state is RoomLoading || state is RoomCreated) {
+                print(
+                  'RoomBloc: [GRACE] User $_currentUserId not found in usersMap yet. Proceeding anyway to avoid Loading deadlock.',
+                );
+                // Return yapmıyoruz, akışın devam etmesine izin veriyoruz.
+              } else {
+                print(
+                  'RoomBloc: User $_currentUserId NOT found in usersMap. State is ${state.runtimeType}. Kicking out.',
+                );
+                add(
+                  LeaveRoomRequested(roomId: roomId, userId: _currentUserId!),
+                );
+                return;
+              }
             }
 
             // Map participant IDs to list

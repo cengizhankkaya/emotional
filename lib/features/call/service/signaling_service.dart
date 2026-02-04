@@ -183,6 +183,15 @@ class SignalingService {
     await mySignalRef.child('candidates').child(fromUserId).remove();
   }
 
+  /// Belirli bir kullanıcıya BİZİM gönderdiğimiz sinyalleri temizler.
+  /// Yeni bir bağlantı başlatırken (re-entry gibi) eski sinyallerin karışmasını önler.
+  Future<void> clearOutgoingToUser(String targetUserId) async {
+    final targetSignalRef = _roomSignalRef.child(targetUserId);
+    await targetSignalRef.child('offers').child(userId).remove();
+    await targetSignalRef.child('answers').child(userId).remove();
+    await targetSignalRef.child('candidates').child(userId).remove();
+  }
+
   void dispose() {
     for (final sub in _subscriptions) {
       sub.cancel();

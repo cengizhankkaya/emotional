@@ -58,6 +58,9 @@ class WebRTCService implements ICallService {
       var senders = await pc.getSenders();
       for (var sender in senders) {
         if (sender.track?.kind == 'video') {
+          print(
+            "[WebRTC] Replacing video track for a peer. NewTrackID: ${newTrack.id}",
+          );
           await sender.replaceTrack(newTrack);
         }
       }
@@ -124,6 +127,8 @@ class WebRTCService implements ICallService {
       await pc.close();
     }
     _peerConnections.clear();
+    _remoteCandidateQueues.clear();
+    _remoteDescriptionSet.clear();
   }
 
   @override
@@ -145,8 +150,14 @@ class WebRTCService implements ICallService {
     // Track handling (Unified Plan)
     pc.onTrack = (event) {
       if (event.streams.isNotEmpty) {
-        print("[WebRTC] onTrack: Received stream from $targetUserId");
+        print(
+          "[WebRTC] onTrack: Received stream from $targetUserId. StreamID: ${event.streams.first.id}, Tracks: ${event.streams.first.getTracks().length}",
+        );
         onRemoteStream?.call(event.streams.first, targetUserId);
+      } else {
+        print(
+          "[WebRTC] onTrack: Received event from $targetUserId but STREAMS ARE EMPTY.",
+        );
       }
     };
 
@@ -185,6 +196,11 @@ class WebRTCService implements ICallService {
 
     print("[WebRTC] Creating peer connection for $targetUserId");
     final pc = await createPeerConnection(targetUserId);
+
+    // Yeni teklif göndermeden önce o kullanıcıya giden tüm ESKİ sinyalleri (candidates vb.) temizle.
+    // Bu, re-entry sırasında eski ICE adaylarının yeni session'ı bozmasını önler.
+    await _signalingService?.clearOutgoingToUser(targetUserId);
+
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await sendOffer(targetUserId, offer);
@@ -198,24 +214,30 @@ class WebRTCService implements ICallService {
     String fromUserId,
   ) async {
     print("[WebRTC] Received offer from $fromUserId");
-    var pc = _peerConnections[fromUserId];
+    var stalePc = _peerConnections[fromUserId];
 
-    if (pc != null) {
+    if (stalePc != null) {
       print(
         "[WebRTC] Closing stale PC for $fromUserId before processing new offer",
       );
-      await pc.close();
-      _peerConnections.remove(fromUserId);
+      _peerConnections.remove(
+        fromUserId,
+      ); // Önce haritadan çıkar ki yeni PC ile karışmasın
+      await stalePc.close();
+      _remoteDescriptionSet.remove(fromUserId);
+      _remoteCandidateQueues.remove(fromUserId);
     }
 
-    pc = await createPeerConnection(fromUserId);
-
+    final pc = await createPeerConnection(fromUserId);
     await pc.setRemoteDescription(description);
     _remoteDescriptionSet.add(fromUserId);
     print("[WebRTC] Remote description set for offer from $fromUserId");
 
     // Process queued candidates
     await _processQueuedCandidates(fromUserId);
+
+    // Cevap göndermeden önce o kullanıcıya giden eski sinyalleri temizle.
+    await _signalingService?.clearOutgoingToUser(fromUserId);
 
     final answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
@@ -306,6 +328,31 @@ class WebRTCService implements ICallService {
     RTCIceCandidate candidate,
   ) async {
     await _signalingService?.sendIceCandidate(targetUserId, candidate);
+  }
+
+  @override
+  Future<void> forgetUser(String userId) async {
+    print("[WebRTC] Forgetting user $userId");
+    var pcToForget = _peerConnections[userId];
+    if (pcToForget != null) {
+      // Sadece eğer haritadaki PC hala bizim bulduğumuz PC ise sil
+      // (Yarış durumunda yeni bir PC gelmiş olabilir)
+      if (_peerConnections[userId] == pcToForget) {
+        _peerConnections.remove(userId);
+      }
+      await pcToForget.close();
+    }
+
+    // Eğer biz siliyorsak, description ve kuyrukları da temizle (ama sadece bu session için)
+    // Not: Re-entry durumunda yeni bir session başlamış olabilir, bu yüzden instance bazlı kontrol zor.
+    // Ancak genellikle forgetUser 'ayrılma' anında çağrılır.
+    _remoteDescriptionSet.remove(userId);
+    _remoteCandidateQueues.remove(userId);
+
+    // Kendi signaling kanalımızdaki bu kullanıcıdan gelen verileri temizle
+    await _signalingService?.clearIncomingFromUser(userId);
+
+    onRemoteStreamRemoved?.call(userId);
   }
 
   @override

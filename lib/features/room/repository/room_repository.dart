@@ -54,10 +54,16 @@ class RoomRepository {
         throw Exception('Bu oda/tema şu an dolu (Maksimum 2 kişi)');
       }
 
+      print(
+        'RoomRepository: Attempting to join room $roomId with userId $userId',
+      );
       await roomRef.child('users/$userId').set(userName);
 
       // Set up onDisconnect to remove the user if the app crashes/disconnects
       await roomRef.child('users/$userId').onDisconnect().remove();
+      print(
+        'RoomRepository: User $userId successfully joined and onDisconnect setup.',
+      );
     } else {
       throw Exception('Room not found');
     }
@@ -66,11 +72,12 @@ class RoomRepository {
   Future<void> leaveRoom(String roomId, String userId) async {
     final roomRef = _database.ref('rooms/$roomId');
 
+    print('RoomRepository: User $userId is leaving room $roomId manually.');
     // Cancel the onDisconnect listener since we are leaving manually
     await roomRef.child('users/$userId').onDisconnect().cancel();
 
     // Use a transaction to ensure atomic update and cleanup
-    await roomRef.runTransaction((Object? post) {
+    final result = await roomRef.runTransaction((Object? post) {
       if (post == null) {
         return Transaction.success(post);
       }
@@ -98,6 +105,9 @@ class RoomRepository {
       roomData['users'] = users;
       return Transaction.success(roomData);
     });
+    print(
+      'RoomRepository: LeaveRoom transaction finished for $userId with result: ${result.committed}',
+    );
   }
 
   Future<void> updateRoomVideo(

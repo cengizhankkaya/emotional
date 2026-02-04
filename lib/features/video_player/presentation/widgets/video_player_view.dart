@@ -59,6 +59,7 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
               bottomButtonBar: [
                 const MaterialPositionIndicator(),
                 const Spacer(),
+                const MaterialDesktopVolumeButton(),
                 MaterialCustomButton(
                   onPressed: widget.onToggleFullscreen,
                   icon: const Icon(Icons.fullscreen),
@@ -137,6 +138,7 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
               bottomButtonBar: [
                 const MaterialPositionIndicator(),
                 const Spacer(),
+                const MaterialDesktopVolumeButton(),
                 MaterialCustomButton(
                   onPressed: widget.onToggleFullscreen,
                   icon: const Icon(Icons.fullscreen_exit),

@@ -31,6 +31,9 @@ abstract class ICallService {
   /// Callback for when a remote stream is removed
   set onRemoteStreamRemoved(Function(String userId)? callback);
 
+  /// Forget a user (close connection and clear signaling data)
+  Future<void> forgetUser(String userId);
+
   /// Clean up resources
   Future<void> dispose();
 }

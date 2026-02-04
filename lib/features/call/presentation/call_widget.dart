@@ -34,10 +34,17 @@ class _CallWidgetState extends State<CallWidget> {
                   final entries = state.activeUsers.entries.toList();
                   final userId = entries[index].key;
                   final userName = entries[index].value;
+                  final isMe = userId == context.read<CallBloc>().userId;
 
-                  if (userId == context.read<CallBloc>().userId) {
-                    return const SizedBox.shrink();
+                  if (isMe) {
+                    return _buildMiniCameraItem(
+                      name: 'Sen',
+                      isLocal: true,
+                      hasVideo: state.isVideoEnabled,
+                      renderer: state.localRenderer,
+                    );
                   }
+
                   final renderer = state.remoteRenderers[userId];
                   final hasVideo = state.userVideoStates[userId] ?? false;
 

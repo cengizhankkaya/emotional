@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 
-import 'package:emotional/features/auth/bloc/auth_bloc.dart';
-import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
 import 'package:emotional/features/room/presentation/widgets/armchair_selector_sheet.dart';
 import 'package:flutter/material.dart';
@@ -97,10 +95,8 @@ class RoomTopBar extends StatelessWidget {
     return _buildGlassButton(
       context: context,
       onPressed: () {
-        final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
-        context.read<RoomBloc>().add(
-          LeaveRoomRequested(roomId: roomId, userId: user.uid),
-        );
+        // Sadece pop yapıyoruz, temizlik işini RoomScreen'deki PopScope halledecek.
+        Navigator.of(context).pop();
       },
       icon: Icons.no_meeting_room,
       iconColor: Colors.redAccent,

@@ -20,6 +20,9 @@ class MediaDeviceService implements IMediaDeviceService {
   }) async {
     _currentQuality = quality;
     await _startStream();
+    // Varsayılan olarak açık başlıyoruz, sorunları ekarte etmek için
+    toggleVideo(true);
+    toggleMute(false);
   }
 
   Future<void> _startStream() async {
@@ -112,18 +115,36 @@ class MediaDeviceService implements IMediaDeviceService {
   @override
   void toggleVideo(bool enabled) {
     if (_localStream != null) {
-      _localStream!.getVideoTracks().forEach((track) {
+      final tracks = _localStream!.getVideoTracks();
+      print(
+        'MediaDeviceService: Toggling video to $enabled. Found ${tracks.length} video tracks.',
+      );
+      tracks.forEach((track) {
         track.enabled = enabled;
+        print(
+          'MediaDeviceService: Video track ${track.id} enabled set to $enabled',
+        );
       });
+    } else {
+      print('MediaDeviceService: _localStream is null, cannot toggle video.');
     }
   }
 
   @override
   void toggleMute(bool muted) {
     if (_localStream != null) {
-      _localStream!.getAudioTracks().forEach((track) {
+      final tracks = _localStream!.getAudioTracks();
+      print(
+        'MediaDeviceService: Toggling mute to $muted. Found ${tracks.length} audio tracks.',
+      );
+      tracks.forEach((track) {
         track.enabled = !muted;
+        print(
+          'MediaDeviceService: Audio track ${track.id} enabled set to ${!muted}',
+        );
       });
+    } else {
+      print('MediaDeviceService: _localStream is null, cannot toggle mute.');
     }
   }
 

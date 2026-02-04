@@ -32,6 +32,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final DownloadManager _downloadManager;
   late final FloatingMessageManager _floatingMessageManager;
+  bool _isLeaving = false;
 
   @override
   void initState() {
@@ -171,15 +172,15 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
             context,
           ).showSnackBar(SnackBar(content: Text(state.message)));
         } else if (state is RoomInitial) {
-          // Ensure call is left when leaving the room
-          context.read<CallBloc>().add(LeaveCall());
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Oda kapatıldı veya odadan ayrıldınız.'),
-            ),
-          );
-          Navigator.of(context).pop();
+          if (!_isLeaving) {
+            _isLeaving = true;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Oda kapatıldı veya odadan ayrıldınız.'),
+              ),
+            );
+            Navigator.of(context).pop();
+          }
         } else if (state is RoomJoined) {
           // Join the call when room is joined, but only if not already connected
           final callState = context.read<CallBloc>().state;
@@ -213,7 +214,9 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 
         return PopScope(
           onPopInvokedWithResult: (didPop, result) {
-            if (didPop) {
+            if (didPop && !_isLeaving) {
+              _isLeaving = true;
+              print('RoomScreen: Pop detected, cleaning up room and call.');
               // Ensure we leave the call and the room when the screen is closed (popped)
               context.read<CallBloc>().add(LeaveCall());
               context.read<RoomBloc>().add(

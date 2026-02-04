@@ -81,12 +81,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
       await _cleanup();
 
-      // 2. Initialize Media Devices (Start with both OFF as confirmed)
+      // 2. Initialize Media Devices (Tracks ready and ENABLED by default)
       await _mediaDeviceService.initialize();
       await _mediaDeviceService.enableSpeakerphone(true);
 
-      _mediaDeviceService.toggleVideo(false);
-      _mediaDeviceService.toggleMute(true);
+      _mediaDeviceService.toggleVideo(true);
+      _mediaDeviceService.toggleMute(false);
 
       // Update local stream in CallService too (so it can be added to PeerConnections)
       _callService.updateLocalStream(_mediaDeviceService.localStream);
@@ -113,12 +113,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       // 6. Setup Room Listeners (User Discovery)
       _setupRoomListeners();
 
-      // 7. Initialize User Media State in Firebase (Start as OFF)
+      // 7. Initialize User Media State in Firebase (Start as ON)
       await roomRepository.updateUserMediaState(
         _roomId!,
         _userId!,
-        isVideoEnabled: false,
-        isAudioEnabled: false,
+        isVideoEnabled: true,
+        isAudioEnabled: true,
       );
 
       // 8. Get Initial Devices List
@@ -136,8 +136,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           videoInputs: videoInputs,
           audioInputs: audioInputs,
           audioOutputs: audioOutputs,
-          isVideoEnabled: false, // Default OFF
-          isMuted: true, // Default OFF
+          isVideoEnabled: true, // Default ON
+          isMuted: false, // Default OFF (not muted)
         ),
       );
     } catch (e) {
@@ -156,7 +156,23 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       if (!data.containsKey('users')) return;
 
       final users = Map<String, dynamic>.from(data['users'] as Map);
-      final currentUserIds = users.keys.toSet();
+      final currentUserIds = users.keys.map((e) => e.toString()).toSet();
+
+      // --- Re-entry Koruması ---
+      // Eğer bir kullanıcı artık odada değilse, onunla olan 'bağlantı başlatıldı' işaretini kaldırıyoruz.
+      // Ayrıca tüm yerel WebRTC nesnelerini ve sinyal verilerini temizliyoruz.
+
+      // Odadan AYRILMIŞ olanları tespit et
+      final currentlyActiveIds = _activeUsers.keys.toSet();
+      final removedUserIds = currentlyActiveIds.difference(currentUserIds);
+
+      for (final removedUid in removedUserIds) {
+        print("[CallBloc] User $removedUid left, cleaning up artifacts.");
+        _callService.forgetUser(
+          removedUid,
+        ); // PC kapat, sinyalleri sil, streamRemoved tetikle
+        _connectionInitiated.remove(removedUid);
+      }
 
       // Update active users map for UI
       _activeUsers = users.map(
@@ -183,10 +199,21 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         // This is a simple way to prevent "Glare" where both try to call each other at the exact same time.
         if (_userId!.compareTo(otherUserId) < 0) {
           if (!_connectionInitiated.contains(otherUserId)) {
-            print("[CallBloc] Initiating connection to $otherUserId");
+            print(
+              "[CallBloc] I AM INITIATOR for $otherUserId. Initializing connection in 500ms...",
+            );
             _connectionInitiated.add(otherUserId);
-            _callService.connect(otherUserId);
+            // Give a small grace period for the other side to be ready for incoming signals
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (_connectionInitiated.contains(otherUserId)) {
+                _callService.connect(otherUserId);
+              }
+            });
           }
+        } else {
+          print(
+            "[CallBloc] I AM CALLEE for $otherUserId. Waiting for offer...",
+          );
         }
       }
 
@@ -246,6 +273,14 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     Emitter<CallState> emit,
   ) async {
     print("[CallBloc] Incoming stream received from ${event.userId}");
+
+    // Eski bir renderer varsa temizle (bellek sızıntısı ve çakışma önleme)
+    final oldRenderer = _remoteRenderers.remove(event.userId);
+    if (oldRenderer != null) {
+      oldRenderer.srcObject = null;
+      await oldRenderer.dispose();
+    }
+
     final renderer = RTCVideoRenderer();
     await renderer.initialize();
     renderer.srcObject = event.stream;
@@ -287,6 +322,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     }
     _remoteRenderers.clear();
     _connectionInitiated.clear();
+    _activeUsers.clear();
+    _userVideoStates.clear();
+    _userAudioStates.clear();
 
     await _callService.dispose();
     // We don't dispose mediaDeviceService fully if we want to preview?
