@@ -42,7 +42,7 @@ class CallConnected extends CallState {
     this.userVideoStates = const {},
     this.userAudioStates = const {},
     this.isMuted = false,
-    this.isVideoEnabled = true,
+    this.isVideoEnabled = false,
     this.videoInputs = const [],
     this.audioInputs = const [],
     this.audioOutputs = const [],

@@ -22,9 +22,7 @@ class MyApp extends StatelessWidget {
       locale: context.locale,
       theme: ApplicationTheme.build(context).themeData,
       builder: (context, child) {
-        return VersionCheckWrapper(
-          child: MiniPlayerOverlay(child: child ?? const SizedBox.shrink()),
-        );
+        return VersionCheckWrapper(child: child ?? const SizedBox.shrink());
       },
       home: const AuthStatusWrapper(),
     );

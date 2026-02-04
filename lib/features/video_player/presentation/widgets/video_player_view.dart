@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
+import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_event.dart';
@@ -68,9 +69,7 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
               topButtonBar: [
                 TextButton.icon(
                   onPressed: () {
-                    context.read<VideoPlayerBloc>().add(
-                      const ToggleMinimize(isMinimized: true),
-                    );
+                    context.read<VideoPlayerBloc>().add(ClosePlayer());
                     Navigator.of(context).pop();
                   },
                   icon: const Icon(
@@ -95,9 +94,18 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
                       );
                     } else {
                       final isVideoEnabled = callState.isVideoEnabled;
+                      final isMuted = callState.isMuted;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          MaterialCustomButton(
+                            onPressed: () =>
+                                context.read<CallBloc>().add(ToggleMute()),
+                            icon: Icon(
+                              isMuted ? Icons.mic_off : Icons.mic,
+                              color: Colors.white,
+                            ),
+                          ),
                           MaterialCustomButton(
                             onPressed: widget.onToggleVideo,
                             icon: Icon(
@@ -147,9 +155,7 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
               topButtonBar: [
                 TextButton.icon(
                   onPressed: () {
-                    context.read<VideoPlayerBloc>().add(
-                      const ToggleMinimize(isMinimized: true),
-                    );
+                    context.read<VideoPlayerBloc>().add(ClosePlayer());
                     Navigator.of(context).pop();
                   },
                   icon: const Icon(
@@ -174,9 +180,18 @@ class _VideoPlayerViewState extends State<VideoPlayerView> {
                       );
                     } else {
                       final isVideoEnabled = callState.isVideoEnabled;
+                      final isMuted = callState.isMuted;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          MaterialCustomButton(
+                            onPressed: () =>
+                                context.read<CallBloc>().add(ToggleMute()),
+                            icon: Icon(
+                              isMuted ? Icons.mic_off : Icons.mic,
+                              color: Colors.white,
+                            ),
+                          ),
                           MaterialCustomButton(
                             onPressed: widget.onToggleVideo,
                             icon: Icon(

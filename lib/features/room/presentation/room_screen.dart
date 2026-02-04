@@ -67,6 +67,10 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         context.read<CallBloc>().add(
           JoinCall(roomId: roomState.roomId, userId: roomState.userId),
         );
+        // Check if video already exists on re-entry
+        if (roomState.driveFileName != null) {
+          _downloadManager.checkFileExists(roomState.driveFileName!);
+        }
       }
     });
 
@@ -429,7 +433,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                               participantId != null &&
                               participantId != currentUserId,
                           roomId: roomId,
-                          hideAvatar: isEsce,
+                          hideAvatar: false,
                         ),
                       );
                     }),

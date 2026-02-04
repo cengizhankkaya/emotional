@@ -121,18 +121,62 @@ class DownloadManager {
 
   Future<void> loadDownloadedVideos(DriveService driveService) async {
     try {
-      final files = await driveService.listVideoFiles();
       final appDir = await getApplicationDocumentsDirectory();
+      final dir = Directory(appDir.path);
+
+      // 1. Scan local directory for all files
+      final List<FileSystemEntity> entities = await dir.list().toList();
+      final localFiles = entities.whereType<File>().toList();
+
+      // 2. Try to get metadata from Drive if possible
+      List<drive.File> driveMetadata = [];
+      try {
+        driveMetadata = await driveService.listVideoFiles();
+      } catch (e) {
+        debugPrint(
+          'DownloadManager: Could not fetch Drive metadata, using local-only info: $e',
+        );
+      }
 
       final downloaded = <drive.File>[];
-      for (var file in files) {
-        if (file.name != null) {
-          final localFile = File('${appDir.path}/${file.name}');
-          if (await localFile.exists()) {
-            downloaded.add(file);
-          }
+
+      final videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.webm'];
+
+      for (var localFile in localFiles) {
+        final fileName = localFile.path.split('/').last;
+
+        // Skip hidden files
+        if (fileName.startsWith('.')) continue;
+
+        // Filter for video extensions
+        final extension = fileName
+            .substring(fileName.lastIndexOf('.'))
+            .toLowerCase();
+        if (!videoExtensions.contains(extension)) continue;
+
+        // Try to find matching metadata from Drive
+        final match = driveMetadata
+            .where((df) => df.name == fileName)
+            .firstOrNull;
+
+        if (match != null) {
+          downloaded.add(match);
+        } else {
+          // If no match in Drive (maybe deleted from Drive, or Drive offline),
+          // create a stub entry so it's still clickable/playable
+          final stat = await localFile.stat();
+          downloaded.add(
+            drive.File()
+              ..name = fileName
+              ..id =
+                  'local_$fileName' // Pseudo-ID for local files
+              ..size = stat.size.toString(),
+          );
         }
       }
+
+      // Sort by name for consistent UI
+      downloaded.sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
 
       _downloadedVideos = downloaded;
       _notifyStateChanged();
@@ -200,7 +244,10 @@ class DownloadManager {
           const SnackBar(content: Text('İndirme arka planda başlatıldı...')),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('DownloadManager: Error starting download: $e');
+      debugPrint('Stacktrace: $stackTrace');
+
       _downloadProgress = null;
       _downloadStatus = 'Hata oluştu';
       _notifyStateChanged();
@@ -211,15 +258,20 @@ class DownloadManager {
       if (errorString.contains('User not signed in')) {
         userMessage = 'Oturum açılmamış. Lütfen giriş yapın.';
       } else if (errorString.contains('SocketException') ||
-          errorString.contains('Network is unreachable')) {
-        userMessage = 'İnternet bağlantısı kurulamadı.';
+          errorString.contains('Network is unreachable') ||
+          errorString.contains('HandshakeException')) {
+        userMessage = 'İnternet bağlantısı kurulamadı veya ağ kısıtlı.';
       } else {
         userMessage = 'İndirme hatası: $errorString';
       }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userMessage), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(userMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }

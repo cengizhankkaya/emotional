@@ -210,14 +210,37 @@ class VideoControlSheet extends StatelessWidget {
           Expanded(
             flex: 2,
             child: ElevatedButton.icon(
-              onPressed: onDownloadOrPlay,
-              icon: Icon(isVideoDownloaded ? Icons.play_arrow : Icons.download),
-              label: Text(isVideoDownloaded ? 'Oynat' : 'İndir'),
+              onPressed: (downloadProgress != null) ? null : onDownloadOrPlay,
+              icon: downloadProgress != null
+                  ? SizedBox(
+                      width: context.dynamicValue(16),
+                      height: context.dynamicValue(16),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    )
+                  : Icon(isVideoDownloaded ? Icons.play_arrow : Icons.download),
+              label: Text(
+                isVideoDownloaded
+                    ? 'Oynat'
+                    : downloadProgress != null
+                    ? 'İndiriliyor %${(downloadProgress! * 100).toInt()}'
+                    : 'İndir',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isVideoDownloaded
                     ? Colors.green
+                    : downloadProgress != null
+                    ? Colors.blueAccent.withValues(alpha: 0.5)
                     : Colors.blueAccent,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.blueAccent.withValues(
+                  alpha: 0.5,
+                ),
+                disabledForegroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: ProjectRadius.medium(),
                 ),

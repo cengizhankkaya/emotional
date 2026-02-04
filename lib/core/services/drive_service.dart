@@ -105,6 +105,11 @@ class DriveService {
     bool showNotification = true,
   }) async {
     try {
+      // 0. Ensure user is signed in and token is fresh
+      if (_googleSignIn.currentUser == null) {
+        await _googleSignIn.signInSilently();
+      }
+
       // Get access token
       final authHeaders = await _googleSignIn.currentUser?.authHeaders;
       final accessToken = authHeaders?['Authorization'];

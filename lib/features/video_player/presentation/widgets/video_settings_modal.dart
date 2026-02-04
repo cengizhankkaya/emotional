@@ -41,9 +41,60 @@ class VideoSettingsModal extends StatelessWidget {
               VideoSpeedModal.show(context, player);
             },
           ),
+          const Divider(color: Colors.white12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.volume_up, color: Colors.white, size: 20),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Ses Seviyesi',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    const Spacer(),
+                    StreamBuilder<double>(
+                      stream: player.stream.volume,
+                      builder: (context, snapshot) {
+                        final volume = (snapshot.data ?? player.state.volume)
+                            .round();
+                        return Text(
+                          '%$volume',
+                          style: const TextStyle(color: Colors.grey),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                StreamBuilder<double>(
+                  stream: player.stream.volume,
+                  builder: (context, snapshot) {
+                    final volume = snapshot.data ?? player.state.volume;
+                    return Slider(
+                      value: volume,
+                      min: 0.0,
+                      max: 100.0,
+                      activeColor: Colors.blue,
+                      inactiveColor: Colors.white10,
+                      onChanged: (value) {
+                        player.setVolume(value);
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white12),
           ListTile(
             leading: const Icon(Icons.audiotrack, color: Colors.white),
-            title: const Text('Ses', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Ses Kanalı',
+              style: TextStyle(color: Colors.white),
+            ),
             onTap: () {
               Navigator.pop(context);
               VideoAudioModal.show(context, player);

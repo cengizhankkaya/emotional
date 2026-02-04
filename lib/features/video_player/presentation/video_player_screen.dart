@@ -128,10 +128,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
             // User popped the screen (Back button or Navigator.pop)
-            // Minimize the player
-            context.read<VideoPlayerBloc>().add(
-              const ToggleMinimize(isMinimized: true),
-            );
+            // Stop and Close the player instead of minimizing
+            context.read<VideoPlayerBloc>().add(ClosePlayer());
           }
         },
         child: Scaffold(

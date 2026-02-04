@@ -85,7 +85,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       await _mediaDeviceService.initialize();
       await _mediaDeviceService.enableSpeakerphone(true);
 
-      _mediaDeviceService.toggleVideo(true);
+      _mediaDeviceService.toggleVideo(false);
       _mediaDeviceService.toggleMute(false);
 
       // Update local stream in CallService too (so it can be added to PeerConnections)
@@ -117,7 +117,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       await roomRepository.updateUserMediaState(
         _roomId!,
         _userId!,
-        isVideoEnabled: true,
+        isVideoEnabled: false,
         isAudioEnabled: true,
       );
 
@@ -136,7 +136,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           videoInputs: videoInputs,
           audioInputs: audioInputs,
           audioOutputs: audioOutputs,
-          isVideoEnabled: true, // Default ON
+          isVideoEnabled: false, // Default OFF
           isMuted: false, // Default OFF (not muted)
         ),
       );
