@@ -61,13 +61,6 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   }
 
   Future<void> _onJoinCall(JoinCall event, Emitter<CallState> emit) async {
-    // If we are already connected to the SAME room, don't re-join
-    if (state is CallConnected &&
-        _roomId == event.roomId &&
-        _userId == event.userId) {
-      return;
-    }
-
     emit(CallLoading());
     try {
       _roomId = event.roomId;
@@ -88,7 +81,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
       await _cleanup();
 
-      // 2. Initialize Media Devices (Start with both OFF)
+      // 2. Initialize Media Devices (Start with both OFF as confirmed)
       await _mediaDeviceService.initialize();
       await _mediaDeviceService.enableSpeakerphone(true);
 

@@ -211,129 +211,142 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
             (context.read<AuthBloc>().state as AuthAuthenticated).user.uid;
         final isHost = currentUserId == hostId;
 
-        return BlocProvider(
-          key: ValueKey(roomId),
-          create: (context) => RoomDecorationCubit(
-            roomRepository: context.read<RoomRepository>(),
-            roomId: roomId,
-          ),
-          child: BlocListener<RoomBloc, RoomState>(
-            listenWhen: (previous, current) {
-              if (previous is RoomJoined && current is RoomJoined) {
-                return previous.armchairStyle != current.armchairStyle;
-              }
-              return false;
-            },
-            listener: (context, state) {
-              if (state is RoomJoined && state.armchairStyle != null) {
-                context.read<RoomDecorationCubit>().updateFromSync(
-                  state.armchairStyle!,
-                );
-              }
-            },
-            child: Builder(
-              builder: (context) {
-                // Initialize cubit from initial room state
-                final initialStyle =
-                    (context.read<RoomBloc>().state as RoomJoined)
-                        .armchairStyle;
-                if (initialStyle != null) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    context.read<RoomDecorationCubit>().updateFromSync(
-                      initialStyle,
-                    );
-                  });
+        return PopScope(
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) {
+              // Ensure we leave the call and the room when the screen is closed (popped)
+              context.read<CallBloc>().add(LeaveCall());
+              context.read<RoomBloc>().add(
+                LeaveRoomRequested(roomId: roomId, userId: currentUserId),
+              );
+            }
+          },
+          child: BlocProvider(
+            key: ValueKey(roomId),
+            create: (context) => RoomDecorationCubit(
+              roomRepository: context.read<RoomRepository>(),
+              roomId: roomId,
+            ),
+            child: BlocListener<RoomBloc, RoomState>(
+              listenWhen: (previous, current) {
+                if (previous is RoomJoined && current is RoomJoined) {
+                  return previous.armchairStyle != current.armchairStyle;
                 }
-
-                // Load chat messages when room is joined
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  context.read<ChatBloc>().add(LoadMessages(roomId));
-                });
-
-                // Video State
-                final driveFileName = roomState.driveFileName;
-                final driveFileId = roomState.driveFileId;
-
-                return BlocListener<ChatBloc, ChatState>(
-                  listener: (context, chatState) {
-                    if (chatState is ChatLoaded &&
-                        chatState.messages.isNotEmpty) {
-                      final lastMessage = chatState.messages.last;
-                      _floatingMessageManager.showFloatingMessage(
-                        context,
-                        lastMessage,
-                        participants,
+                return false;
+              },
+              listener: (context, state) {
+                if (state is RoomJoined && state.armchairStyle != null) {
+                  context.read<RoomDecorationCubit>().updateFromSync(
+                    state.armchairStyle!,
+                  );
+                }
+              },
+              child: Builder(
+                builder: (context) {
+                  // Initialize cubit from initial room state
+                  final initialStyle =
+                      (context.read<RoomBloc>().state as RoomJoined)
+                          .armchairStyle;
+                  if (initialStyle != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      context.read<RoomDecorationCubit>().updateFromSync(
+                        initialStyle,
                       );
-                    }
-                  },
-                  child: Scaffold(
-                    key: _scaffoldKey,
-                    endDrawer: Drawer(
-                      width: context.dynamicWidth(0.85),
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      child: ChatWidget(
-                        roomId: roomId,
-                        onClose: () => Navigator.of(context).pop(),
+                    });
+                  }
+
+                  // Load chat messages when room is joined
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    context.read<ChatBloc>().add(LoadMessages(roomId));
+                  });
+
+                  // Video State
+                  final driveFileName = roomState.driveFileName;
+                  final driveFileId = roomState.driveFileId;
+
+                  return BlocListener<ChatBloc, ChatState>(
+                    listener: (context, chatState) {
+                      if (chatState is ChatLoaded &&
+                          chatState.messages.isNotEmpty) {
+                        final lastMessage = chatState.messages.last;
+                        _floatingMessageManager.showFloatingMessage(
+                          context,
+                          lastMessage,
+                          participants,
+                        );
+                      }
+                    },
+                    child: Scaffold(
+                      key: _scaffoldKey,
+                      endDrawer: Drawer(
+                        width: context.dynamicWidth(0.85),
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        child: ChatWidget(
+                          roomId: roomId,
+                          onClose: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFF1A1D21),
+                      body: Stack(
+                        children: [
+                          // Background Room Layout
+                          Positioned.fill(
+                            child: _buildRoomLayout(
+                              participants: participants,
+                              userNames: userNames,
+                              isHost: isHost,
+                              currentUserId: currentUserId,
+                              roomId: roomId,
+                              hostId: hostId,
+                            ),
+                          ),
+                          // UI Overlay
+                          SafeArea(
+                            child: Column(
+                              children: [
+                                RoomTopBar(
+                                  roomId: roomId,
+                                  scaffoldKey: _scaffoldKey,
+                                ),
+                                const Spacer(),
+                                VideoControlSheet(
+                                  isHost: isHost,
+                                  roomId: roomId,
+                                  fileName: driveFileName,
+                                  fileId: driveFileId,
+                                  downloadedVideos:
+                                      _downloadManager.downloadedVideos,
+                                  downloadProgress:
+                                      _downloadManager.downloadProgress,
+                                  downloadStatus:
+                                      _downloadManager.downloadStatus,
+                                  isVideoDownloaded:
+                                      _downloadManager.isVideoDownloaded,
+                                  localVideoFile:
+                                      _downloadManager.localVideoFile,
+                                  onPickVideo: () => _pickVideo(roomId),
+                                  onSelectVideo: (video) =>
+                                      _selectVideo(roomId, video),
+                                  onDownloadOrPlay: () {
+                                    if (driveFileId != null &&
+                                        driveFileName != null) {
+                                      _handleDownloadOrPlay(
+                                        driveFileId,
+                                        driveFileName,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    backgroundColor: const Color(0xFF1A1D21),
-                    body: Stack(
-                      children: [
-                        // Background Room Layout
-                        Positioned.fill(
-                          child: _buildRoomLayout(
-                            participants: participants,
-                            userNames: userNames,
-                            isHost: isHost,
-                            currentUserId: currentUserId,
-                            roomId: roomId,
-                            hostId: hostId,
-                          ),
-                        ),
-                        // UI Overlay
-                        SafeArea(
-                          child: Column(
-                            children: [
-                              RoomTopBar(
-                                roomId: roomId,
-                                scaffoldKey: _scaffoldKey,
-                              ),
-                              const Spacer(),
-                              VideoControlSheet(
-                                isHost: isHost,
-                                roomId: roomId,
-                                fileName: driveFileName,
-                                fileId: driveFileId,
-                                downloadedVideos:
-                                    _downloadManager.downloadedVideos,
-                                downloadProgress:
-                                    _downloadManager.downloadProgress,
-                                downloadStatus: _downloadManager.downloadStatus,
-                                isVideoDownloaded:
-                                    _downloadManager.isVideoDownloaded,
-                                localVideoFile: _downloadManager.localVideoFile,
-                                onPickVideo: () => _pickVideo(roomId),
-                                onSelectVideo: (video) =>
-                                    _selectVideo(roomId, video),
-                                onDownloadOrPlay: () {
-                                  if (driveFileId != null &&
-                                      driveFileName != null) {
-                                    _handleDownloadOrPlay(
-                                      driveFileId,
-                                      driveFileName,
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         );

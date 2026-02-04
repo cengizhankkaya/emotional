@@ -178,9 +178,9 @@ class WebRTCService implements ICallService {
         print("[WebRTC] Already connected to $targetUserId");
         return;
       }
-      // If failed/closed, maybe we should restart? For now, just return to prevent double initialization
-      print("[WebRTC] Connection to $targetUserId exists (state: $state)");
-      return;
+      print("[WebRTC] Connection to $targetUserId is $state, restarting...");
+      await pc?.close();
+      _peerConnections.remove(targetUserId);
     }
 
     print("[WebRTC] Creating peer connection for $targetUserId");
@@ -200,9 +200,15 @@ class WebRTCService implements ICallService {
     print("[WebRTC] Received offer from $fromUserId");
     var pc = _peerConnections[fromUserId];
 
-    if (pc == null) {
-      pc = await createPeerConnection(fromUserId);
+    if (pc != null) {
+      print(
+        "[WebRTC] Closing stale PC for $fromUserId before processing new offer",
+      );
+      await pc.close();
+      _peerConnections.remove(fromUserId);
     }
+
+    pc = await createPeerConnection(fromUserId);
 
     await pc.setRemoteDescription(description);
     _remoteDescriptionSet.add(fromUserId);
