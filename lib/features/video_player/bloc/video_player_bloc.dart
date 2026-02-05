@@ -61,7 +61,12 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
   ) async {
     if (state is VideoPlayerActive) {
       final activeState = state as VideoPlayerActive;
-      await activeState.player.dispose();
+      try {
+        await activeState.player.dispose();
+      } catch (e) {
+        // Already disposed or failed to dispose
+        print('VideoPlayerBloc: Error during player disposal: $e');
+      }
       emit(VideoPlayerInitial());
     }
   }

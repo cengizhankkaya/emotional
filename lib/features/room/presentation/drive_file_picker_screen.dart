@@ -1,14 +1,12 @@
-import 'dart:io';
-
 import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_empty_state.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_error_view.dart';
+import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_list_item.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:path_provider/path_provider.dart';
 
 class DriveFilePickerScreen extends StatefulWidget {
   const DriveFilePickerScreen({super.key});
@@ -32,24 +30,18 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
   Future<void> _loadFiles() async {
     try {
       final driveService = context.read<DriveService>();
+      final downloadManager = DownloadManager();
+
+      // 1. Refresh global download list (scans all directories)
+      await downloadManager.loadDownloadedVideos(driveService);
+
+      // 2. Fetch all files from Drive
       final files = await driveService.listVideoFiles();
-
-      final appDir = await getApplicationDocumentsDirectory();
-      final downloadedFiles = <drive.File>[];
-
-      for (var file in files) {
-        if (file.name != null) {
-          final localFile = File('${appDir.path}/${file.name}');
-          if (await localFile.exists()) {
-            downloadedFiles.add(file);
-          }
-        }
-      }
 
       if (mounted) {
         setState(() {
           _allFiles = files;
-          _downloadedFiles = downloadedFiles;
+          _downloadedFiles = downloadManager.downloadedVideos;
           _isLoading = false;
         });
       }
@@ -96,16 +88,16 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        final appDir = await getApplicationDocumentsDirectory();
-        final localFile = File('${appDir.path}/${file.name}');
-        if (await localFile.exists()) {
-          await localFile.delete();
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Dosya silindi.')));
-            _loadFiles(); // Refresh UI
-          }
+        final downloadManager = DownloadManager();
+        final driveService = context.read<DriveService>();
+
+        await downloadManager.deleteDownloadedVideo(file.name!, driveService);
+
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Dosya silindi.')));
+          _loadFiles(); // Refresh UI
         }
       } catch (e) {
         if (mounted) {

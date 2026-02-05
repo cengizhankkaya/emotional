@@ -8,6 +8,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Custom AppBar for the Home Screen
+import 'package:emotional/product/widget/network_status_header.dart';
+
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   const HomeAppBar({super.key});
 
@@ -42,6 +44,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       actions: [
+        const Center(child: NetworkStatusHeader(isIconOnly: true)),
+        const SizedBox(width: 8),
         Padding(
           padding: const ProjectPadding.allSmall(),
           child: ClipOval(child: Assets.logo.logo.image(fit: BoxFit.cover)),

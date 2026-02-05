@@ -58,13 +58,45 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     on<ChangeAudioOutput>(_onChangeAudioOutput);
     on<ChangeQuality>(_onChangeQuality);
     on<ChangeVideoSize>(_onChangeVideoSize);
+    on<SuspendMedia>(_onSuspendMedia);
+    on<ResumeMedia>(_onResumeMedia);
   }
+
+  bool _isVideoEnabledBeforeSuspend = false;
+  bool _isAudioEnabledBeforeSuspend = true;
+  bool _isSuspended = false;
+  bool _isCallActive = false;
 
   Future<void> _onJoinCall(JoinCall event, Emitter<CallState> emit) async {
     emit(CallLoading());
     try {
       _roomId = event.roomId;
       _userId = event.userId;
+
+      if (_isSuspended) {
+        print(
+          '[CallBloc] JoinCall received but app is SUSPENDED. Initializing in BACKGROUND mode (No camera).',
+        );
+        // We will only join the signaling, not media.
+        // Actually, if we are in background, better not to do anything with WebRTC yet
+        // or join only with audio disabled if we really want to stay in call.
+        // For simplicity: don't start media.
+        emit(
+          CallConnected(
+            localRenderer: RTCVideoRenderer(), // Dummy or wait for resume
+            remoteRenderers: const {},
+            activeUsers: const {},
+            userVideoStates: const {},
+            userAudioStates: const {},
+            videoInputs: const [],
+            audioInputs: const [],
+            audioOutputs: const [],
+            isVideoEnabled: false,
+            isMuted: true,
+          ),
+        );
+        return;
+      }
 
       // 1. Check Permissions
       final permissionService = PermissionService();
@@ -140,6 +172,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           isMuted: false, // Default OFF (not muted)
         ),
       );
+      _isCallActive = true;
     } catch (e) {
       emit(CallError('Failed to join call: $e'));
     }
@@ -205,7 +238,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
             _connectionInitiated.add(otherUserId);
             // Give a small grace period for the other side to be ready for incoming signals
             Future.delayed(const Duration(milliseconds: 500), () {
-              if (_connectionInitiated.contains(otherUserId)) {
+              if (_isCallActive && _connectionInitiated.contains(otherUserId)) {
                 _callService.connect(otherUserId);
               }
             });
@@ -308,6 +341,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   }
 
   Future<void> _cleanup() async {
+    _isCallActive = false;
     _roomSubscription?.cancel();
 
     // Dispose Renderers
@@ -345,6 +379,88 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           userId!,
           video: s.isVideoEnabled,
           audio: !s.isMuted,
+        );
+      }
+    }
+  }
+
+  Future<void> _onSuspendMedia(
+    SuspendMedia event,
+    Emitter<CallState> emit,
+  ) async {
+    if (state is CallConnected && !_isSuspended) {
+      final s = state as CallConnected;
+      _isVideoEnabledBeforeSuspend = s.isVideoEnabled;
+      _isAudioEnabledBeforeSuspend = !s.isMuted;
+      _isSuspended = true;
+
+      print(
+        'CallBloc: Suspending media (Physical Release). Video=$_isVideoEnabledBeforeSuspend, Audio=$_isAudioEnabledBeforeSuspend',
+      );
+
+      // 1. Clear local renderer
+      _localRenderer?.srcObject = null;
+
+      // 2. Physical release of camera/mic
+      await _mediaDeviceService.dispose();
+
+      emit(s.copyWith(isVideoEnabled: false, isMuted: true));
+    }
+  }
+
+  Future<void> _onResumeMedia(
+    ResumeMedia event,
+    Emitter<CallState> emit,
+  ) async {
+    if (state is CallConnected && _isSuspended) {
+      final s = state as CallConnected;
+      _isSuspended = false;
+
+      print(
+        'CallBloc: Resuming media (Physical Re-acquisition). Restoring: Video=$_isVideoEnabledBeforeSuspend, Audio=$_isAudioEnabledBeforeSuspend',
+      );
+
+      // 1. Re-initialize media device service
+      await _mediaDeviceService.initialize();
+
+      // 2. Set requested states
+      _mediaDeviceService.toggleVideo(_isVideoEnabledBeforeSuspend);
+      _mediaDeviceService.toggleMute(!_isAudioEnabledBeforeSuspend);
+
+      final newStream = _mediaDeviceService.localStream;
+      if (newStream != null) {
+        // 3. Update local renderer
+        _localRenderer?.srcObject = newStream;
+
+        // 4. Replace tracks for all active peer connections
+        final videoTrack = newStream.getVideoTracks().firstOrNull;
+        if (videoTrack != null) {
+          await _callService.replaceLocalAllVideoTrack(videoTrack);
+        }
+
+        final audioTrack = newStream.getAudioTracks().firstOrNull;
+        if (audioTrack != null) {
+          await _callService.replaceLocalAllAudioTrack(audioTrack);
+        }
+
+        // 5. Update CallService internal stream reference for future connections
+        _callService.updateLocalStream(newStream);
+      }
+
+      emit(
+        s.copyWith(
+          isVideoEnabled: _isVideoEnabledBeforeSuspend,
+          isMuted: !_isAudioEnabledBeforeSuspend,
+        ),
+      );
+
+      // Sync state with Firebase
+      if (_roomId != null && _userId != null) {
+        _syncState(
+          _roomId!,
+          _userId!,
+          video: _isVideoEnabledBeforeSuspend,
+          audio: _isAudioEnabledBeforeSuspend,
         );
       }
     }

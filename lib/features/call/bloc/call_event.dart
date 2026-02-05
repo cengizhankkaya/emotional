@@ -70,3 +70,7 @@ class ToggleMute extends CallEvent {}
 class ToggleVideo extends CallEvent {}
 
 class SwitchCamera extends CallEvent {} // Acts as "Next Camera" legacy support
+
+class SuspendMedia extends CallEvent {}
+
+class ResumeMedia extends CallEvent {}

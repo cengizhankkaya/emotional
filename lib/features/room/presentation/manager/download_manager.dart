@@ -7,9 +7,15 @@ import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path_provider/path_provider.dart';
 import 'package:emotional/core/services/permission_service.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
-class DownloadManager {
+class DownloadManager extends ChangeNotifier {
+  static final DownloadManager _instance = DownloadManager._internal();
+  factory DownloadManager() => _instance;
+  DownloadManager._internal();
+
   final ReceivePort _port = ReceivePort();
+  bool _isInitialized = false;
 
   double? _downloadProgress;
   String? _downloadStatus;
@@ -19,7 +25,6 @@ class DownloadManager {
   String? _currentDownloadingFileId;
   List<drive.File> _downloadedVideos = [];
 
-  VoidCallback? _onStateChanged;
   Function(String)? _onError;
 
   // Getters
@@ -30,21 +35,59 @@ class DownloadManager {
   String? get currentDownloadingFileName => _currentDownloadingFileName;
   List<drive.File> get downloadedVideos => _downloadedVideos;
 
-  void setOnStateChanged(VoidCallback callback) {
-    _onStateChanged = callback;
-  }
-
   void setOnError(Function(String) callback) {
     _onError = callback;
   }
 
-  void initialize() {
+  Future<void> initialize() async {
+    if (_isInitialized) {
+      await refreshTasks();
+      return;
+    }
+
+    // Request permissions for background stability (Android)
+    if (Platform.isAndroid) {
+      final permissionService = PermissionService();
+      await permissionService.requestNotificationPermission();
+      await permissionService.requestStoragePermission();
+
+      // Critical for Android 14+: Battery optimizations must be disabled for long background tasks
+      bool isOptimizing =
+          await ph.Permission.ignoreBatteryOptimizations.isDenied;
+      debugPrint(
+        'DownloadManager: Battery optimization is ${isOptimizing ? "ENABLED (Bad for background)" : "DISABLED (Good)"}',
+      );
+
+      if (isOptimizing) {
+        await permissionService.requestIgnoreBatteryOptimizations();
+      }
+    }
+
     _bindBackgroundIsolate();
     FlutterDownloader.registerCallback(downloadCallback);
-  }
+    _isInitialized = true;
 
-  void dispose() {
-    _unbindBackgroundIsolate();
+    // Task Recovery: Check for existing tasks
+    final tasks = await FlutterDownloader.loadTasks();
+    if (tasks != null && tasks.isNotEmpty) {
+      final lastTask = tasks.last;
+      debugPrint(
+        'DownloadManager: Found existing task: ${lastTask.taskId} - Status: ${lastTask.status}',
+      );
+
+      if (lastTask.status == DownloadTaskStatus.running ||
+          lastTask.status == DownloadTaskStatus.enqueued) {
+        _currentDownloadingFileId = null; // We might not know the ID from task
+        _currentDownloadingFileName = lastTask.filename;
+        _downloadProgress = lastTask.progress / 100.0;
+        _downloadStatus = 'İndiriliyor...';
+        notifyListeners();
+      } else if (lastTask.status == DownloadTaskStatus.complete) {
+        if (lastTask.filename != null) {
+          await checkFileExists(lastTask.filename!);
+        }
+      }
+    }
   }
 
   void _bindBackgroundIsolate() {
@@ -60,16 +103,20 @@ class DownloadManager {
       );
     }
 
-    _port.listen((dynamic data) {
-      final int status = data[1];
+    _port.listen((dynamic data) async {
+      final String id = data[0];
+      final DownloadTaskStatus status = DownloadTaskStatus.fromInt(data[1]);
       final int progress = data[2];
 
-      debugPrint('Download Update: status=$status, progress=$progress');
+      debugPrint(
+        'DownloadManager: Task $id - Status: $status, Progress: $progress',
+      );
 
-      if (status == 3) {
+      if (status == DownloadTaskStatus.complete) {
         // Complete
         _downloadProgress = 1.0;
         _downloadStatus = 'İndirme tamamlandı.';
+        debugPrint('DownloadManager: Download COMPLETED successfully.');
         _notifyStateChanged();
 
         // Delay clearing to let user see "Completed"
@@ -93,17 +140,17 @@ class DownloadManager {
           }
           checkFileExists(_currentDownloadingFileName!);
         }
-      } else if (status == 4) {
-        // Failed
-        const errorMessage =
-            'İndirme başarısız. Lütfen internet bağlantınızı ve izinleri kontrol edin.';
-        _downloadStatus = errorMessage;
-        _downloadProgress = null;
-        _currentDownloadingFileName = null;
+      } else if (status == DownloadTaskStatus.failed ||
+          status == DownloadTaskStatus.canceled) {
+        _handleTaskEnd(id, status, progress);
+      } else if (status == DownloadTaskStatus.paused) {
+      } else if (status == DownloadTaskStatus.paused) {
+        // Paused
+        _downloadStatus = 'Durduruldu ($progress%)';
+        debugPrint('DownloadManager: Download PAUSED (Status 6)');
         _notifyStateChanged();
-        _onError?.call(errorMessage);
       } else {
-        // Running or Pending
+        // Running or Pending (status 1 or 2)
         _downloadProgress = progress / 100.0;
         _downloadStatus = 'İndiriliyor: $progress%';
         _notifyStateChanged();
@@ -111,24 +158,212 @@ class DownloadManager {
     });
   }
 
-  void _unbindBackgroundIsolate() {
-    IsolateNameServer.removePortNameMapping('downloader_send_port');
+  Future<void> _handleTaskEnd(
+    String id,
+    DownloadTaskStatus status,
+    int progress,
+  ) async {
+    final statusName = status == DownloadTaskStatus.failed
+        ? 'Failed'
+        : 'Canceled';
+    debugPrint(
+      'DownloadManager: Status $statusName received. Checking for file existence before reporting error...',
+    );
+
+    _downloadStatus = 'Dosya doğrulanıyor...';
+    _notifyStateChanged();
+
+    // 1. Immediate task-specific check
+    final tasks = await FlutterDownloader.loadTasks();
+    final currentTask = tasks?.where((t) => t.taskId == id).firstOrNull;
+
+    if (currentTask != null && currentTask.filename != null) {
+      final taskFile = File('${currentTask.savedDir}/${currentTask.filename}');
+      if (await taskFile.exists()) {
+        final len = await taskFile.length();
+        if (len > 0) {
+          _localVideoFile = taskFile;
+          _isVideoDownloaded = true;
+        }
+      }
+    }
+
+    // 2. Secondary name-based check
+    if (!_isVideoDownloaded && _currentDownloadingFileName != null) {
+      await checkFileExists(_currentDownloadingFileName!);
+    }
+
+    // 3. Exhaustive search if high progress (Android job timeout / connection loss at the end)
+    if (!_isVideoDownloaded && progress >= 95) {
+      debugPrint(
+        'DownloadManager: High progress ($progress%) but file not found. Starting exhaustive retries...',
+      );
+      for (int i = 0; i < 3; i++) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (_currentDownloadingFileName != null) {
+          await checkFileExists(_currentDownloadingFileName!);
+          if (_isVideoDownloaded) break;
+        }
+      }
+    }
+
+    if (_isVideoDownloaded) {
+      debugPrint('DownloadManager: Status recovery SUCCESSful.');
+      _downloadProgress = 1.0;
+      _downloadStatus = 'İndirme tamamlandı.';
+      _notifyStateChanged();
+
+      if (_currentDownloadingFileId != null &&
+          _currentDownloadingFileName != null) {
+        final newFile = drive.File()
+          ..id = _currentDownloadingFileId
+          ..name = _currentDownloadingFileName;
+        if (!_downloadedVideos.any((f) => f.id == newFile.id)) {
+          _downloadedVideos.add(newFile);
+        }
+      }
+
+      Future.delayed(const Duration(seconds: 2), () {
+        _downloadProgress = null;
+        _downloadStatus = null;
+        _currentDownloadingFileName = null;
+        _notifyStateChanged();
+      });
+      return;
+    }
+
+    // --- RECOVERY FAILED ---
+    final diagnosticInfo = currentTask != null
+        ? 'URL: ${currentTask.url}, Dir: ${currentTask.savedDir}'
+        : 'Task details not found';
+
+    String errorMessage;
+    if (status == DownloadTaskStatus.canceled) {
+      errorMessage = 'İndirme durduruldu veya iptal edildi.';
+    } else {
+      if (diagnosticInfo.contains('403')) {
+        errorMessage = 'Erişim engellendi (403). Oturumunuzu kontrol edin.';
+      } else if (diagnosticInfo.contains('404')) {
+        errorMessage = 'Dosya bulunamadı (404).';
+      } else {
+        errorMessage =
+            'İndirme başarısız. Bağlantınızı kontrol edip tekrar deneyin.';
+      }
+    }
+
+    debugPrint(
+      'DownloadManager: $statusName confirmed as true failure. $diagnosticInfo',
+    );
+
+    // CLEANUP: If it truly failed/canceled and file doesn't exist, delete any partial content
+    try {
+      await FlutterDownloader.remove(taskId: id, shouldDeleteContent: true);
+      debugPrint(
+        'DownloadManager: Cleaned up $statusName task content for $id',
+      );
+    } catch (e) {
+      debugPrint('DownloadManager: Cleanup failed for task $id: $e');
+    }
+
+    _downloadStatus = errorMessage;
+    _downloadProgress = null;
+    _currentDownloadingFileName = null;
+    _notifyStateChanged();
+    _onError?.call(errorMessage);
+  }
+
+  Future<void> refreshTasks() async {
+    final tasks = await FlutterDownloader.loadTasks();
+    if (tasks != null && tasks.isNotEmpty) {
+      for (var task in tasks) {
+        if (task.status == DownloadTaskStatus.complete &&
+            task.filename != null) {
+          if (!_isVideoDownloaded || _localVideoFile == null) {
+            await checkFileExists(task.filename!);
+          }
+        }
+      }
+    }
+    notifyListeners();
   }
 
   void _notifyStateChanged() {
-    _onStateChanged?.call();
+    notifyListeners();
+  }
+
+  Future<List<File>> _getLocalFiles() async {
+    final Map<String, File> uniqueFiles = {};
+
+    // 1. Check FlutterDownloader database - Most reliable source
+    final tasks = await FlutterDownloader.loadTasks();
+    final incompleteTaskPaths = <String>{};
+
+    if (tasks != null && tasks.isNotEmpty) {
+      debugPrint('DownloadManager: Found ${tasks.length} tasks in DB.');
+      for (var task in tasks) {
+        if (task.savedDir != null && task.filename != null) {
+          final filePath = '${task.savedDir}/${task.filename}';
+
+          if (task.status == DownloadTaskStatus.complete) {
+            final file = File(filePath);
+            if (await file.exists() && await file.length() > 0) {
+              uniqueFiles[file.path] = file;
+              debugPrint(
+                'DownloadManager: Found valid completed file: ${file.path}',
+              );
+            }
+          } else {
+            // Mark as incomplete to ignore during directory scan
+            incompleteTaskPaths.add(filePath);
+          }
+        }
+      }
+    }
+
+    // 2. Scan directories as fallback/secondary
+    final paths = await _getPossibleSecondaryPaths(''); // Base dirs
+    debugPrint('DownloadManager: Scanning base directories: $paths');
+
+    for (var dirPath in paths) {
+      final dir = Directory(dirPath);
+      if (await dir.exists()) {
+        try {
+          final list = (await dir.list().toList()).whereType<File>();
+          debugPrint(
+            'DownloadManager: Listing $dirPath found ${list.length} files.',
+          );
+          for (var f in list) {
+            // VALIDATION:
+            // 1. Not in incomplete tasks
+            // 2. Size > 0
+            if (!incompleteTaskPaths.contains(f.path)) {
+              if (await f.exists() && await f.length() > 0) {
+                uniqueFiles[f.path] = f;
+              }
+            } else {
+              debugPrint(
+                'DownloadManager: Ignoring incomplete/failed task file: ${f.path}',
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint(
+            'DownloadManager: Listing $dirPath failed (Normal for Scoped Storage): $e',
+          );
+        }
+      }
+    }
+    return uniqueFiles.values.toList();
   }
 
   Future<void> loadDownloadedVideos(DriveService driveService) async {
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final dir = Directory(appDir.path);
+      final localFiles = await _getLocalFiles();
+      debugPrint(
+        'DownloadManager: Total local files collected: ${localFiles.length}',
+      );
 
-      // 1. Scan local directory for all files
-      final List<FileSystemEntity> entities = await dir.list().toList();
-      final localFiles = entities.whereType<File>().toList();
-
-      // 2. Try to get metadata from Drive if possible
+      // 3. Try to get metadata from Drive if possible
       List<drive.File> driveMetadata = [];
       try {
         driveMetadata = await driveService.listVideoFiles();
@@ -149,9 +384,9 @@ class DownloadManager {
         if (fileName.startsWith('.')) continue;
 
         // Filter for video extensions
-        final extension = fileName
-            .substring(fileName.lastIndexOf('.'))
-            .toLowerCase();
+        final dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex == -1) continue;
+        final extension = fileName.substring(dotIndex).toLowerCase();
         if (!videoExtensions.contains(extension)) continue;
 
         // Try to find matching metadata from Drive
@@ -185,17 +420,65 @@ class DownloadManager {
     }
   }
 
-  Future<void> checkFileExists(String fileName) async {
+  Future<List<String>> _getPossiblePaths(String fileName) async {
     final appDir = await getApplicationDocumentsDirectory();
-    final file = File('${appDir.path}/$fileName');
-    if (await file.exists()) {
-      _isVideoDownloaded = true;
-      _localVideoFile = file;
-    } else {
-      _isVideoDownloaded = false;
-      _localVideoFile = null;
+    final extDir = await getExternalStorageDirectory();
+    final safeName = fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+
+    return [
+      if (fileName.isNotEmpty) ...[
+        '${appDir.path}/$safeName',
+        '${appDir.path}/$fileName',
+        if (extDir != null) ...[
+          '${extDir.path}/$safeName',
+          '${extDir.path}/$fileName',
+        ],
+        '${appDir.parent.path}/app_flutter/$fileName',
+        if (Platform.isAndroid) ...[
+          '/storage/emulated/0/Download/$safeName',
+          '/storage/emulated/0/Download/$fileName',
+        ],
+      ],
+    ];
+  }
+
+  Future<List<String>> _getPossibleSecondaryPaths(String fileName) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final extDir = await getExternalStorageDirectory();
+    return [
+      appDir.path,
+      if (extDir != null) extDir.path,
+      '${appDir.parent.path}/app_flutter',
+      if (Platform.isAndroid) '/storage/emulated/0/Download',
+    ];
+  }
+
+  Future<void> checkFileExists(String fileName) async {
+    try {
+      final pathsToCheck = await _getPossiblePaths(fileName);
+
+      File? foundFile;
+      for (final path in pathsToCheck) {
+        final file = File(path);
+        if (await file.exists() && await file.length() > 0) {
+          foundFile = file;
+          break;
+        }
+      }
+
+      if (foundFile != null) {
+        _isVideoDownloaded = true;
+        _localVideoFile = foundFile;
+        debugPrint('DownloadManager: File FOUND at ${foundFile.path}');
+      } else {
+        _isVideoDownloaded = false;
+        _localVideoFile = null;
+        debugPrint('DownloadManager: File NOT found: $fileName');
+      }
+      _notifyStateChanged();
+    } catch (e) {
+      debugPrint('DownloadManager: Error in checkFileExists: $e');
     }
-    _notifyStateChanged();
   }
 
   Future<void> downloadVideo(
@@ -210,6 +493,9 @@ class DownloadManager {
       _currentDownloadingFileName = fileName;
       _currentDownloadingFileId = fileId;
       _notifyStateChanged();
+
+      // Clean Start: Delete existing local file if it exists to avoid conflicts
+      await deleteDownloadedVideo(fileName, driveService);
 
       bool showNotification = true;
       if (Platform.isAndroid) {
@@ -282,20 +568,21 @@ class DownloadManager {
     DriveService driveService,
   ) async {
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final file = File('${appDir.path}/$fileName');
-      if (await file.exists()) {
-        await file.delete();
+      final paths = await _getPossiblePaths(fileName);
 
-        // Update internal state
-        _downloadedVideos.removeWhere((f) => f.name == fileName);
-        if (_localVideoFile?.path == file.path) {
-          _isVideoDownloaded = false;
-          _localVideoFile = null;
+      for (var path in paths) {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          debugPrint('DownloadManager: Deleted $path');
         }
-
-        _notifyStateChanged();
       }
+
+      // Update internal state
+      _downloadedVideos.removeWhere((f) => f.name == fileName);
+      _isVideoDownloaded = false;
+      _localVideoFile = null;
+      _notifyStateChanged();
     } catch (e) {
       debugPrint('Error deleting video: $e');
     }

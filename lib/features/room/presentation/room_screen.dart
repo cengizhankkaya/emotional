@@ -7,6 +7,7 @@ import 'package:emotional/features/room/presentation/drive_file_picker_screen.da
 import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/features/room/presentation/manager/floating_message_manager.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
+import 'package:emotional/features/room/presentation/widgets/download_interruption_dialog.dart';
 import 'package:emotional/features/room/presentation/widgets/furniture_theme_data.dart';
 import 'package:emotional/features/room/presentation/widgets/room_top_bar.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
@@ -38,9 +39,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _downloadManager = DownloadManager();
-    _downloadManager.setOnStateChanged(() {
-      if (mounted) setState(() {});
-    });
+    _downloadManager.addListener(_onDownloadStateChanged);
     _downloadManager.setOnError((message) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -52,7 +51,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         );
       }
     });
-    _downloadManager.initialize();
+    // _downloadManager.initialize(); // Now initialized globally in ApplicationInit
 
     _floatingMessageManager = FloatingMessageManager();
 
@@ -79,9 +78,22 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      // Suspend camera and mic when app goes to background or task switcher
+      context.read<CallBloc>().add(SuspendMedia());
+      // Notify RoomBloc to stop aggressive re-joins
+      context.read<RoomBloc>().add(const SetRoomAppBackgrounded(true));
+    } else if (state == AppLifecycleState.resumed) {
+      // Resume camera and mic when app comes back
+      context.read<CallBloc>().add(ResumeMedia());
+      // Notify RoomBloc that app is active again
+      context.read<RoomBloc>().add(const SetRoomAppBackgrounded(false));
+
+      // Refresh tasks and check files
+      _downloadManager.refreshTasks();
+
       // Refresh database or state when app comes back
-      // Download checks etc.
       final roomState = context.read<RoomBloc>().state;
       if (roomState is RoomJoined && roomState.driveFileName != null) {
         _downloadManager.checkFileExists(roomState.driveFileName!);
@@ -92,9 +104,13 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _downloadManager.dispose();
+    _downloadManager.removeListener(_onDownloadStateChanged);
     _floatingMessageManager.dispose();
     super.dispose();
+  }
+
+  void _onDownloadStateChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _pickVideo(String roomId) async {
@@ -156,6 +172,13 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         fileName,
         context,
       );
+      // Show warning immediately as a reminder
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => const DownloadInterruptionDialog(),
+        );
+      }
     }
   }
 
@@ -217,15 +240,12 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         final isHost = currentUserId == hostId;
 
         return PopScope(
-          onPopInvokedWithResult: (didPop, result) {
-            if (didPop && !_isLeaving) {
-              _isLeaving = true;
-              print('RoomScreen: Pop detected, cleaning up room and call.');
-              // Ensure we leave the call and the room when the screen is closed (popped)
-              context.read<CallBloc>().add(LeaveCall());
-              context.read<RoomBloc>().add(
-                LeaveRoomRequested(roomId: roomId, userId: currentUserId),
-              );
+          canPop: _isLeaving,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+
+            if (!_isLeaving) {
+              _performPopCleanup(context);
             }
           },
           child: BlocProvider(
@@ -315,6 +335,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                                 RoomTopBar(
                                   roomId: roomId,
                                   scaffoldKey: _scaffoldKey,
+                                  onLeave: () => _performPopCleanup(context),
                                 ),
                                 const Spacer(),
                                 VideoControlSheet(
@@ -385,8 +406,8 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 
                 final seatPositions = isEsce
                     ? [
-                        {'top': 0.90, 'left': 0.30, 'right': null},
-                        {'top': 0.62, 'left': 0.51, 'right': null},
+                        {'top': 0.10, 'left': 0.20, 'right': null},
+                        {'top': 0.10, 'left': null, 'right': 0.20},
                       ]
                     : [
                         {'top': 0.27, 'left': 0.30, 'right': null},
@@ -396,6 +417,18 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                         {'top': 0.52, 'left': 0.05, 'right': null},
                         {'top': 0.49, 'left': 0.52, 'right': null},
                       ];
+
+                // Ensure local user is always visible if they are in the participants list
+                final displayParticipants = List<String>.from(participants);
+                if (displayParticipants.contains(currentUserId)) {
+                  final myIndex = displayParticipants.indexOf(currentUserId);
+                  if (myIndex >= seatPositions.length) {
+                    // Swap local user to a visible seat (index 0)
+                    final otherId = displayParticipants[0];
+                    displayParticipants[0] = currentUserId;
+                    displayParticipants[myIndex] = otherId;
+                  }
+                }
 
                 return Stack(
                   alignment: Alignment.center,
@@ -407,8 +440,9 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                     ),
                     ...List.generate(seatPositions.length, (index) {
                       final pos = seatPositions[index];
-                      final String? participantId = index < participants.length
-                          ? participants[index]
+                      final String? participantId =
+                          index < displayParticipants.length
+                          ? displayParticipants[index]
                           : null;
                       final name = participantId != null
                           ? userNames[participantId] ?? participantId
@@ -685,5 +719,36 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  void _performPopCleanup(BuildContext context) {
+    if (_isLeaving) return;
+
+    setState(() {
+      _isLeaving = true;
+    });
+
+    final roomState = context.read<RoomBloc>().state;
+    if (roomState is! RoomJoined) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    final roomId = roomState.roomId;
+    final currentUserId =
+        (context.read<AuthBloc>().state as AuthAuthenticated).user.uid;
+
+    debugPrint('RoomScreen: Cleaning up room and call.');
+    context.read<CallBloc>().add(LeaveCall());
+    context.read<RoomBloc>().add(
+      LeaveRoomRequested(roomId: roomId, userId: currentUserId),
+    );
+
+    // Give a small delay for events to be dispatched or just pop immediately as the blocs are global
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 }

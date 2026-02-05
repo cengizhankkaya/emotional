@@ -1,145 +1,119 @@
 import 'dart:io';
-import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 
 class DriveService {
   final GoogleSignIn _googleSignIn;
 
-  DriveService({GoogleSignIn? googleSignIn})
-    : _googleSignIn =
-          googleSignIn ??
-          GoogleSignIn(scopes: [drive.DriveApi.driveReadonlyScope]);
+  DriveService({required GoogleSignIn googleSignIn})
+    : _googleSignIn = googleSignIn;
 
-  /// Get authenticated Drive API client
+  Future<GoogleSignInAccount?> signIn() async {
+    try {
+      return await _googleSignIn.signIn();
+    } catch (error) {
+      print('DriveService: Error signing in: $error');
+      return null;
+    }
+  }
+
   Future<drive.DriveApi?> _getDriveApi() async {
-    // Determine if we need to sign in silently
-    if (_googleSignIn.currentUser == null) {
-      try {
-        await _googleSignIn.signInSilently();
-      } catch (e) {
-        print('DriveService: Silent sign-in failed: $e');
-      }
-    }
+    // Mevcut bir oturum yoksa önce sessizce, sonra etkileşimli giriş dene.
+    var account = _googleSignIn.currentUser;
+    account ??= await _googleSignIn.signInSilently();
+    account ??= await _googleSignIn.signIn();
+    if (account == null) return null;
 
-    // Now check if we have a user
-    if (_googleSignIn.currentUser == null) return null;
+    final httpClient = await _googleSignIn.authenticatedClient();
+    if (httpClient == null) return null;
 
-    final client = await _googleSignIn.authenticatedClient();
-    if (client == null) return null;
-    return drive.DriveApi(client);
+    return drive.DriveApi(httpClient);
   }
 
-  /// List video files from Drive
   Future<List<drive.File>> listVideoFiles() async {
-    try {
-      final api = await _getDriveApi();
-      if (api == null) throw Exception('User not signed in');
+    final driveApi = await _getDriveApi();
+    if (driveApi == null) return [];
 
-      final fileList = await api.files.list(
-        q: "mimeType contains 'video/' and trashed = false",
-        $fields: 'files(id, name, mimeType, thumbnailLink, size)',
-      );
-      return fileList.files ?? [];
-    } catch (e) {
-      print('DriveService: Error listing files: $e');
-      rethrow;
-    }
+    final response = await driveApi.files.list(
+      q: "mimeType contains 'video/' and trashed = false",
+      $fields: 'files(id, name, mimeType, size, thumbnailLink)',
+    );
+
+    return response.files ?? [];
   }
 
-  /// Download a file from Drive with progress
-  Future<File> downloadFile(
-    String fileId,
-    String fileName, {
-    Function(int received, int total)? onProgress,
-  }) async {
-    // ... (existing implementation)
-    try {
-      final api = await _getDriveApi();
-      if (api == null) throw Exception('User not signed in');
-
-      final media =
-          await api.files.get(
-                fileId,
-                downloadOptions: drive.DownloadOptions.fullMedia,
-              )
-              as drive.Media;
-
-      final appDir = await getApplicationDocumentsDirectory();
-      final file = File('${appDir.path}/$fileName');
-
-      final sink = file.openWrite();
-      final totalBytes = media.length ?? 0;
-      int receivedBytes = 0;
-
-      await media.stream
-          .listen(
-            (List<int> chunk) {
-              receivedBytes += chunk.length;
-              onProgress?.call(receivedBytes, totalBytes);
-              sink.add(chunk);
-            },
-            onDone: () async {
-              await sink.close();
-            },
-            onError: (e) {
-              sink.close();
-              throw e;
-            },
-          )
-          .asFuture();
-
-      return file;
-    } catch (e) {
-      print('DriveService: Error downloading file: $e');
-      rethrow;
-    }
-  }
-
-  /// Download video in background using flutter_downloader
   Future<String?> downloadVideoInBackground(
     String fileId,
     String fileName, {
     bool showNotification = true,
   }) async {
     try {
-      // 0. Ensure user is signed in and token is fresh
-      if (_googleSignIn.currentUser == null) {
-        await _googleSignIn.signInSilently();
+      final account = _googleSignIn.currentUser;
+      if (account == null) {
+        throw Exception('User not signed in.');
       }
 
-      // Get access token
-      final authHeaders = await _googleSignIn.currentUser?.authHeaders;
-      final accessToken = authHeaders?['Authorization'];
+      final authHeaders = await account.authHeaders;
+      final accessToken = authHeaders['Authorization'];
 
       if (accessToken == null) {
-        throw Exception('User not signed in or no access token');
+        throw Exception('Access token could not be retrieved.');
       }
 
-      final appDir = await getApplicationDocumentsDirectory();
+      // Clean token
+      final cleanToken = accessToken.replaceFirst('Bearer ', '').trim();
+
+      // 1. Verify the file and token with a small metadata call first
+      try {
+        final driveApi = await _getDriveApi();
+        if (driveApi == null) {
+          throw Exception('Drive API could not be initialized.');
+        }
+        await driveApi.files.get(fileId, $fields: 'id,name');
+      } catch (e) {
+        throw Exception('File access/token check failed: $e');
+      }
+
+      final appDir =
+          await getExternalStorageDirectory() ??
+          await getApplicationDocumentsDirectory();
       final savedDir = appDir.path;
 
-      // 1. Sanitize filename (replace invalid chars with underscore)
+      // Ensure directory exists
+      final directory = Directory(savedDir);
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+
+      // Sanitize filename
       final safeFileName = fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
 
-      // URL to download content
-      // NOTE: Google Drive API requires 'alt=media' param to download file content
-      // &acknowledgeAbuse=true bypasses the virus scan warning for large files
-      final url =
-          'https://www.googleapis.com/drive/v3/files/$fileId?alt=media&acknowledgeAbuse=true';
+      // 2. URL to download content
+      // NOTE: We use Header-Only Auth. It's the most standard and stable for Google Drive.
+      // External storage directory is used to avoid the "move to public Downloads" bug that causes Status 4 notifications.
+      final url = 'https://www.googleapis.com/drive/v3/files/$fileId?alt=media';
+
+      debugPrint(
+        'DriveService: [EXTERNAL-STABLE] Enqueuing download for $safeFileName',
+      );
 
       final taskId = await FlutterDownloader.enqueue(
         url: url,
-        headers: {"Authorization": accessToken},
+        headers: {"Authorization": "Bearer $cleanToken"},
         savedDir: savedDir,
         fileName: safeFileName,
-        showNotification:
-            showNotification, // show download progress in status bar (for Android)
-        openFileFromNotification:
-            false, // click on notification to open downloaded file (for Android)
+        showNotification: showNotification,
+        openFileFromNotification: true,
         saveInPublicStorage: false,
+        allowCellular: true,
+      );
+
+      debugPrint(
+        'DriveService: Enqueued task for $safeFileName with ID: $taskId at $savedDir',
       );
 
       return taskId;

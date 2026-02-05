@@ -25,17 +25,22 @@ class _ChatWidgetState extends State<ChatWidget> {
 
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  bool _isAtBottom = true;
+  bool _hasNewMessages = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     context.read<ChatBloc>().add(LoadMessages(widget.roomId));
   }
 
   @override
   void dispose() {
     _textController.dispose();
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
     super.dispose();
   }
 
@@ -46,6 +51,23 @@ class _ChatWidgetState extends State<ChatWidget> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    }
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    // Kullanıcı alta yakınsa (ör. son 50 px içinde) "en alttayız" kabul et.
+    final bool isNowAtBottom =
+        position.maxScrollExtent - position.pixels <= 50;
+    if (isNowAtBottom != _isAtBottom) {
+      setState(() {
+        _isAtBottom = isNowAtBottom;
+        if (_isAtBottom) {
+          // Alta indiğinde yeni mesaj uyarısını temizle.
+          _hasNewMessages = false;
+        }
+      });
     }
   }
 
@@ -77,121 +99,186 @@ class _ChatWidgetState extends State<ChatWidget> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(color: Colors.black.withOpacity(0.5)),
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const ProjectPadding.symmetric(
-              horizontal: 12.0,
-              vertical: 8.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Sohbet',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: context.dynamicValue(16),
-                    fontWeight: FontWeight.bold,
-                  ),
+      child: SafeArea(
+        bottom: true,
+        top: false,
+        child: AnimatedPadding(
+          // Klavye açıldığında widget'ı yukarı iterek giriş alanının görünür kalmasını sağlar.
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const ProjectPadding.symmetric(
+                  horizontal: 12.0,
+                  vertical: 8.0,
                 ),
-                if (widget.onClose != null)
-                  IconButton(
-                    icon: Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: context.dynamicValue(20),
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: widget.onClose,
-                  ),
-              ],
-            ),
-          ),
-          const Divider(color: Colors.white24, height: 1),
-          // Messages List
-          Expanded(
-            child: BlocConsumer<ChatBloc, ChatState>(
-              listener: (context, state) {
-                if (state is ChatLoaded) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _scrollToBottom();
-                  });
-                }
-              },
-              builder: (context, state) {
-                if (state is ChatLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (state is ChatLoaded) {
-                  final messages = state.messages;
-                  if (messages.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'Henüz mesaj yok',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    controller: _scrollController,
-                    padding: const ProjectPadding.allMedium(),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      return _buildMessageItem(msg);
-                    },
-                  );
-                } else if (state is ChatError) {
-                  return Center(
-                    child: Text(
-                      'Hata: ${state.message}',
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-          const Divider(color: Colors.white24, height: 1),
-          // Input Area
-          Padding(
-            padding: const ProjectPadding.allMedium(),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Mesaj yaz...',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
-                      border: OutlineInputBorder(
-                        borderRadius: ProjectRadius.large(),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const ProjectPadding.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Sohbet',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: context.dynamicValue(16),
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
+                    if (widget.onClose != null)
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: context.dynamicValue(20),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onClose,
+                      ),
+                  ],
                 ),
-                SizedBox(width: context.dynamicWidth(0.02)),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: _sendMessage,
+              ),
+              const Divider(color: Colors.white24, height: 1),
+              // Messages List
+              Expanded(
+                child: BlocConsumer<ChatBloc, ChatState>(
+                  listener: (context, state) {
+                    if (state is ChatLoaded) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (_isAtBottom) {
+                          // WhatsApp davranışı: zaten alttaysak otomatik kaydır.
+                          _scrollToBottom();
+                        } else {
+                          // Kullanıcı yukarıdaysa sadece "yeni mesaj" göstergesi aç.
+                          setState(() {
+                            _hasNewMessages = true;
+                          });
+                        }
+                      });
+                    }
+                  },
+                  builder: (context, state) {
+                    if (state is ChatLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (state is ChatLoaded) {
+                      final messages = state.messages;
+                      if (messages.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Henüz mesaj yok',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        );
+                      }
+                      return Stack(
+                        children: [
+                          ListView.builder(
+                            controller: _scrollController,
+                            padding: const ProjectPadding.allMedium(),
+                            itemCount: messages.length,
+                            itemBuilder: (context, index) {
+                              final msg = messages[index];
+                              return _buildMessageItem(msg);
+                            },
+                          ),
+                          if (_hasNewMessages && !_isAtBottom)
+                            Positioned(
+                              right: 16,
+                              bottom: 16,
+                              child: GestureDetector(
+                                onTap: _scrollToBottom,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueAccent,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black38,
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(
+                                        Icons.arrow_downward,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Yeni mesajlar',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    } else if (state is ChatError) {
+                      return Center(
+                        child: Text(
+                          'Hata: ${state.message}',
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
-              ],
-            ),
+              ),
+              const Divider(color: Colors.white24, height: 1),
+              // Input Area
+              Padding(
+                padding: const ProjectPadding.allMedium(),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Mesaj yaz...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.1),
+                          border: OutlineInputBorder(
+                            borderRadius: ProjectRadius.large(),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const ProjectPadding.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                    SizedBox(width: context.dynamicWidth(0.02)),
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Colors.blueAccent),
+                      onPressed: _sendMessage,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-        ],
+        ),
       ),
     );
   }

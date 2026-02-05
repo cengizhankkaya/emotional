@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 
 import '../../core/init/core_localize.dart';
 import '../../firebase_options.dart';
@@ -25,8 +26,9 @@ final class ApplicationInit {
     // 3. Initialize MediaKit
     MediaKit.ensureInitialized();
 
-    // 4. Initialize Flutter Downloader
+    // 4. Initialize Flutter Downloader & Manager
     await FlutterDownloader.initialize(debug: true, ignoreSsl: true);
+    await DownloadManager().initialize();
 
     // 5. Initialize Firebase
     await _initializeFirebase();

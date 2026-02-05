@@ -40,33 +40,42 @@ class RoomRepository {
 
   Future<void> joinRoom(String roomId, String userId, String userName) async {
     final roomRef = _database.ref('rooms/$roomId');
-    final snapshot = await roomRef.get();
 
-    if (snapshot.exists) {
-      final data = snapshot.value as Map<dynamic, dynamic>;
-      final usersMap = data['users'] as Map<dynamic, dynamic>? ?? {};
-      final String? armchairStyleStr = data['armchairStyle'] as String?;
-
-      // Check if room is full based on current theme
-      final bool isRestrictedTheme =
-          armchairStyleStr == 'love' || armchairStyleStr == 'esce';
-      if (isRestrictedTheme && usersMap.length >= 2) {
-        throw Exception('Bu oda/tema şu an dolu (Maksimum 2 kişi)');
+    final result = await roomRef.runTransaction((Object? post) {
+      if (post == null) {
+        return Transaction.abort();
       }
 
-      print(
-        'RoomRepository: Attempting to join room $roomId with userId $userId',
-      );
-      await roomRef.child('users/$userId').set(userName);
+      final Map<dynamic, dynamic> roomData = post as Map<dynamic, dynamic>;
+      final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
 
-      // Set up onDisconnect to remove the user if the app crashes/disconnects
-      await roomRef.child('users/$userId').onDisconnect().remove();
-      print(
-        'RoomRepository: User $userId successfully joined and onDisconnect setup.',
-      );
-    } else {
-      throw Exception('Room not found');
+      // Check if user is already in the room (avoid redundant joins)
+      if (users.containsKey(userId)) {
+        return Transaction.success(roomData);
+      }
+
+      users[userId] = userName;
+      roomData['users'] = users;
+      return Transaction.success(roomData);
+    });
+
+    if (!result.committed) {
+      final snapshot = await roomRef.get();
+      if (!snapshot.exists) {
+        // Gerçek hata: oda gerçekten yoksa kullanıcıya bildir.
+        throw Exception('Oda bulunamadı');
+      }
+      // Oda var ama transaction commit edilmediyse (geçici çakışma vb.)
+      // kullanıcıya hata göstermeden sessizce çıkıyoruz; kullanıcı
+      // yeniden denediğinde normal şekilde katılabilecek.
+      return;
     }
+
+    // Set up onDisconnect ONLY after successful transaction
+    await roomRef.child('users/$userId').onDisconnect().remove();
+    print(
+      'RoomRepository: User $userId successfully joined via transaction and onDisconnect setup.',
+    );
   }
 
   Future<void> leaveRoom(String roomId, String userId) async {
@@ -196,8 +205,6 @@ class RoomRepository {
 
       int deletedCount = 0;
       final now = DateTime.now().millisecondsSinceEpoch;
-      // 24 hours in milliseconds for stale check
-      const staleThreshold = 24 * 60 * 60 * 1000;
 
       for (final child in snapshot.children) {
         final roomData = child.value as Map<dynamic, dynamic>?;
@@ -206,13 +213,13 @@ class RoomRepository {
         final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
         final createdAt = roomData['createdAt'] as int? ?? 0;
 
-        // Delete if:
-        // 1. No users are in the room
-        // 2. OR the room is older than 24h (stale cleanup insurance)
+        // Delete only if:
+        // 1. Room is empty (no users)
+        // 2. AND the room is older than 1 hour (safety buffer)
         final isEmpty = users.isEmpty;
-        final isStale = (now - createdAt) > staleThreshold;
+        final isStale = (now - createdAt) > (60 * 60 * 1000); // 1 hour buffer
 
-        if (isEmpty || isStale) {
+        if (isEmpty && isStale) {
           await child.ref.remove();
           deletedCount++;
         }

@@ -27,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _roomIdController = TextEditingController();
   final _cacheManager = CacheManager();
+  bool _isJoiningRoom = false;
 
   @override
   void initState() {
@@ -158,22 +159,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _joinRoom(BuildContext context) async {
-    if (_roomIdController.text.isNotEmpty) {
-      if (!await _hasRequiredPermissions()) {
-        _checkAndRequestPermissions();
-        return;
-      }
+    if (_roomIdController.text.isEmpty) return;
 
-      final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
-      final userName = UserHelper.getUserDisplayName(user);
-      context.read<RoomBloc>().add(
-        JoinRoomRequested(
-          roomId: _roomIdController.text.trim(),
-          userId: user.uid,
-          userName: userName,
-        ),
-      );
+    // Aynı anda birden fazla JoinRoomRequested göndermemek için
+    // hem yerel flag hem de Bloc state'ini kullanıyoruz.
+    if (_isJoiningRoom) return;
+
+    final roomState = context.read<RoomBloc>().state;
+    if (roomState is RoomLoading || roomState is RoomJoined) return;
+
+    if (!await _hasRequiredPermissions()) {
+      _checkAndRequestPermissions();
+      return;
     }
+
+    final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
+    final userName = UserHelper.getUserDisplayName(user);
+    _isJoiningRoom = true;
+    context.read<RoomBloc>().add(
+      JoinRoomRequested(
+        roomId: _roomIdController.text.trim(),
+        userId: user.uid,
+        userName: userName,
+      ),
+    );
   }
 
   @override
@@ -196,6 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         listener: (context, state) {
           if (state is RoomError) {
+            _isJoiningRoom = false;
             String errorMessage = state.message;
             if (errorMessage.contains('Room not found')) {
               errorMessage = 'Oda bulunamadı.';
@@ -210,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           } else if (state is RoomCreated) {
+            _isJoiningRoom = false;
             _cacheManager.saveLastRoomId(state.roomId);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -218,6 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           } else if (state is RoomJoined) {
+            _isJoiningRoom = false;
             _cacheManager.saveLastRoomId(state.roomId);
             if (state.notificationMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(

@@ -8,14 +8,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:emotional/product/widget/network_status_header.dart';
+
 class RoomTopBar extends StatelessWidget {
   final String roomId;
   final GlobalKey<ScaffoldState> scaffoldKey;
+  final VoidCallback? onLeave;
 
   const RoomTopBar({
     super.key,
     required this.roomId,
     required this.scaffoldKey,
+    this.onLeave,
   });
 
   @override
@@ -23,16 +27,29 @@ class RoomTopBar extends StatelessWidget {
     return Padding(
       padding: const ProjectPadding.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildLeaveButton(context),
-          const Spacer(),
-          Expanded(flex: 6, child: _buildRoomIdDisplay(context)),
-          const Spacer(),
-          _buildInviteButton(context),
-          SizedBox(width: context.dynamicWidth(0.02)),
-          _buildThemeButton(context),
-          SizedBox(width: context.dynamicWidth(0.02)),
-          _buildChatButton(context),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(
+              alignment: Alignment.center,
+              child: _buildRoomIdDisplay(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const NetworkStatusHeader(isIconOnly: true),
+              const SizedBox(width: 8),
+              _buildInviteButton(context),
+              SizedBox(width: context.dynamicWidth(0.02)),
+              _buildThemeButton(context),
+              SizedBox(width: context.dynamicWidth(0.02)),
+              _buildChatButton(context),
+            ],
+          ),
         ],
       ),
     );
@@ -95,8 +112,13 @@ class RoomTopBar extends StatelessWidget {
     return _buildGlassButton(
       context: context,
       onPressed: () {
-        // Sadece pop yapıyoruz, temizlik işini RoomScreen'deki PopScope halledecek.
-        Navigator.of(context).pop();
+        // Tercihen üst seviyeden gelen temizlik callback'ini çağır.
+        if (onLeave != null) {
+          onLeave!();
+        } else {
+          // Geriye hiçbir şey verilmediyse, sadece sayfadan çık.
+          Navigator.of(context).pop();
+        }
       },
       icon: Icons.no_meeting_room,
       iconColor: Colors.redAccent,
@@ -111,8 +133,9 @@ class RoomTopBar extends StatelessWidget {
         child: SelectableText(
           'Oda ID: $roomId',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9), // Slightly softer white
-            fontSize: context.dynamicValue(28),
+            color: Colors.white.withValues(alpha: 0.9),
+            // Daha küçük font ile dar ekranlarda da taşma olmadan göster.
+            fontSize: context.dynamicValue(20),
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
             shadows: const [

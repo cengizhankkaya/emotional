@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit/media_kit.dart';
 
+const int _kSyncToleranceMs = 1500; // pozisyon farkı için tolerans
+
 class VideoSyncManager {
   final Player player;
   final BuildContext context;
@@ -50,7 +52,7 @@ class VideoSyncManager {
       final statePosition = state.position;
       final diff = (currentPosition - statePosition).abs();
 
-      if (currentIsPlaying != stateIsPlaying || (diff > 2000)) {
+      if (currentIsPlaying != stateIsPlaying || (diff > _kSyncToleranceMs)) {
         final authState = context.read<AuthBloc>().state;
         String userId = '';
         if (authState is AuthAuthenticated) {
@@ -90,7 +92,7 @@ class VideoSyncManager {
                 userId: userId,
               ),
             );
-          } else if (diff > 2000) {
+          } else if (diff > _kSyncToleranceMs) {
             _lastLocalActionTime = DateTime.now();
             context.read<RoomBloc>().add(
               SyncVideoAction(
@@ -139,7 +141,7 @@ class VideoSyncManager {
 
       // Sync Seek
       final currentPos = player.state.position.inMilliseconds;
-      if ((currentPos - state.position).abs() > 2000) {
+      if ((currentPos - state.position).abs() > _kSyncToleranceMs) {
         // debugPrint('DEBUG: Executing Remote SEEK to ${state.position}');
         isSyncing = true;
         await player.seek(Duration(milliseconds: state.position));

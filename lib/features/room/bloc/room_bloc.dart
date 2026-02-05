@@ -11,6 +11,9 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
   final RoomRepository _roomRepository;
   StreamSubscription? _roomSubscription;
   String? _currentUserId;
+  String? _currentUserName;
+  bool _isAppInBackgrounded = false;
+  bool _isLeavingRoom = false;
 
   RoomBloc({required RoomRepository roomRepository})
     : _roomRepository = roomRepository,
@@ -23,6 +26,15 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     on<SyncVideoAction>(_onSyncVideoAction);
     on<SyncSettingsAction>(_onSyncSettingsAction);
     on<TransferHostRequested>(_onTransferHostRequested);
+    on<SetRoomAppBackgrounded>(_onSetRoomAppBackgrounded);
+  }
+
+  void _onSetRoomAppBackgrounded(
+    SetRoomAppBackgrounded event,
+    Emitter<RoomState> emit,
+  ) {
+    _isAppInBackgrounded = event.isBackgrounded;
+    print('RoomBloc: App background state changed to: $_isAppInBackgrounded');
   }
 
   Future<void> _onTransferHostRequested(
@@ -49,6 +61,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     emit(RoomLoading());
     try {
       _currentUserId = event.userId;
+      _currentUserName = event.userName;
+      _isLeavingRoom = false; // Reset on new join/create
       final roomId = await _roomRepository.createRoom(
         event.userId,
         event.userName,
@@ -67,6 +81,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     emit(RoomLoading());
     try {
       _currentUserId = event.userId;
+      _currentUserName = event.userName;
+      _isLeavingRoom = false; // Reset on new join/create
       await _roomRepository.joinRoom(
         event.roomId,
         event.userId,
@@ -82,16 +98,18 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     LeaveRoomRequested event,
     Emitter<RoomState> emit,
   ) async {
-    try {
-      // Cancel subscription first to avoid getting a null update while leaving
-      _roomSubscription?.cancel();
-      _roomSubscription = null;
+    _isLeavingRoom = true;
+    _roomSubscription?.cancel();
+    _roomSubscription = null;
+    final uid = _currentUserId ?? event.userId;
+    _currentUserId = null;
+    _currentUserName = null;
+    emit(RoomInitial());
 
-      await _roomRepository.leaveRoom(event.roomId, event.userId);
-      _currentUserId = null;
-      emit(RoomInitial());
+    try {
+      await _roomRepository.leaveRoom(event.roomId, uid);
     } catch (e) {
-      emit(RoomError('Failed to leave room: $e'));
+      print('RoomBloc: Error leaving room in repository: $e');
     }
   }
 
@@ -103,12 +121,11 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
           (event) {
             final data = event.snapshot.value as Map<dynamic, dynamic>?;
 
-            // Handle room deletion or user removal
-            if (data == null || data['users'] == null) {
+            // Handle room deletion
+            if (data == null) {
               if (_currentUserId != null) {
-                // If data is null, the room probably was deleted
                 print(
-                  'RoomBloc: Room data is null, adding LeaveRoom with notification. Current User ID: $_currentUserId',
+                  'RoomBloc: Room node DELETED from database. Kicking out. User ID: $_currentUserId',
                 );
                 add(
                   LeaveRoomRequested(roomId: roomId, userId: _currentUserId!),
@@ -117,19 +134,38 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
               return;
             }
 
-            final usersMap = data['users'] as Map<dynamic, dynamic>;
+            final usersMap = data['users'] as Map<dynamic, dynamic>? ?? {};
 
-            // --- Re-entry / Stale Data Protection ---
-            // If the user just joined (state is RoomLoading or RoomCreated),
-            // we give it some grace or ignore the "not in users" check for the very first event
-            // if it seems stale.
+            // --- Re-entry / Session Recovery ---
             if (_currentUserId != null &&
                 !usersMap.containsKey(_currentUserId)) {
               if (state is RoomLoading || state is RoomCreated) {
                 print(
-                  'RoomBloc: [GRACE] User $_currentUserId not found in usersMap yet. Proceeding anyway to avoid Loading deadlock.',
+                  'RoomBloc: [GRACE] User $_currentUserId not found in usersMap yet. Waiting...',
                 );
-                // Return yapmıyoruz, akışın devam etmesine izin veriyoruz.
+              } else if (state is RoomJoined) {
+                // SESSION RECOVERY: If we are in the room but missing from Firebase (likely onDisconnect), re-join.
+                if (_isAppInBackgrounded) {
+                  print(
+                    'RoomBloc: User $_currentUserId MISSING from usersMap, but app is in BACKGROUND. Delaying re-join until resumed.',
+                  );
+                  return;
+                }
+                if (_isLeavingRoom) {
+                  print(
+                    'RoomBloc: User is leaving, ignoring missing member check.',
+                  );
+                  return;
+                }
+                print(
+                  'RoomBloc: User $_currentUserId MISSING from usersMap while joined. Re-joining automatically...',
+                );
+                _roomRepository.joinRoom(
+                  roomId,
+                  _currentUserId!,
+                  _currentUserName ?? "Kullanıcı",
+                );
+                return;
               } else {
                 print(
                   'RoomBloc: User $_currentUserId NOT found in usersMap. State is ${state.runtimeType}. Kicking out.',
@@ -141,10 +177,11 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
               }
             }
 
-            // Map participant IDs to list
+            // Map participant IDs to list and SORT alphabetically for consistency across clients
             final participants = usersMap.keys
                 .map((e) => e.toString())
                 .toList();
+            participants.sort();
 
             // Create userNames map: userId -> userName
             final userNames = Map<String, String>.fromEntries(

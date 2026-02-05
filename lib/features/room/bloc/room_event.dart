@@ -163,3 +163,11 @@ class TransferHostRequested extends RoomEvent {
   @override
   List<Object> get props => [roomId, newHostId];
 }
+
+class SetRoomAppBackgrounded extends RoomEvent {
+  final bool isBackgrounded;
+  const SetRoomAppBackgrounded(this.isBackgrounded);
+
+  @override
+  List<Object> get props => [isBackgrounded];
+}
