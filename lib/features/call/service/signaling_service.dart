@@ -32,7 +32,9 @@ class SignalingService {
   final Map<String, StreamSubscription> _candidateSubscriptions = {};
 
   Future<void> initialize() async {
-    await clearSignal();
+    // We do NOT clear signals here anymore.
+    // Signals are cleared in Repository BEFORE joining the room.
+    // Clearing here causes race condition (deleting offers sent by others who saw us join).
     listenForIncomingSignals();
   }
 

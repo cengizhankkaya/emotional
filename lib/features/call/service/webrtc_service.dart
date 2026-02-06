@@ -167,12 +167,32 @@ class WebRTCService implements ICallService {
     };
 
     // Peer Connection State (optional logging)
-    pc.onConnectionState = (state) {
+    pc.onConnectionState = (state) async {
       print("[WebRTC] Connection state with $targetUserId: $state");
+
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-          state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
-          state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+          state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
         _handleRemoteBye(targetUserId);
+      } else if (state ==
+          RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+        // Give it a chance to recover (Ice Restart or simple network glitch)
+        print(
+          "[WebRTC] Disconnected from $targetUserId. Waiting for recovery...",
+        );
+        await Future.delayed(const Duration(seconds: 5));
+
+        // Check if still disconnected (and peer connection still exists)
+        var currentPc = _peerConnections[targetUserId];
+        if (currentPc == pc) {
+          // Ensure pc hasn't been replaced
+          var newState = await pc.getConnectionState();
+          print("[WebRTC] State after wait for $targetUserId: $newState");
+          if (newState ==
+                  RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+              newState == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+            _handleRemoteBye(targetUserId);
+          }
+        }
       }
     };
 

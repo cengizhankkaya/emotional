@@ -8,8 +8,17 @@ class RoomRepository {
   RoomRepository({FirebaseDatabase? database})
     : _database = database ?? FirebaseDatabase.instance;
 
+  Future<void> _clearUserSignals(String roomId, String userId) async {
+    final signalRef = _database.ref('rooms/$roomId/signal/$userId');
+    await signalRef.remove();
+  }
+
   Future<String> createRoom(String userId, String userName) async {
     final roomId = _generateRoomId();
+
+    // Clear any residual signals for this user before creating/joining
+    await _clearUserSignals(roomId, userId);
+
     print(
       'RoomRepository: Generated room ID $roomId. Attempting to set data in DB...',
     );
@@ -39,6 +48,9 @@ class RoomRepository {
   }
 
   Future<void> joinRoom(String roomId, String userId, String userName) async {
+    // Clear signals BEFORE joining to ensure we don't delete offers that arrive as soon as we appear in the room list
+    await _clearUserSignals(roomId, userId);
+
     final roomRef = _database.ref('rooms/$roomId');
 
     final result = await roomRef.runTransaction((Object? post) {

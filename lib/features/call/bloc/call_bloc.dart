@@ -4,6 +4,7 @@ import 'package:emotional/features/call/bloc/call_state.dart';
 
 import 'package:emotional/features/call/service/media_device_service.dart';
 import 'package:emotional/features/call/service/webrtc_service.dart';
+import 'package:emotional/features/call/service/audio_session_service.dart';
 import 'package:emotional/features/room/repository/room_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -15,6 +16,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
   final WebRTCService _callService;
   final MediaDeviceService _mediaDeviceService;
+  final AudioSessionService _audioSessionService;
 
   // Active Connections
   final Map<String, RTCVideoRenderer> _remoteRenderers = {};
@@ -34,6 +36,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   CallBloc({required this.roomRepository})
     : _callService = WebRTCService(),
       _mediaDeviceService = MediaDeviceService(),
+      _audioSessionService = AudioSessionService(),
       super(CallInitial()) {
     on<JoinCall>(_onJoinCall);
     on<LeaveCall>(_onLeaveCall);
@@ -112,6 +115,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       }
 
       await _cleanup();
+
+      // Initiate Audio Session (Focus & Routing)
+      await _audioSessionService.activate();
 
       // 2. Initialize Media Devices (Tracks ready and ENABLED by default)
       await _mediaDeviceService.initialize();
@@ -364,6 +370,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     // We don't dispose mediaDeviceService fully if we want to preview?
     // Usually yes on leave.
     await _mediaDeviceService.dispose();
+    await _audioSessionService.deactivate();
   }
 
   // Device & Quality Handlers

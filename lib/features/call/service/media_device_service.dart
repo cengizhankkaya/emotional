@@ -19,6 +19,7 @@ class MediaDeviceService implements IMediaDeviceService {
     CallQualityPreset quality = CallQualityPreset.balanced,
   }) async {
     _currentQuality = quality;
+
     await _startStream();
     // Varsayılan olarak açık başlıyoruz, sorunları ekarte etmek için
     toggleVideo(true);
