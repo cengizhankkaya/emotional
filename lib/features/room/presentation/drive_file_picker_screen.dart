@@ -89,9 +89,8 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
     if (confirmed == true && mounted) {
       try {
         final downloadManager = DownloadManager();
-        final driveService = context.read<DriveService>();
 
-        await downloadManager.deleteDownloadedVideo(file.name!, driveService);
+        await downloadManager.deleteDownloadedVideo(file.name!);
 
         if (mounted) {
           ScaffoldMessenger.of(

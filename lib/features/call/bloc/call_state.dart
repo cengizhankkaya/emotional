@@ -33,7 +33,8 @@ class CallConnected extends CallState {
   final String? selectedVideoInputId;
   final String? selectedAudioInputId;
   final String? selectedAudioOutputId;
-  final CallVideoSize videoSize; // Added this field
+  final String? activeSpeakerId; // New field
+  final CallVideoSize videoSize;
 
   const CallConnected({
     required this.localRenderer,
@@ -50,7 +51,8 @@ class CallConnected extends CallState {
     this.selectedVideoInputId,
     this.selectedAudioInputId,
     this.selectedAudioOutputId,
-    this.videoSize = CallVideoSize.medium, // Added this to constructor
+    this.activeSpeakerId, // Added to constructor
+    this.videoSize = CallVideoSize.medium,
   });
 
   CallConnected copyWith({
@@ -68,7 +70,8 @@ class CallConnected extends CallState {
     String? selectedVideoInputId,
     String? selectedAudioInputId,
     String? selectedAudioOutputId,
-    CallVideoSize? videoSize, // Added this to copyWith signature
+    String? activeSpeakerId, // Added to copyWith
+    CallVideoSize? videoSize,
   }) {
     return CallConnected(
       localRenderer: localRenderer ?? this.localRenderer,
@@ -86,7 +89,9 @@ class CallConnected extends CallState {
       selectedAudioInputId: selectedAudioInputId ?? this.selectedAudioInputId,
       selectedAudioOutputId:
           selectedAudioOutputId ?? this.selectedAudioOutputId,
-      videoSize: videoSize ?? this.videoSize, // Added this to copyWith body
+      activeSpeakerId:
+          activeSpeakerId ?? this.activeSpeakerId, // Added to return
+      videoSize: videoSize ?? this.videoSize,
     );
   }
 
@@ -106,7 +111,8 @@ class CallConnected extends CallState {
     selectedVideoInputId,
     selectedAudioInputId,
     selectedAudioOutputId,
-    videoSize, // Added this to props
+    activeSpeakerId, // Added to props
+    videoSize,
   ];
 }
 

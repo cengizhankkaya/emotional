@@ -1,26 +1,26 @@
-import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
-import 'package:emotional/features/room/presentation/drive_file_picker_screen.dart';
-import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/features/room/presentation/manager/floating_message_manager.dart';
+import 'package:emotional/core/services/drive_service.dart';
+import 'package:emotional/features/room/bloc/download_cubit.dart';
+import 'package:emotional/features/room/presentation/manager/download_manager.dart';
+// import 'package:emotional/features/room/bloc/room_bloc.dart'; // Already exists
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
-import 'package:emotional/features/room/presentation/widgets/download_interruption_dialog.dart';
-import 'package:emotional/features/room/presentation/widgets/furniture_theme_data.dart';
 import 'package:emotional/features/room/presentation/widgets/room_top_bar.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
 import 'package:emotional/features/room/repository/room_repository.dart';
-import 'package:emotional/features/video_player/presentation/video_player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/presentation/chat_widget.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+
+import 'package:emotional/features/room/presentation/mixins/room_media_mixin.dart';
+import 'package:emotional/features/room/presentation/widgets/participant_video_row.dart';
+import 'package:emotional/features/room/presentation/widgets/room_seating_widget.dart';
 
 class RoomScreen extends StatefulWidget {
   const RoomScreen({super.key});
@@ -29,47 +29,27 @@ class RoomScreen extends StatefulWidget {
   State<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
+class _RoomScreenState extends State<RoomScreen>
+    with WidgetsBindingObserver, RoomMediaMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late final DownloadManager _downloadManager;
   late final FloatingMessageManager _floatingMessageManager;
   bool _isLeaving = false;
 
   @override
   void initState() {
     super.initState();
-    _downloadManager = DownloadManager();
-    _downloadManager.addListener(_onDownloadStateChanged);
-    _downloadManager.setOnError((message) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    });
-    // _downloadManager.initialize(); // Now initialized globally in ApplicationInit
+    // DownloadManager init is handled by DownloadCubit
 
     _floatingMessageManager = FloatingMessageManager();
 
-    // Load downloaded videos after initialization
+    // Auto-start call join
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final driveService = context.read<DriveService>();
-      _downloadManager.loadDownloadedVideos(driveService);
-
-      // Check if already joined to auto-start call
       final roomState = context.read<RoomBloc>().state;
       if (roomState is RoomJoined) {
         context.read<CallBloc>().add(
           JoinCall(roomId: roomState.roomId, userId: roomState.userId),
         );
-        // Check if video already exists on re-entry
-        if (roomState.driveFileName != null) {
-          _downloadManager.checkFileExists(roomState.driveFileName!);
-        }
+        // Video check is now handled by DownloadCubit listening to RoomBloc or driven by UI
       }
     });
 
@@ -90,96 +70,17 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
       // Notify RoomBloc that app is active again
       context.read<RoomBloc>().add(const SetRoomAppBackgrounded(false));
 
-      // Refresh tasks and check files
-      _downloadManager.refreshTasks();
-
-      // Refresh database or state when app comes back
-      final roomState = context.read<RoomBloc>().state;
-      if (roomState is RoomJoined && roomState.driveFileName != null) {
-        _downloadManager.checkFileExists(roomState.driveFileName!);
-      }
+      // Refresh downloads
+      context.read<DownloadCubit>().loadDownloadedVideos();
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _downloadManager.removeListener(_onDownloadStateChanged);
+    // downloadManager dispose is handled by Mixin
     _floatingMessageManager.dispose();
     super.dispose();
-  }
-
-  void _onDownloadStateChanged() {
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _pickVideo(String roomId) async {
-    if (!mounted) return;
-    final file = await Navigator.push<drive.File>(
-      context,
-      MaterialPageRoute(builder: (_) => const DriveFilePickerScreen()),
-    );
-
-    if (mounted) {
-      _downloadManager.loadDownloadedVideos(context.read<DriveService>());
-    }
-
-    if (file != null && mounted) {
-      _selectVideo(roomId, file);
-    }
-  }
-
-  void _selectVideo(String roomId, drive.File file) {
-    context.read<RoomBloc>().add(
-      UpdateRoomVideoRequested(
-        roomId: roomId,
-        fileId: file.id!,
-        fileName: file.name!,
-        fileSize: file.size ?? '0',
-      ),
-    );
-  }
-
-  void _handleDownloadOrPlay(String fileId, String fileName) {
-    if (_downloadManager.isVideoDownloaded &&
-        _downloadManager.localVideoFile != null) {
-      final roomState = context.read<RoomBloc>().state;
-      String currentRoomId = '';
-      String currentUserId = '';
-
-      if (roomState is RoomJoined) {
-        currentRoomId = roomState.roomId;
-        currentUserId = roomState.userId;
-      } else if (roomState is RoomCreated) {
-        currentRoomId = roomState.roomId;
-        currentUserId = roomState.userId;
-      }
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VideoPlayerScreen(
-            videoFile: _downloadManager.localVideoFile!,
-            roomId: currentRoomId,
-            userId: currentUserId,
-          ),
-        ),
-      );
-    } else {
-      _downloadManager.downloadVideo(
-        context.read<DriveService>(),
-        fileId,
-        fileName,
-        context,
-      );
-      // Show warning immediately as a reminder
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => const DownloadInterruptionDialog(),
-        );
-      }
-    }
   }
 
   @override
@@ -219,7 +120,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
           }
 
           if (state.driveFileName != null) {
-            _downloadManager.checkFileExists(state.driveFileName!);
+            context.read<DownloadCubit>().checkFileExists(state.driveFileName!);
           }
         }
       },
@@ -240,34 +141,78 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         final isHost = currentUserId == hostId;
 
         return PopScope(
-          canPop: _isLeaving,
+          canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
-
-            if (!_isLeaving) {
+            final shouldPop = await _showExitConfirmationDialog(context);
+            if (shouldPop && context.mounted) {
               _performPopCleanup(context);
             }
           },
-          child: BlocProvider(
-            key: ValueKey(roomId),
-            create: (context) => RoomDecorationCubit(
-              roomRepository: context.read<RoomRepository>(),
-              roomId: roomId,
-            ),
-            child: BlocListener<RoomBloc, RoomState>(
-              listenWhen: (previous, current) {
-                if (previous is RoomJoined && current is RoomJoined) {
-                  return previous.armchairStyle != current.armchairStyle;
-                }
-                return false;
-              },
-              listener: (context, state) {
-                if (state is RoomJoined && state.armchairStyle != null) {
-                  context.read<RoomDecorationCubit>().updateFromSync(
-                    state.armchairStyle!,
-                  );
-                }
-              },
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                key: ValueKey('decoration_$roomId'),
+                create: (context) => RoomDecorationCubit(
+                  roomRepository: context.read<RoomRepository>(),
+                  roomId: roomId,
+                ),
+              ),
+              BlocProvider(
+                create: (context) => DownloadCubit(
+                  downloadManager: DownloadManager(),
+                  driveService: context.read<DriveService>(),
+                ),
+              ),
+            ],
+            child: MultiBlocListener(
+              listeners: [
+                BlocListener<RoomBloc, RoomState>(
+                  listenWhen: (previous, current) {
+                    if (previous is RoomJoined && current is RoomJoined) {
+                      return previous.armchairStyle != current.armchairStyle;
+                    }
+                    return false;
+                  },
+                  listener: (context, state) {
+                    if (state is RoomJoined && state.armchairStyle != null) {
+                      context.read<RoomDecorationCubit>().updateFromSync(
+                        state.armchairStyle!,
+                      );
+                    }
+                  },
+                ),
+                BlocListener<DownloadCubit, DownloadState>(
+                  listenWhen: (previous, current) {
+                    return previous.error != current.error ||
+                        previous.isVideoDownloaded != current.isVideoDownloaded;
+                  },
+                  listener: (context, state) {
+                    if (state.error != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(state.error!),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                          margin: const EdgeInsets.all(16),
+                        ),
+                      );
+                    }
+                    if (state.isVideoDownloaded &&
+                        state.localVideoFile != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('İndirme tamamlandı!'),
+                          backgroundColor: Colors.green,
+                          behavior: SnackBarBehavior.floating,
+                          margin: EdgeInsets.all(16),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
               child: Builder(
                 builder: (context) {
                   // Initialize cubit from initial room state
@@ -319,7 +264,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                         children: [
                           // Background Room Layout
                           Positioned.fill(
-                            child: _buildRoomLayout(
+                            child: RoomSeatingWidget(
                               participants: participants,
                               userNames: userNames,
                               isHost: isHost,
@@ -337,31 +282,29 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                                   scaffoldKey: _scaffoldKey,
                                   onLeave: () => _performPopCleanup(context),
                                 ),
+                                ParticipantVideoRow(
+                                  participants: participants,
+                                  userNames: userNames,
+                                  currentUserId: currentUserId,
+                                  roomId: roomId,
+                                  hostId: hostId,
+                                ),
                                 const Spacer(),
                                 VideoControlSheet(
                                   isHost: isHost,
                                   roomId: roomId,
                                   fileName: driveFileName,
                                   fileId: driveFileId,
-                                  downloadedVideos:
-                                      _downloadManager.downloadedVideos,
-                                  downloadProgress:
-                                      _downloadManager.downloadProgress,
-                                  downloadStatus:
-                                      _downloadManager.downloadStatus,
-                                  isVideoDownloaded:
-                                      _downloadManager.isVideoDownloaded,
-                                  localVideoFile:
-                                      _downloadManager.localVideoFile,
-                                  onPickVideo: () => _pickVideo(roomId),
+                                  onPickVideo: () => pickVideo(roomId),
                                   onSelectVideo: (video) =>
-                                      _selectVideo(roomId, video),
-                                  onDownloadOrPlay: () {
-                                    if (driveFileId != null &&
-                                        driveFileName != null) {
-                                      _handleDownloadOrPlay(
-                                        driveFileId,
-                                        driveFileName,
+                                      selectVideo(roomId, video),
+                                  onPlay: () {
+                                    final cubit = context.read<DownloadCubit>();
+                                    if (cubit.state.localVideoFile != null) {
+                                      playVideo(
+                                        videoFile: cubit.state.localVideoFile!,
+                                        roomId: roomId,
+                                        userId: currentUserId,
                                       );
                                     }
                                   },
@@ -382,343 +325,29 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildRoomLayout({
-    required List<String> participants,
-    required Map<String, String> userNames,
-    required bool isHost,
-    required String currentUserId,
-    required String roomId,
-    required String hostId,
-  }) {
-    return BlocBuilder<CallBloc, CallState>(
-      builder: (context, callState) {
-        return Center(
-          child: AspectRatio(
-            aspectRatio: 1024 / 747,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final style = context
-                    .watch<RoomDecorationCubit>()
-                    .state
-                    .armchairStyle;
-                final theme = FurnitureThemeData.getTheme(style);
-                final isEsce = style == ArmchairStyle.esce;
-
-                final seatPositions = isEsce
-                    ? [
-                        {'top': 0.10, 'left': 0.20, 'right': null},
-                        {'top': 0.10, 'left': null, 'right': 0.20},
-                      ]
-                    : [
-                        {'top': 0.27, 'left': 0.30, 'right': null},
-                        {'top': 0.33, 'left': null, 'right': 0.18},
-                        {'top': 0.41, 'left': 0.20, 'right': null},
-                        {'top': 0.52, 'left': null, 'right': 0.06},
-                        {'top': 0.52, 'left': 0.05, 'right': null},
-                        {'top': 0.49, 'left': 0.52, 'right': null},
-                      ];
-
-                // Ensure local user is always visible if they are in the participants list
-                final displayParticipants = List<String>.from(participants);
-                if (displayParticipants.contains(currentUserId)) {
-                  final myIndex = displayParticipants.indexOf(currentUserId);
-                  if (myIndex >= seatPositions.length) {
-                    // Swap local user to a visible seat (index 0)
-                    final otherId = displayParticipants[0];
-                    displayParticipants[0] = currentUserId;
-                    displayParticipants[myIndex] = otherId;
-                  }
-                }
-
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: theme.image != null
-                          ? theme.image!.image(fit: BoxFit.cover)
-                          : Container(color: theme.baseColor),
-                    ),
-                    ...List.generate(seatPositions.length, (index) {
-                      final pos = seatPositions[index];
-                      final String? participantId =
-                          index < displayParticipants.length
-                          ? displayParticipants[index]
-                          : null;
-                      final name = participantId != null
-                          ? userNames[participantId] ?? participantId
-                          : null;
-
-                      return Positioned(
-                        top: constraints.maxHeight * (pos['top'] as double),
-                        left: pos['left'] != null
-                            ? constraints.maxWidth * (pos['left'] as double)
-                            : null,
-                        right: pos['right'] != null
-                            ? constraints.maxWidth * (pos['right'] as double)
-                            : null,
-                        child: _buildAvatarSlot(
-                          name,
-                          participantId: participantId,
-                          callState: callState,
-                          currentUserId: currentUserId,
-                          isParticipantHost: participantId == hostId,
-                          canTransferHost:
-                              isHost &&
-                              participantId != null &&
-                              participantId != currentUserId,
-                          roomId: roomId,
-                          hideAvatar: false,
-                        ),
-                      );
-                    }),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAvatarSlot(
-    String? name, {
-    String? participantId,
-    required CallState callState,
-    required String currentUserId,
-    bool isParticipantHost = false,
-    bool canTransferHost = false,
-    String? roomId,
-    bool hideAvatar = false,
-  }) {
-    final size = context.dynamicValue(50);
-    if (name == null) {
-      if (hideAvatar) return const SizedBox();
-      return Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-          color: Colors.black26,
-          shape: BoxShape.circle,
-        ),
-      );
-    }
-
-    final isLocal = participantId == currentUserId;
-    bool hasVideo = false;
-    bool isMuted = false;
-    RTCVideoRenderer? renderer;
-
-    if (callState is CallConnected) {
-      if (isLocal) {
-        hasVideo = callState.isVideoEnabled;
-        isMuted = callState.isMuted;
-        renderer = callState.localRenderer;
-      } else if (participantId != null) {
-        hasVideo = callState.userVideoStates[participantId] ?? false;
-        isMuted = !(callState.userAudioStates[participantId] ?? true);
-        renderer = callState.remoteRenderers[participantId];
-      }
-    }
-
-    final avatarContent = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!hideAvatar)
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  color: isParticipantHost
-                      ? Colors.amber[700]
-                      : Colors.blueAccent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isParticipantHost ? Colors.amber : Colors.white,
-                    width: 2,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(size / 2),
-                  child: hasVideo && renderer != null
-                      ? RTCVideoView(
-                          renderer,
-                          objectFit:
-                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                          mirror: isLocal,
-                        )
-                      : Center(
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                ),
+  Future<bool> _showExitConfirmationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Odadan Çık?'),
+            content: const Text('Odadan çıkmak istediğinize emin misiniz?'),
+            backgroundColor: const Color(0xFF2B3038),
+            titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
+            contentTextStyle: const TextStyle(color: Colors.white70),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('İptal'),
               ),
-              if (isParticipantHost)
-                Positioned(
-                  top: -size * 0.2,
-                  right: -size * 0.1,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.amber,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.stars,
-                      color: Colors.white,
-                      size: size * 0.35,
-                    ),
-                  ),
-                ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                child: const Text('Çık'),
+              ),
             ],
           ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                name,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: context.dynamicValue(10),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (callState is CallConnected && participantId != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isLocal) ...[
-                        _buildMiniToggle(
-                          icon: isMuted ? Icons.mic_off : Icons.mic,
-                          isActive: !isMuted,
-                          onTap: () =>
-                              context.read<CallBloc>().add(ToggleMute()),
-                        ),
-                        const SizedBox(width: 2),
-                        _buildMiniToggle(
-                          icon: hasVideo ? Icons.videocam : Icons.videocam_off,
-                          isActive: hasVideo,
-                          onTap: () =>
-                              context.read<CallBloc>().add(ToggleVideo()),
-                        ),
-                      ] else ...[
-                        Icon(
-                          isMuted ? Icons.mic_off : Icons.mic,
-                          color: isMuted
-                              ? Colors.redAccent
-                              : Colors.greenAccent,
-                          size: 10,
-                        ),
-                        if (!isMuted) ...[
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.graphic_eq,
-                            color: Colors.greenAccent,
-                            size: 10,
-                          ),
-                        ],
-                      ],
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    if (canTransferHost && roomId != null && participantId != null) {
-      return GestureDetector(
-        onLongPress: () {
-          _showTransferHostDialog(context, roomId, participantId, name);
-        },
-        child: avatarContent,
-      );
-    }
-
-    return avatarContent;
-  }
-
-  Widget _buildMiniToggle({
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.greenAccent : Colors.white10,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Icon(
-          icon,
-          color: isActive ? Colors.black87 : Colors.white70,
-          size: 12,
-        ),
-      ),
-    );
-  }
-
-  void _showTransferHostDialog(
-    BuildContext context,
-    String roomId,
-    String newHostId,
-    String userName,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2229),
-        title: const Text('Host Devret', style: TextStyle(color: Colors.white)),
-        content: Text(
-          'Host yetkisini $userName kullanıcısına devretmek istiyor musunuz?',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              context.read<RoomBloc>().add(
-                TransferHostRequested(roomId: roomId, newHostId: newHostId),
-              );
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
-            child: const Text('Devret', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+        ) ??
+        false;
   }
 
   void _performPopCleanup(BuildContext context) {
@@ -729,26 +358,30 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     });
 
     final roomState = context.read<RoomBloc>().state;
-    if (roomState is! RoomJoined) {
-      if (Navigator.of(context).canPop()) {
+    String? roomId;
+    if (roomState is RoomJoined) {
+      roomId = roomState.roomId;
+    } else if (roomState is RoomCreated) {
+      roomId = roomState.roomId;
+    }
+
+    // CallBloc cleanup
+    context.read<CallBloc>().add(LeaveCall());
+
+    // RoomBloc cleanup
+    if (roomId != null) {
+      final currentUserId =
+          (context.read<AuthBloc>().state as AuthAuthenticated).user.uid;
+      context.read<RoomBloc>().add(
+        LeaveRoomRequested(roomId: roomId, userId: currentUserId),
+      );
+    }
+
+    // Force pop
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      return;
-    }
-
-    final roomId = roomState.roomId;
-    final currentUserId =
-        (context.read<AuthBloc>().state as AuthAuthenticated).user.uid;
-
-    debugPrint('RoomScreen: Cleaning up room and call.');
-    context.read<CallBloc>().add(LeaveCall());
-    context.read<RoomBloc>().add(
-      LeaveRoomRequested(roomId: roomId, userId: currentUserId),
-    );
-
-    // Give a small delay for events to be dispatched or just pop immediately as the blocs are global
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
+    });
   }
 }

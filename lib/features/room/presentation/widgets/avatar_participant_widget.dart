@@ -1,0 +1,305 @@
+import 'package:emotional/features/call/bloc/call_bloc.dart';
+import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/call/bloc/call_event.dart';
+import 'package:emotional/features/room/bloc/room_bloc.dart';
+import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:emotional/features/room/presentation/widgets/audio_visualizer.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+
+class AvatarParticipantWidget extends StatelessWidget {
+  final String? name;
+  final String? participantId;
+  final CallState callState;
+  final String currentUserId;
+  final bool isParticipantHost;
+  final bool canTransferHost;
+  final String? roomId;
+  final bool hideAvatar;
+  final bool showVideo; // New flag to control video rendering
+  final bool showControls; // New flag to control mic/cam toggles
+  final double? customWidth;
+  final double? customHeight;
+  final BoxShape shape;
+
+  const AvatarParticipantWidget({
+    super.key,
+    this.name,
+    this.participantId,
+    required this.callState,
+    required this.currentUserId,
+    this.isParticipantHost = false,
+    this.canTransferHost = false,
+    this.roomId,
+    this.hideAvatar = false,
+    this.showVideo = true, // Default to true for backward compatibility
+    this.showControls = true, // Default to true
+    this.customWidth,
+    this.customHeight,
+    this.shape = BoxShape.circle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final defaultSize = context.dynamicValue(50);
+    final width = customWidth ?? defaultSize;
+    final height = customHeight ?? defaultSize;
+
+    if (name == null) {
+      if (hideAvatar) return const SizedBox();
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          shape: shape,
+          borderRadius: shape == BoxShape.rectangle
+              ? BorderRadius.circular(12)
+              : null,
+        ),
+      );
+    }
+
+    final isLocal = participantId == currentUserId;
+    bool hasVideo = false;
+    bool isMuted = false;
+    RTCVideoRenderer? renderer;
+
+    if (callState is CallConnected) {
+      if (isLocal) {
+        hasVideo = showVideo && (callState as CallConnected).isVideoEnabled;
+        isMuted = (callState as CallConnected).isMuted;
+        renderer = (callState as CallConnected).localRenderer;
+      } else if (participantId != null) {
+        hasVideo =
+            showVideo &&
+            ((callState as CallConnected).userVideoStates[participantId] ??
+                false);
+        isMuted =
+            !((callState as CallConnected).userAudioStates[participantId] ??
+                true);
+        renderer = (callState as CallConnected).remoteRenderers[participantId];
+      }
+    }
+
+    final bool isActiveSpeaker =
+        (callState is CallConnected) &&
+        (callState as CallConnected).activeSpeakerId == participantId;
+
+    final avatarContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!hideAvatar)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: width,
+                height: height,
+                decoration: BoxDecoration(
+                  color: isParticipantHost
+                      ? Colors.grey[850] // Dark Gray for Host
+                      : Colors.grey[900], // Slightly darker for others
+                  shape: shape,
+                  borderRadius: shape == BoxShape.rectangle
+                      ? BorderRadius.circular(12)
+                      : null,
+                  border: Border.all(
+                    color: isActiveSpeaker
+                        ? Colors
+                              .greenAccent // Active Speaker Highlight
+                        : (isParticipantHost
+                              ? Colors.white54
+                              : Colors.grey[700]!),
+                    width: isActiveSpeaker ? 3 : (isParticipantHost ? 2 : 1),
+                  ),
+                  boxShadow: [
+                    if (isActiveSpeaker)
+                      BoxShadow(
+                        color: Colors.greenAccent.withOpacity(0.6),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      )
+                    else
+                      const BoxShadow(
+                        color: Colors.black45,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: shape == BoxShape.rectangle
+                      ? BorderRadius.circular(
+                          10,
+                        ) // Slightly less than container border radius
+                      : BorderRadius.circular(width / 2),
+                  child: hasVideo && renderer != null
+                      ? RTCVideoView(
+                          renderer,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                          mirror: isLocal,
+                        )
+                      : Center(
+                          child: Text(
+                            name!.isNotEmpty ? name![0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              if (isParticipantHost)
+                Positioned(
+                  top: -height * 0.1,
+                  right: -width * 0.1,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800], // Dark Gray Star Background
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white24, width: 1),
+                    ),
+                    child: Icon(
+                      Icons.stars,
+                      color: Colors.white,
+                      size: width * 0.25,
+                    ),
+                  ),
+                ),
+              if (isLocal && showControls)
+                Positioned(
+                  bottom: 8,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildMiniToggle(
+                        icon: isMuted ? Icons.mic_off : Icons.mic,
+                        isActive: !isMuted,
+                        onTap: () => context.read<CallBloc>().add(ToggleMute()),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildMiniToggle(
+                        icon: hasVideo ? Icons.videocam : Icons.videocam_off,
+                        isActive: hasVideo,
+                        onTap: () =>
+                            context.read<CallBloc>().add(ToggleVideo()),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isActiveSpeaker) ...[
+                    const AudioVisualizer(
+                      isSpeaking: true,
+                      color: Colors.greenAccent,
+                      barCount: 3,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    name!,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: context.dynamicValue(10),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (canTransferHost && roomId != null && participantId != null) {
+      return GestureDetector(
+        onLongPress: () {
+          _showTransferHostDialog(context, roomId!, participantId!, name!);
+        },
+        child: avatarContent,
+      );
+    }
+
+    return avatarContent;
+  }
+
+  Widget _buildMiniToggle({
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.transparent, // Transparent background
+          shape: BoxShape.circle, // Circular hit area
+        ),
+        child: Icon(
+          icon,
+          color: isActive ? Colors.white : Colors.redAccent, // Simple colors
+          size: 18, // Smaller icon
+        ),
+      ),
+    );
+  }
+
+  void _showTransferHostDialog(
+    BuildContext context,
+    String roomId,
+    String newHostId,
+    String userName,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2229),
+        title: const Text('Host Devret', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Host yetkisini $userName kullanıcısına devretmek istiyor musunuz?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              context.read<RoomBloc>().add(
+                TransferHostRequested(roomId: roomId, newHostId: newHostId),
+              );
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+            child: const Text('Devret', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+}

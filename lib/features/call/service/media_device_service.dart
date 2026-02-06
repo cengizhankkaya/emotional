@@ -20,33 +20,53 @@ class MediaDeviceService implements IMediaDeviceService {
   }) async {
     _currentQuality = quality;
 
-    await _startStream();
-    // Varsayılan olarak açık başlıyoruz, sorunları ekarte etmek için
+    try {
+      await _tryStartStream(quality);
+    } catch (e) {
+      print(
+        "CRITICAL: Failed to initialize media stream even after fallback: $e",
+      );
+      // Even if fallback fails, we might want to try AudioOnly as last resort
+      // But _tryStartStream logic below should handle degradation.
+    }
+
+    // Default states
     toggleVideo(true);
     toggleMute(false);
   }
 
-  Future<void> _startStream() async {
-    // Dipose previous stream if exists (except potentially keeping tracks if we were doing seamless switch,
-    // but for simplicity we restart for constraints changes)
+  /// Attempts to start the stream with the requested quality.
+  /// If it fails due to OverconstrainedError or similar, it recursively tries lower qualities.
+  Future<void> _tryStartStream(CallQualityPreset quality) async {
+    print(
+      "MediaDeviceService: Attempting to start stream with quality: ${quality.name}",
+    );
+
+    // Dispose previous if any
     if (_localStream != null) {
       await _localStream!.dispose();
       _localStream = null;
     }
 
-    final videoConstraints = _currentQuality.toConstraints();
+    final videoConstraints = quality.toConstraints();
 
-    // If a specific device is selected, add it to constraints
+    // Applying device selection
     if (_selectedVideoDeviceId != null) {
       videoConstraints['deviceId'] = _selectedVideoDeviceId;
     } else {
-      videoConstraints['facingMode'] = 'user'; // Default to front camera
+      videoConstraints['facingMode'] = 'user';
     }
 
+    // Google-tuned Audio Constraints
     final audioConstraints = <String, dynamic>{
       'echoCancellation': true,
       'noiseSuppression': true,
       'autoGainControl': true,
+      'googEchoCancellation': true,
+      'googEchoCancellation2': true,
+      'googAutoGainControl': true,
+      'googNoiseSuppression': true,
+      'googHighpassFilter': true,
     };
 
     if (_selectedAudioDeviceId != null) {
@@ -62,13 +82,62 @@ class MediaDeviceService implements IMediaDeviceService {
       _localStream = await navigator.mediaDevices.getUserMedia(
         mediaConstraints,
       );
+      _currentQuality = quality; // Success, update current quality
+      print(
+        "MediaDeviceService: Stream started successfully with ${quality.name}",
+      );
     } catch (e) {
-      // Fallback: try audio only if video fails, or default constraints if specific fails
-      // For now, rethrow or handle specific errors like 'PermissionDeniedError'
-      print("Error getting user media: $e");
-      rethrow;
+      print(
+        "MediaDeviceService: Failed to start with ${quality.name}. Error: $e",
+      );
+
+      // Fallback Logic
+      final nextQuality = _getNextLowerQuality(quality);
+      if (nextQuality != null) {
+        print(
+          "MediaDeviceService: Fallback -> Retrying with ${nextQuality.name}",
+        );
+        await _tryStartStream(nextQuality);
+      } else {
+        // If lowest quality video also fails, try AUDIO ONLY as last resort
+        print(
+          "MediaDeviceService: All video qualities failed. Trying Audio Only.",
+        );
+        try {
+          _localStream = await navigator.mediaDevices.getUserMedia({
+            'audio': audioConstraints,
+            'video': false,
+          });
+          print("MediaDeviceService: Audio-only stream started.");
+        } catch (audioError) {
+          print("MediaDeviceService: Audio-only also failed. Giving up.");
+          rethrow;
+        }
+      }
     }
   }
+
+  CallQualityPreset? _getNextLowerQuality(CallQualityPreset current) {
+    switch (current) {
+      case CallQualityPreset.ultra:
+        return CallQualityPreset.high;
+      case CallQualityPreset.high:
+        return CallQualityPreset.balanced;
+      case CallQualityPreset.balanced:
+        return CallQualityPreset.low;
+      case CallQualityPreset.low:
+        return null; // Initial fail was already low
+    }
+  }
+
+  // Public Wrapper for changing quality manually
+  @override
+  Future<void> setQuality(CallQualityPreset preset) async {
+    if (_currentQuality == preset) return;
+    await _tryStartStream(preset);
+  }
+
+  // --- Standard Device Selection ---
 
   @override
   Future<List<MediaDeviceInfo>> getVideoInputs() async {
@@ -91,22 +160,19 @@ class MediaDeviceService implements IMediaDeviceService {
   @override
   Future<void> selectVideoInput(MediaDeviceInfo device) async {
     _selectedVideoDeviceId = device.deviceId;
-    await _startStream();
+    await _tryStartStream(_currentQuality);
   }
 
   @override
   Future<void> selectAudioInput(MediaDeviceInfo device) async {
     _selectedAudioDeviceId = device.deviceId;
-    await _startStream();
+    await _tryStartStream(_currentQuality);
   }
 
   @override
   Future<void> selectAudioOutput(MediaDeviceInfo device) async {
-    // Note: setSinkId is not supported on all platforms/browsers (mainly Chrome desktop)
-    // On Mobile (Flutter WebRTC), this might need specific audio switching logic if not handled by OS
     try {
-      // Helper.selectAudioOutput(device.deviceId); // This is specific to web usually
-      // For mobile, we usually rely on OS routing or specific plugins like audio_session
+      // Helper.selectAudioOutput(device.deviceId);
       print("Mock: Selecting Audio Output ${device.label}");
     } catch (e) {
       print("Error selecting audio output: $e");
@@ -117,17 +183,9 @@ class MediaDeviceService implements IMediaDeviceService {
   void toggleVideo(bool enabled) {
     if (_localStream != null) {
       final tracks = _localStream!.getVideoTracks();
-      print(
-        'MediaDeviceService: Toggling video to $enabled. Found ${tracks.length} video tracks.',
-      );
       tracks.forEach((track) {
         track.enabled = enabled;
-        print(
-          'MediaDeviceService: Video track ${track.id} enabled set to $enabled',
-        );
       });
-    } else {
-      print('MediaDeviceService: _localStream is null, cannot toggle video.');
     }
   }
 
@@ -135,27 +193,10 @@ class MediaDeviceService implements IMediaDeviceService {
   void toggleMute(bool muted) {
     if (_localStream != null) {
       final tracks = _localStream!.getAudioTracks();
-      print(
-        'MediaDeviceService: Toggling mute to $muted. Found ${tracks.length} audio tracks.',
-      );
       tracks.forEach((track) {
         track.enabled = !muted;
-        print(
-          'MediaDeviceService: Audio track ${track.id} enabled set to ${!muted}',
-        );
       });
-    } else {
-      print('MediaDeviceService: _localStream is null, cannot toggle mute.');
     }
-  }
-
-  @override
-  Future<void> setQuality(CallQualityPreset preset) async {
-    if (_currentQuality == preset) return;
-    _currentQuality = preset;
-    // We need to restart the stream to apply new resolution constraints usually
-    // Some implementations allow applyConstraints() on track, but restarting is safer for broad support
-    await _startStream();
   }
 
   @override
@@ -164,16 +205,12 @@ class MediaDeviceService implements IMediaDeviceService {
       final videoTracks = _localStream!.getVideoTracks();
       if (videoTracks.isNotEmpty) {
         await Helper.switchCamera(videoTracks.first);
-        // Note: Helper.switchCamera internal implementation typically rotates through available cameras.
-        // It might overwrite our _selectedVideoDeviceId logic if we rely on that.
-        // For a mixed approach, simple switchCamera is fine for mobile.
       }
     }
   }
 
   @override
   Future<void> enableSpeakerphone(bool enabled) async {
-    // This helper is specifically for mobile (Android/iOS) to route audio
     try {
       await Helper.setSpeakerphoneOn(enabled);
     } catch (e) {

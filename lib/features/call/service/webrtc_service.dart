@@ -379,4 +379,31 @@ class WebRTCService implements ICallService {
   Future<void> dispose() async {
     await leaveRoom();
   }
+
+  // Helper to get audio level (0.0 to 1.0)
+  Future<double> getRemoteAudioLevel(String userId) async {
+    final pc = _peerConnections[userId];
+    if (pc == null) return 0.0;
+
+    try {
+      final stats = await pc.getStats();
+      for (var report in stats) {
+        // Look for 'inbound-rtp' with mediaType 'audio'
+        if (report.type == 'inbound-rtp' &&
+            report.values['mediaType'] == 'audio') {
+          // audioLevel is usually 0..1 defined in recent specs, or energy.
+          // Standard property is 'audioLevel'.
+          var level = report.values['audioLevel'];
+          if (level != null) {
+            return (level is num) ? level.toDouble() : 0.0;
+          }
+        }
+        // Fallback or legacy (track) stats?
+        // Some implementations use 'track' stats with 'audioLevel'.
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 0.0;
+  }
 }

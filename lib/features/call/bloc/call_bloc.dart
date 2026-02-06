@@ -61,6 +61,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     on<ChangeAudioOutput>(_onChangeAudioOutput);
     on<ChangeQuality>(_onChangeQuality);
     on<ChangeVideoSize>(_onChangeVideoSize);
+    on<InternalUpdateActiveSpeaker>(_onInternalUpdateActiveSpeaker);
     on<SuspendMedia>(_onSuspendMedia);
     on<ResumeMedia>(_onResumeMedia);
   }
@@ -121,7 +122,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
       // 2. Initialize Media Devices (Tracks ready and ENABLED by default)
       await _mediaDeviceService.initialize();
-      await _mediaDeviceService.enableSpeakerphone(true);
+      // await _mediaDeviceService.enableSpeakerphone(true); // Rely on AudioSession defaultToSpeaker
 
       _mediaDeviceService.toggleVideo(false);
       _mediaDeviceService.toggleMute(false);
@@ -179,9 +180,71 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         ),
       );
       _isCallActive = true;
+      _startAudioLevelMonitor(); // Start monitoring
     } catch (e) {
       emit(CallError('Failed to join call: $e'));
     }
+  }
+
+  Timer? _audioMonitorTimer;
+
+  void _startAudioLevelMonitor() {
+    _audioMonitorTimer?.cancel();
+    _audioMonitorTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) async {
+      if (!_isCallActive) return;
+
+      String? currentActiveSpeaker;
+      double maxAudioLevel = 0.0;
+
+      // Check remote users
+      for (var entry in _activeUsers.entries) {
+        final userId = entry.key;
+        // Skip if muted (according to our state, avoiding IPC overhead)
+        if (_userAudioStates[userId] == false) continue;
+
+        // Note: Flutter WebRTC's getStats is verbose.
+        // Simplified approach: If we had access to PeerConnection we could call getStats.
+        // Since _callService wraps it, we need a way to get stats or levels.
+        // BUT, `_callService` is ours. We can add a method `getAudioLevel(userId)`.
+
+        // For now, since editing WebRTCService interface is heavy, I will check if I can access
+        // audio track directly from renderer? No.
+
+        // Let's implement a quick mock/heuristic or rely on `WebRTCService` later.
+        // Actually, without getStats, we can't really know volume.
+        // I will update WebRTCService to expose `getStats(userId)`.
+      }
+
+      // Since I cannot change WebRTCService interface easily without breaking `ICallService`,
+      // I will skip actual volume check in this step and prepare infrastructure.
+      // Wait, I can try to cast `_callService` to `WebRTCService` inside Bloc if I want strictly implementation details?
+      // Yes, `_callService` IS `WebRTCService` type in this file.
+
+      for (var userId in _activeUsers.keys) {
+        if (userId == _userId) continue;
+        final level = await _callService.getRemoteAudioLevel(userId);
+        if (level > maxAudioLevel && level > 0.05) {
+          // Threshold
+          maxAudioLevel = level;
+          currentActiveSpeaker = userId;
+        }
+      }
+
+      // Also check local? Usually we don't highlight ourselves as speaker to avoid distraction,
+      // but some apps do. Let's stick to remote first.
+      // If we want local:
+      // final localLevel = ...
+
+      final currentActiveSpeakerId = state is CallConnected
+          ? (state as CallConnected).activeSpeakerId
+          : null;
+
+      if (currentActiveSpeaker != currentActiveSpeakerId) {
+        add(InternalUpdateActiveSpeaker(currentActiveSpeaker));
+      }
+    });
   }
 
   void _setupRoomListeners() {
@@ -291,6 +354,15 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
   // Unused method removed to fix lint
 
+  void _onInternalUpdateActiveSpeaker(
+    InternalUpdateActiveSpeaker event,
+    Emitter<CallState> emit,
+  ) {
+    if (state is CallConnected) {
+      emit((state as CallConnected).copyWith(activeSpeakerId: event.speakerId));
+    }
+  }
+
   void _onInternalUpdateState(
     InternalUpdateState event,
     Emitter<CallState> emit,
@@ -348,6 +420,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
   Future<void> _cleanup() async {
     _isCallActive = false;
+    _audioMonitorTimer?.cancel();
     _roomSubscription?.cancel();
 
     // Dispose Renderers

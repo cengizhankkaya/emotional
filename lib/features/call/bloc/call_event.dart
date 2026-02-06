@@ -23,6 +23,13 @@ class JoinCall extends CallEvent {
 class LeaveCall extends CallEvent {}
 
 // Internal Events from Services
+class InternalUpdateActiveSpeaker extends CallEvent {
+  final String? speakerId;
+  const InternalUpdateActiveSpeaker(this.speakerId);
+  @override
+  List<Object?> get props => [speakerId];
+}
+
 class InternalIncomingStream extends CallEvent {
   final String userId;
   final MediaStream stream;
