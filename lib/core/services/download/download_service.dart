@@ -27,7 +27,7 @@ class DownloadService {
       // For running tasks:
       running: const TaskNotification(
         '{displayName}',
-        '⬇️ {networkSpeed}   💾 {downloaded} / {fileSize}   ⏱️ {timeRemaining}',
+        '⬇️ {networkSpeed}   ⏱️ {timeRemaining}   💾 {progress}',
       ),
       // For complete tasks:
       complete: const TaskNotification(
