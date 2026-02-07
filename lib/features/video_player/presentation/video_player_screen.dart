@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:emotional/features/call/bloc/call_bloc.dart';
@@ -7,16 +6,15 @@ import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_event.dart';
-import 'package:emotional/features/video_player/presentation/logic/video_sync_manager.dart';
+import 'package:emotional/features/video_player/bloc/video_player_state.dart';
+import 'package:emotional/features/video_player/presentation/widgets/chat_panel.dart';
+import 'package:emotional/features/video_player/presentation/widgets/draggable_camera_overlay.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_player_landscape_view.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_player_portrait_view.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_player_view.dart';
-import 'package:emotional/features/video_player/presentation/widgets/chat_panel.dart';
-import 'package:emotional/features/video_player/presentation/widgets/floating_camera_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:media_kit/media_kit.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final File videoFile;
@@ -35,48 +33,37 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  // late final Player _player; // Removed local player
-  // late final VideoController _controller; // Removed local controller
-  VideoSyncManager? _syncManager; // Nullable now as we wait for player
   bool _isChatVisible = true;
   Offset _camerasOffset = const Offset(20, 20);
-
-  StreamSubscription<bool>? _playingSubscription;
-  StreamSubscription<Duration>? _positionSubscription;
 
   @override
   void initState() {
     super.initState();
-    // Initialize global player
     context.read<VideoPlayerBloc>().add(InitializePlayer(widget.videoFile));
-  }
 
-  void _initializeSyncManager(Player player) {
-    if (_syncManager != null) return;
-    _syncManager = VideoSyncManager(player: player, context: context);
-    _setupListeners(player);
-    _syncManager!.syncWithRoomState();
-  }
-
-  void _setupListeners(Player player) {
-    _playingSubscription = player.stream.playing.listen((isPlaying) {
-      _syncManager?.onPlayerStateUpdate(isPlaying: isPlaying);
-    });
-
-    _positionSubscription = player.stream.position.listen((position) {
-      _syncManager?.onPlayerStateUpdate(position: position);
-    });
+    // Initial sync with room state if already joined
+    final roomState = context.read<RoomBloc>().state;
+    if (roomState is RoomJoined) {
+      context.read<VideoPlayerBloc>().add(
+        OnRemoteStateChanged(
+          roomId: roomState.roomId,
+          isPlaying: roomState.isPlaying,
+          position: roomState.position,
+          speed: roomState.speed,
+          audioTrack: roomState.selectedAudioTrack,
+          subtitleTrack: roomState.selectedSubtitleTrack,
+          updatedBy: roomState.updatedBy,
+          lastUpdatedAt: roomState.lastUpdatedAt,
+          hostId: roomState.hostId,
+          currentUserId: widget.userId,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
-    // Reset orientation to portrait when leaving
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-
-    _playingSubscription?.cancel();
-    _positionSubscription?.cancel();
-    // Do NOT dispose _player here, as it is global now.
-    // The Bloc handles disposal on ClosePlayer event.
     super.dispose();
   }
 
@@ -116,19 +103,78 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<RoomBloc, RoomState>(
-      listener: (context, state) {
-        _syncManager?.onRoomStateChanged(state);
-        if (state is RoomInitial) {
-          Navigator.of(context).pop();
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<RoomBloc, RoomState>(
+          listener: (context, state) {
+            if (state is RoomJoined) {
+              context.read<VideoPlayerBloc>().add(
+                OnRemoteStateChanged(
+                  roomId: state.roomId,
+                  isPlaying: state.isPlaying,
+                  position: state.position,
+                  speed: state.speed,
+                  audioTrack: state.selectedAudioTrack,
+                  subtitleTrack: state.selectedSubtitleTrack,
+                  updatedBy: state.updatedBy,
+                  lastUpdatedAt: state.lastUpdatedAt,
+                  hostId: state.hostId,
+                  currentUserId: widget.userId,
+                ),
+              );
+            } else if (state is RoomInitial) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+        BlocListener<VideoPlayerBloc, VideoPlayerState>(
+          listener: (context, state) {
+            if (state is VideoPlayerActive &&
+                state.pendingSyncRequest != null) {
+              final req = state.pendingSyncRequest!;
+              context.read<RoomBloc>().add(
+                SyncVideoAction(
+                  roomId: req.roomId,
+                  isPlaying: req.isPlaying,
+                  position: req.position,
+                  userId: req.userId,
+                ),
+              );
+              // We should ideally clear the request in Bloc, but Bloc does via State copy/generation
+              // typically clearing it in next state or via an ack event.
+              // Our Bloc implementation uses `pendingSyncRequest` callback which is executed once?
+              // `VideoSyncRequest? Function()? pendingSyncRequest` in State?
+              // No, in my state definition I used `VideoSyncRequest? pendingSyncRequest`.
+              // And `copyWith` usage: `pendingSyncRequest: pendingSyncRequest != null ? pendingSyncRequest() : this.pendingSyncRequest`.
+              // This suggests the Bloc emits it once.
+              // IF the state persists, this listener might fire again if other parts of state change?
+              // `listenWhen` can help.
+              // Logic: `listenWhen: (prev, current) => prev.pendingSyncRequest != current.pendingSyncRequest`.
+              // But `VideoSyncRequest` supports value equality.
+              // So if it's the SAME request object, it won't fire?
+              // If Bloc emits a NEW State with SAME request object, Listener fires if I don't use `listenWhen`.
+              // Actually `BlocListener` fires on state change.
+              // If `pendingSyncRequest` is the same, I should ignore it?
+              // Or Bloc should clear it?
+              // Ideally Bloc emits state with request, then immediately emits state without it?
+              // Or we assume `pendingSyncRequest` is a "One-off" that changes on every needed sync (timestamp/id?).
+              // The request has `position`, so it changes.
+              // But if position/play status is identical, we don't sync.
+              // So it should be fine.
+            }
+          },
+          listenWhen: (previous, current) {
+            if (current is VideoPlayerActive && previous is VideoPlayerActive) {
+              return current.pendingSyncRequest != previous.pendingSyncRequest;
+            }
+            return false;
+          },
+        ),
+      ],
       child: PopScope(
         canPop: true,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
-            // User popped the screen (Back button or Navigator.pop)
-            // Stop and Close the player instead of minimizing
             context.read<VideoPlayerBloc>().add(ClosePlayer());
           }
         },
@@ -147,9 +193,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             orientation == Orientation.landscape;
 
                         final videoPlayer = VideoPlayerView(
-                          key: const ValueKey(
-                            'video_player_view',
-                          ), // Added key for state persistence
+                          key: const ValueKey('video_player_view'),
                           isChatVisible: _isChatVisible,
                           onToggleChat: () =>
                               setState(() => _isChatVisible = !_isChatVisible),
@@ -157,7 +201,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           onToggleVideo: () => _onToggleVideo(context),
                           onLeaveCall: () => _onLeaveCall(context),
                           onToggleFullscreen: _toggleFullscreen,
-                          onPlayerActive: _initializeSyncManager,
                         );
 
                         final chatPanel = ChatPanel(
@@ -178,15 +221,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               );
                       },
                     ),
-                    // Full-Screen Floating Participant Cameras
                     BlocBuilder<CallBloc, CallState>(
                       builder: (context, callState) {
                         if (callState is! CallConnected)
                           return const SizedBox.shrink();
 
-                        return FloatingCameraOverlay(
+                        return DraggableCameraOverlay(
                           constraints: constraints,
-                          offset: _camerasOffset,
+                          initialOffset: _camerasOffset,
                           isVideoEnabled: callState.isVideoEnabled,
                           localRenderer: callState.localRenderer,
                           remoteRenderers: callState.remoteRenderers,
@@ -194,9 +236,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           userVideoStates: callState.userVideoStates,
                           currentUserId: context.read<CallBloc>().userId ?? '',
                           onPositionChanged: (newOffset) {
-                            setState(() {
-                              _camerasOffset = newOffset;
-                            });
+                            // No need to setState periodically if internal widget handles drag,
+                            // but we keep track of it if we need to persist or handle orientation changes.
+                            _camerasOffset = newOffset;
                           },
                         );
                       },
@@ -210,6 +252,4 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ),
     );
   }
-
-  bool isChatVisible(BuildContext context) => _isChatVisible;
 }

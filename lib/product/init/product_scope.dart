@@ -4,7 +4,17 @@ import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/repository/chat_repository.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
-import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/features/room/data/repositories/room_repository_impl.dart';
+import 'package:emotional/features/room/domain/repositories/room_repository.dart';
+import 'package:emotional/features/room/domain/usecases/cleanup_rooms_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/create_room_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/join_room_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/leave_room_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/reassign_host_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/stream_room_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/sync_settings_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/sync_video_usecase.dart';
+import 'package:emotional/features/room/domain/usecases/update_room_video_usecase.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/core/bloc/network/network_bloc.dart';
 import 'package:flutter/material.dart';
@@ -27,12 +37,46 @@ class ProductScope extends StatelessWidget {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<RoomRepository>(
-          create: (context) => RoomRepository(),
+          create: (context) => RoomRepositoryImpl(),
         ),
         RepositoryProvider<ChatRepository>(
           create: (context) => ChatRepository(),
         ),
         RepositoryProvider<DriveService>.value(value: driveService),
+        // UseCases
+        RepositoryProvider(
+          create: (context) =>
+              CreateRoomUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) => JoinRoomUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) => LeaveRoomUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) =>
+              StreamRoomUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) => SyncVideoUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) =>
+              SyncSettingsUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) =>
+              UpdateRoomVideoUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) =>
+              ReassignHostUseCase(context.read<RoomRepository>()),
+        ),
+        RepositoryProvider(
+          create: (context) =>
+              CleanupRoomsUseCase(context.read<RoomRepository>()),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -41,8 +85,16 @@ class ProductScope extends StatelessWidget {
                 AuthBloc(googleSignIn: googleSignIn)..add(AuthCheckRequested()),
           ),
           BlocProvider<RoomBloc>(
-            create: (context) =>
-                RoomBloc(roomRepository: context.read<RoomRepository>()),
+            create: (context) => RoomBloc(
+              createRoom: context.read<CreateRoomUseCase>(),
+              joinRoom: context.read<JoinRoomUseCase>(),
+              leaveRoom: context.read<LeaveRoomUseCase>(),
+              streamRoom: context.read<StreamRoomUseCase>(),
+              syncVideo: context.read<SyncVideoUseCase>(),
+              syncSettings: context.read<SyncSettingsUseCase>(),
+              updateRoomVideo: context.read<UpdateRoomVideoUseCase>(),
+              reassignHost: context.read<ReassignHostUseCase>(),
+            ),
           ),
           BlocProvider<ChatBloc>(
             create: (context) =>

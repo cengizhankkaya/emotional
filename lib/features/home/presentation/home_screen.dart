@@ -9,7 +9,7 @@ import 'package:emotional/features/home/presentation/widgets/permission_sheet.da
 import 'package:emotional/features/home/presentation/widgets/room_divider.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/room_screen.dart';
-import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 
 enum ArmchairStyle {
   esce,

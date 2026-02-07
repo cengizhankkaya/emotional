@@ -1,7 +1,8 @@
 import 'package:emotional/core/services/drive_service.dart';
+import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_empty_state.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_error_view.dart';
-import 'package:emotional/features/room/presentation/manager/download_manager.dart';
+import 'package:emotional/features/room/presentation/widgets/drive_file_grid_item.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_list_item.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:flutter/material.dart';
@@ -119,17 +120,38 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
             'Video Seç',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: Colors.transparent,
+          backgroundColor: const Color(0xFF1A1D21),
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
-          bottom: const TabBar(
-            indicatorColor: Colors.deepPurpleAccent,
-            labelColor: Colors.deepPurpleAccent,
-            unselectedLabelColor: Colors.grey,
-            tabs: [
-              Tab(text: 'İndirilenler'),
-              Tab(text: 'Drive (Tümü)'),
-            ],
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(60),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2229),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                indicator: BoxDecoration(
+                  color: Colors.deepPurpleAccent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.grey,
+                dividerColor: Colors.transparent,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+                tabs: const [
+                  Tab(text: 'İndirilenler'),
+                  Tab(text: 'Drive'),
+                ],
+              ),
+            ),
           ),
         ),
         body: _isLoading
@@ -140,17 +162,17 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
             ? DriveFileErrorView(error: _error!)
             : TabBarView(
                 children: [
-                  _buildList(_downloadedFiles, isLocal: true),
-                  _buildList(_allFiles, isLocal: false),
+                  _buildDownloadList(_downloadedFiles),
+                  _buildDriveGrid(_allFiles),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildList(List<drive.File> files, {required bool isLocal}) {
+  Widget _buildDownloadList(List<drive.File> files) {
     if (files.isEmpty) {
-      return DriveFileEmptyState(isLocal: isLocal);
+      return const DriveFileEmptyState(isLocal: true);
     }
 
     return ListView.builder(
@@ -160,9 +182,33 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
         final file = files[index];
         return DriveFileListItem(
           file: file,
-          isLocal: isLocal,
+          isLocal: true,
           onTap: () => Navigator.pop(context, file),
-          onDelete: isLocal ? () => _deleteFile(file) : null,
+          onDelete: () => _deleteFile(file),
+        );
+      },
+    );
+  }
+
+  Widget _buildDriveGrid(List<drive.File> files) {
+    if (files.isEmpty) {
+      return const DriveFileEmptyState(isLocal: false);
+    }
+
+    return GridView.builder(
+      padding: const ProjectPadding.allMedium(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: files.length,
+      itemBuilder: (context, index) {
+        final file = files[index];
+        return DriveFileGridItem(
+          file: file,
+          onTap: () => Navigator.pop(context, file),
         );
       },
     );

@@ -86,8 +86,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     LogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
-    await _firebaseAuth.signOut();
-    await _googleSignIn.signOut();
+    try {
+      await _firebaseAuth.signOut();
+      await _googleSignIn.signOut();
+    } catch (e) {
+      // Ignore errors during logout, we want to clear local state anyway
+    }
     emit(AuthUnauthenticated());
   }
 

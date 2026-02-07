@@ -1,11 +1,12 @@
+import 'package:firebase_database/firebase_database.dart';
+import '../../domain/entities/room_entity.dart';
+import '../../domain/repositories/room_repository.dart';
 import 'dart:math';
 
-import 'package:firebase_database/firebase_database.dart';
-
-class RoomRepository {
+class RoomRepositoryImpl implements RoomRepository {
   final FirebaseDatabase _database;
 
-  RoomRepository({FirebaseDatabase? database})
+  RoomRepositoryImpl({FirebaseDatabase? database})
     : _database = database ?? FirebaseDatabase.instance;
 
   Future<void> _clearUserSignals(String roomId, String userId) async {
@@ -13,6 +14,7 @@ class RoomRepository {
     await signalRef.remove();
   }
 
+  @override
   Future<String> createRoom(String userId, String userName) async {
     final roomId = _generateRoomId();
 
@@ -47,6 +49,7 @@ class RoomRepository {
     return roomId;
   }
 
+  @override
   Future<void> joinRoom(String roomId, String userId, String userName) async {
     // Clear signals BEFORE joining to ensure we don't delete offers that arrive as soon as we appear in the room list
     await _clearUserSignals(roomId, userId);
@@ -90,6 +93,7 @@ class RoomRepository {
     );
   }
 
+  @override
   Future<void> leaveRoom(String roomId, String userId) async {
     final roomRef = _database.ref('rooms/$roomId');
 
@@ -131,6 +135,7 @@ class RoomRepository {
     );
   }
 
+  @override
   Future<void> updateRoomVideo(
     String roomId,
     String fileId,
@@ -146,6 +151,7 @@ class RoomRepository {
     });
   }
 
+  @override
   Future<void> updateVideoState(
     String roomId,
     bool isPlaying,
@@ -161,6 +167,7 @@ class RoomRepository {
     });
   }
 
+  @override
   Future<void> updateRoomSettings(
     String roomId,
     double? speed,
@@ -181,6 +188,7 @@ class RoomRepository {
     await roomRef.update(updates);
   }
 
+  @override
   Future<void> updateUserMediaState(
     String roomId,
     String userId, {
@@ -195,20 +203,75 @@ class RoomRepository {
     });
   }
 
+  @override
   Future<void> updateArmchairStyle(String roomId, String styleName) async {
     final roomRef = _database.ref('rooms/$roomId');
     await roomRef.update({'armchairStyle': styleName});
   }
 
+  @override
   Future<void> reassignHost(String roomId, String newHostId) async {
     final roomRef = _database.ref('rooms/$roomId');
     await roomRef.update({'host': newHostId});
   }
 
-  Stream<DatabaseEvent> streamRoom(String roomId) {
-    return _database.ref('rooms/$roomId').onValue;
+  @override
+  Stream<RoomEntity?> streamRoom(String roomId) {
+    return _database.ref('rooms/$roomId').onValue.map((event) {
+      if (event.snapshot.value == null) return null;
+
+      final data = event.snapshot.value as Map<dynamic, dynamic>;
+
+      final usersMap = data['users'] as Map<dynamic, dynamic>? ?? {};
+      final users = Map<String, String>.fromEntries(
+        usersMap.entries.map(
+          (e) => MapEntry(e.key.toString(), e.value.toString()),
+        ),
+      );
+
+      final videoState = data['videoState'] as Map<dynamic, dynamic>?;
+      final isPlaying = videoState?['isPlaying'] as bool? ?? false;
+      final position = videoState?['position'] as int? ?? 0;
+      final updatedBy = videoState?['updatedBy'] as String?;
+      final lastUpdatedAt = videoState?['updatedAt'] as int? ?? 0;
+      final speed = (videoState?['speed'] as num?)?.toDouble() ?? 1.0;
+      final audioTrack = videoState?['audioTrack'] as String?;
+      final subtitleTrack = videoState?['subtitleTrack'] as String?;
+
+      final usersStateMap = data['usersState'] as Map<dynamic, dynamic>? ?? {};
+      final usersState = <String, UserMediaState>{};
+      usersStateMap.forEach((key, value) {
+        final valMap = value as Map<dynamic, dynamic>;
+        usersState[key.toString()] = UserMediaState(
+          isVideoEnabled: valMap['video'] as bool? ?? false,
+          isAudioEnabled: valMap['audio'] as bool? ?? false,
+          lastUpdatedAt: valMap['updatedAt'] as int? ?? 0,
+        );
+      });
+
+      return RoomEntity(
+        id: roomId,
+        hostId: data['host'] as String? ?? '',
+        users: users,
+        usersState: usersState,
+        status: data['status'] as String? ?? 'waiting',
+        driveFileId: data['driveFileId'] as String?,
+        driveFileName: data['driveFileName'] as String?,
+        driveFileSize: data['driveFileSize'] as String?,
+        isPlaying: isPlaying,
+        position: position,
+        updatedBy: updatedBy,
+        lastUpdatedAt: lastUpdatedAt,
+        speed: speed,
+        selectedAudioTrack: audioTrack,
+        selectedSubtitleTrack: subtitleTrack,
+        armchairStyle: data['armchairStyle'] as String?,
+      );
+    });
   }
 
+  @override
+  @override
   Future<void> cleanupEmptyRooms() async {
     final roomsRef = _database.ref('rooms');
     try {

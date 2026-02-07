@@ -36,7 +36,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         .streamMessages(event.roomId)
         .listen(
           (messages) => add(MessagesUpdated(messages)),
-          onError: (error) => emit(ChatError(error.toString())),
+          onError: (error) {
+            // Ignore permission denied errors that happen during logout
+            if (error.toString().contains('permission-denied') ||
+                error.toString().contains('Client is offline')) {
+              return;
+            }
+            emit(ChatError(error.toString()));
+          },
         );
   }
 

@@ -7,9 +7,13 @@ abstract class RoomState extends Equatable {
   List<Object?> get props => [];
 }
 
-class RoomInitial extends RoomState {}
+class RoomInitial extends RoomState {
+  const RoomInitial();
+}
 
-class RoomLoading extends RoomState {}
+class RoomLoading extends RoomState {
+  const RoomLoading();
+}
 
 class RoomCreated extends RoomState {
   final String roomId;

@@ -1,4 +1,5 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:emotional/features/auth/presentation/widgets/logout_dialog.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -28,8 +29,11 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             color: ColorsCustom.darkGray,
           ),
         ),
-        onPressed: () {
-          context.read<AuthBloc>().add(LogoutRequested());
+        onPressed: () async {
+          final confirm = await LogoutDialog.show(context);
+          if (confirm == true && context.mounted) {
+            context.read<AuthBloc>().add(LogoutRequested());
+          }
         },
       ),
       title: Text(

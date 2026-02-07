@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
-class VideoControlSheet extends StatelessWidget {
+class VideoControlSheet extends StatefulWidget {
   final bool isHost;
   final String roomId;
   final String? fileName;
@@ -27,8 +27,40 @@ class VideoControlSheet extends StatelessWidget {
   });
 
   @override
+  State<VideoControlSheet> createState() => _VideoControlSheetState();
+}
+
+class _VideoControlSheetState extends State<VideoControlSheet> {
+  @override
+  void initState() {
+    super.initState();
+    _checkFile();
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoControlSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.fileName != oldWidget.fileName) {
+      _checkFile();
+    }
+  }
+
+  void _checkFile() {
+    if (widget.fileName != null) {
+      context.read<DownloadCubit>().checkFileExists(widget.fileName!);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocBuilder<DownloadCubit, DownloadState>(
+    return BlocConsumer<DownloadCubit, DownloadState>(
+      listener: (context, state) {
+        if (state.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.error!), backgroundColor: Colors.red),
+          );
+        }
+      },
       builder: (context, state) {
         return Container(
           width: double.infinity,
@@ -44,38 +76,24 @@ class VideoControlSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (state.error != null)
-                _buildErrorListener(
-                  context,
-                ), // Though better handled by BlocListener in parent
-              if (isHost && state.downloadedVideos.isNotEmpty) ...[
+              if (widget.isHost && state.downloadedVideos.isNotEmpty) ...[
                 _buildDownloadedVideosSection(context, state.downloadedVideos),
                 SizedBox(height: context.dynamicHeight(0.024)),
                 const Divider(color: Colors.white10),
                 SizedBox(height: context.dynamicHeight(0.016)),
               ],
-              if (fileName != null) ...[
+              if (widget.fileName != null) ...[
                 _buildSelectedVideoSection(context, state),
                 SizedBox(height: context.dynamicHeight(0.016)),
               ],
               _buildActionButtons(context, state),
-              if (fileName == null && !isHost) _buildWaitingMessage(),
+              if (widget.fileName == null && !widget.isHost)
+                _buildWaitingMessage(),
             ],
           ),
         );
       },
     );
-  }
-
-  // Hacky inline listener widget since we are inside BlocBuilder
-  Widget _buildErrorListener(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // This is not ideal inside build, but for now we rely on the Cubit clearing the error
-      // or we should use BlocListener in the parent widget.
-      // Let's assume RoomScreen handles errors or we just show text.
-      // Actually, let's just ignore for now as we don't have a clean way to show snackbar from here without context issues
-    });
-    return const SizedBox.shrink();
   }
 
   Widget _buildDownloadedVideosSection(
@@ -101,10 +119,10 @@ class VideoControlSheet extends StatelessWidget {
             itemCount: downloadedVideos.length,
             itemBuilder: (context, index) {
               final video = downloadedVideos[index];
-              final isSelected = video.id == fileId;
+              final isSelected = video.id == widget.fileId;
 
               return GestureDetector(
-                onTap: () => onSelectVideo(video),
+                onTap: () => widget.onSelectVideo(video),
                 child: Container(
                   width: context.dynamicValue(110),
                   margin: EdgeInsets.only(
@@ -162,7 +180,7 @@ class VideoControlSheet extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Selected Video:',
+          'Seçilen Video:',
           style: TextStyle(
             color: Colors.grey[400],
             fontSize: context.dynamicValue(12),
@@ -170,7 +188,7 @@ class VideoControlSheet extends StatelessWidget {
         ),
         SizedBox(height: context.dynamicHeight(0.004)),
         Text(
-          fileName!,
+          widget.fileName!,
           style: TextStyle(
             color: Colors.white,
             fontSize: context.dynamicValue(16),
@@ -182,6 +200,7 @@ class VideoControlSheet extends StatelessWidget {
           LinearProgressIndicator(
             value: state.downloadProgress,
             backgroundColor: Colors.grey[800],
+            color: Colors.deepPurpleAccent,
           ),
         ],
         if (state.statusMessage != null)
@@ -204,10 +223,10 @@ class VideoControlSheet extends StatelessWidget {
 
     return Row(
       children: [
-        if (isHost)
+        if (widget.isHost)
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: onPickVideo,
+              onPressed: widget.onPickVideo,
               icon: const Icon(Icons.video_library),
               label: const Text('Tümünü Gör'),
               style: OutlinedButton.styleFrom(
@@ -219,9 +238,9 @@ class VideoControlSheet extends StatelessWidget {
               ),
             ),
           ),
-        if (isHost && fileName != null)
+        if (widget.isHost && widget.fileName != null)
           SizedBox(width: context.dynamicValue(12)),
-        if (fileName != null && fileId != null)
+        if (widget.fileName != null && widget.fileId != null)
           Expanded(
             flex: 2,
             child: ElevatedButton.icon(
@@ -229,11 +248,11 @@ class VideoControlSheet extends StatelessWidget {
                   ? null
                   : () {
                       if (state.isVideoDownloaded) {
-                        onPlay();
+                        widget.onPlay();
                       } else {
                         context.read<DownloadCubit>().downloadVideo(
-                          fileId!,
-                          fileName!,
+                          widget.fileId!,
+                          widget.fileName!,
                         );
                       }
                     },

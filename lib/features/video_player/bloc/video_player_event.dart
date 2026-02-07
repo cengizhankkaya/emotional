@@ -27,3 +27,62 @@ class ToggleMinimize extends VideoPlayerEvent {
 }
 
 class ClosePlayer extends VideoPlayerEvent {}
+
+/// Event triggering when the underlying player state changes (playing, position, etc.)
+class OnPlayerStateChanged extends VideoPlayerEvent {
+  final bool? isPlaying;
+  final Duration? position;
+  final double? rate;
+  final bool? isBuffering;
+
+  const OnPlayerStateChanged({
+    this.isPlaying,
+    this.position,
+    this.rate,
+    this.isBuffering,
+  });
+
+  @override
+  List<Object?> get props => [isPlaying, position, rate, isBuffering];
+}
+
+/// Event triggering when the remote room state changes
+class OnRemoteStateChanged extends VideoPlayerEvent {
+  final String roomId;
+  final bool isPlaying;
+  final int position;
+  final double speed;
+  final String? audioTrack;
+  final String? subtitleTrack;
+  final String? updatedBy;
+  final int lastUpdatedAt;
+  final String hostId;
+  final String currentUserId;
+
+  const OnRemoteStateChanged({
+    required this.roomId,
+    required this.isPlaying,
+    required this.position,
+    required this.speed,
+    this.audioTrack,
+    this.subtitleTrack,
+    this.updatedBy,
+    required this.lastUpdatedAt,
+    required this.hostId,
+    required this.currentUserId,
+  });
+
+  @override
+  List<Object?> get props => [
+    roomId,
+    isPlaying,
+    position,
+    speed,
+    audioTrack,
+    subtitleTrack,
+    updatedBy,
+    lastUpdatedAt,
+    hostId,
+    currentUserId,
+  ];
+}

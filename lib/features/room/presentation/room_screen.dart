@@ -1,26 +1,21 @@
+import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
-import 'package:emotional/features/room/bloc/room_bloc.dart';
-import 'package:emotional/features/room/presentation/manager/floating_message_manager.dart';
-import 'package:emotional/core/services/drive_service.dart';
+import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/room/bloc/download_cubit.dart';
+import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/manager/download_manager.dart';
-// import 'package:emotional/features/room/bloc/room_bloc.dart'; // Already exists
+import 'package:emotional/features/room/presentation/manager/floating_message_manager.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
-import 'package:emotional/features/room/presentation/widgets/room_top_bar.dart';
-import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
-import 'package:emotional/features/room/repository/room_repository.dart';
+import 'package:emotional/features/room/presentation/mixins/room_exit_mixin.dart';
+import 'package:emotional/features/room/presentation/mixins/room_media_mixin.dart';
+import 'package:emotional/features/room/presentation/widgets/room_screen_content.dart';
+import 'package:emotional/features/room/presentation/widgets/room_screen_listeners.dart';
+import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:emotional/features/chat/bloc/chat_bloc.dart';
-import 'package:emotional/features/chat/presentation/chat_widget.dart';
-import 'package:emotional/features/call/bloc/call_state.dart';
-import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
-
-import 'package:emotional/features/room/presentation/mixins/room_media_mixin.dart';
-import 'package:emotional/features/room/presentation/widgets/participant_video_row.dart';
-import 'package:emotional/features/room/presentation/widgets/room_seating_widget.dart';
 
 class RoomScreen extends StatefulWidget {
   const RoomScreen({super.key});
@@ -30,10 +25,9 @@ class RoomScreen extends StatefulWidget {
 }
 
 class _RoomScreenState extends State<RoomScreen>
-    with WidgetsBindingObserver, RoomMediaMixin {
+    with WidgetsBindingObserver, RoomMediaMixin, RoomExitMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final FloatingMessageManager _floatingMessageManager;
-  bool _isLeaving = false;
 
   @override
   void initState() {
@@ -100,14 +94,23 @@ class _RoomScreenState extends State<RoomScreen>
             context,
           ).showSnackBar(SnackBar(content: Text(state.message)));
         } else if (state is RoomInitial) {
-          if (!_isLeaving) {
-            _isLeaving = true;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Oda kapatıldı veya odadan ayrıldınız.'),
-              ),
-            );
-            Navigator.of(context).pop();
+          if (mounted) {
+            // Always mark as leaving to prevent loops (and stop further cleanup calls if any)
+            setState(() {
+              isLeaving = true;
+            });
+
+            // Show message only if we are actually popping a screen
+            if (Navigator.canPop(context)) {
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Oda kapatıldı veya odadan ayrıldınız.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              Navigator.of(context).pop();
+            }
           }
         } else if (state is RoomJoined) {
           // Join the call when room is joined, but only if not already connected
@@ -144,9 +147,9 @@ class _RoomScreenState extends State<RoomScreen>
           canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
-            final shouldPop = await _showExitConfirmationDialog(context);
+            final shouldPop = await showExitConfirmationDialog(context);
             if (shouldPop && context.mounted) {
-              _performPopCleanup(context);
+              performPopCleanup(context);
             }
           },
           child: MultiBlocProvider(
@@ -165,223 +168,71 @@ class _RoomScreenState extends State<RoomScreen>
                 ),
               ),
             ],
-            child: MultiBlocListener(
-              listeners: [
-                BlocListener<RoomBloc, RoomState>(
-                  listenWhen: (previous, current) {
-                    if (previous is RoomJoined && current is RoomJoined) {
-                      return previous.armchairStyle != current.armchairStyle;
-                    }
-                    return false;
-                  },
-                  listener: (context, state) {
-                    if (state is RoomJoined && state.armchairStyle != null) {
-                      context.read<RoomDecorationCubit>().updateFromSync(
-                        state.armchairStyle!,
-                      );
-                    }
-                  },
-                ),
-                BlocListener<DownloadCubit, DownloadState>(
-                  listenWhen: (previous, current) {
-                    return previous.error != current.error ||
-                        previous.isVideoDownloaded != current.isVideoDownloaded;
-                  },
-                  listener: (context, state) {
-                    if (state.error != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(state.error!),
-                          backgroundColor: Colors.red,
-                          behavior: SnackBarBehavior.floating,
-                          margin: const EdgeInsets.all(16),
-                        ),
-                      );
-                    }
-                    if (state.isVideoDownloaded &&
-                        state.localVideoFile != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('İndirme tamamlandı!'),
-                          backgroundColor: Colors.green,
-                          behavior: SnackBarBehavior.floating,
-                          margin: EdgeInsets.all(16),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-              child: Builder(
-                builder: (context) {
-                  // Initialize cubit from initial room state
-                  final initialStyle =
-                      (context.read<RoomBloc>().state as RoomJoined)
-                          .armchairStyle;
-                  if (initialStyle != null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      context.read<RoomDecorationCubit>().updateFromSync(
-                        initialStyle,
-                      );
-                    });
-                  }
-
-                  // Load chat messages when room is joined
+            child: Builder(
+              builder: (context) {
+                // Initialize cubit from initial room state
+                final initialStyle =
+                    (context.read<RoomBloc>().state as RoomJoined)
+                        .armchairStyle;
+                if (initialStyle != null) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    context.read<ChatBloc>().add(LoadMessages(roomId));
+                    context.read<RoomDecorationCubit>().updateFromSync(
+                      initialStyle,
+                    );
                   });
+                }
 
-                  // Video State
-                  final driveFileName = roomState.driveFileName;
-                  final driveFileId = roomState.driveFileId;
+                // Load chat messages when room is joined
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  context.read<ChatBloc>().add(LoadMessages(roomId));
+                });
 
-                  return BlocListener<ChatBloc, ChatState>(
-                    listener: (context, chatState) {
-                      if (chatState is ChatLoaded &&
-                          chatState.messages.isNotEmpty) {
-                        final lastMessage = chatState.messages.last;
-                        _floatingMessageManager.showFloatingMessage(
+                // Video State
+                final driveFileName = roomState.driveFileName;
+                final driveFileId = roomState.driveFileId;
+
+                return RoomScreenListeners(
+                  floatingMessageManager: _floatingMessageManager,
+                  participants: participants,
+                  child: RoomScreenContent(
+                    roomId: roomId,
+                    participants: participants,
+                    userNames: userNames,
+                    hostId: hostId,
+                    currentUserId: currentUserId,
+                    isHost: isHost,
+                    driveFileName: driveFileName,
+                    driveFileId: driveFileId,
+                    scaffoldKey: _scaffoldKey,
+                    onLeave: () async {
+                      if (context.mounted) {
+                        final shouldLeave = await showExitConfirmationDialog(
                           context,
-                          lastMessage,
-                          participants,
+                        );
+                        if (shouldLeave && context.mounted) {
+                          performPopCleanup(context);
+                        }
+                      }
+                    },
+                    onPickVideo: () => pickVideo(roomId),
+                    onSelectVideo: (video) => selectVideo(roomId, video),
+                    onPlayVideo: () {
+                      final cubit = context.read<DownloadCubit>();
+                      if (cubit.state.localVideoFile != null) {
+                        playVideo(
+                          videoFile: cubit.state.localVideoFile!,
+                          roomId: roomId,
+                          userId: currentUserId,
                         );
                       }
                     },
-                    child: Scaffold(
-                      key: _scaffoldKey,
-                      endDrawer: Drawer(
-                        width: context.dynamicWidth(0.85),
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        child: ChatWidget(
-                          roomId: roomId,
-                          onClose: () => Navigator.of(context).pop(),
-                        ),
-                      ),
-                      backgroundColor: const Color(0xFF1A1D21),
-                      body: Stack(
-                        children: [
-                          // Background Room Layout
-                          Positioned.fill(
-                            child: RoomSeatingWidget(
-                              participants: participants,
-                              userNames: userNames,
-                              isHost: isHost,
-                              currentUserId: currentUserId,
-                              roomId: roomId,
-                              hostId: hostId,
-                            ),
-                          ),
-                          // UI Overlay
-                          SafeArea(
-                            child: Column(
-                              children: [
-                                RoomTopBar(
-                                  roomId: roomId,
-                                  scaffoldKey: _scaffoldKey,
-                                  onLeave: () => _performPopCleanup(context),
-                                ),
-                                ParticipantVideoRow(
-                                  participants: participants,
-                                  userNames: userNames,
-                                  currentUserId: currentUserId,
-                                  roomId: roomId,
-                                  hostId: hostId,
-                                ),
-                                const Spacer(),
-                                VideoControlSheet(
-                                  isHost: isHost,
-                                  roomId: roomId,
-                                  fileName: driveFileName,
-                                  fileId: driveFileId,
-                                  onPickVideo: () => pickVideo(roomId),
-                                  onSelectVideo: (video) =>
-                                      selectVideo(roomId, video),
-                                  onPlay: () {
-                                    final cubit = context.read<DownloadCubit>();
-                                    if (cubit.state.localVideoFile != null) {
-                                      playVideo(
-                                        videoFile: cubit.state.localVideoFile!,
-                                        roomId: roomId,
-                                        userId: currentUserId,
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         );
       },
     );
-  }
-
-  Future<bool> _showExitConfirmationDialog(BuildContext context) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Odadan Çık?'),
-            content: const Text('Odadan çıkmak istediğinize emin misiniz?'),
-            backgroundColor: const Color(0xFF2B3038),
-            titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
-            contentTextStyle: const TextStyle(color: Colors.white70),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('İptal'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Çık'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
-  void _performPopCleanup(BuildContext context) {
-    if (_isLeaving) return;
-
-    setState(() {
-      _isLeaving = true;
-    });
-
-    final roomState = context.read<RoomBloc>().state;
-    String? roomId;
-    if (roomState is RoomJoined) {
-      roomId = roomState.roomId;
-    } else if (roomState is RoomCreated) {
-      roomId = roomState.roomId;
-    }
-
-    // CallBloc cleanup
-    context.read<CallBloc>().add(LeaveCall());
-
-    // RoomBloc cleanup
-    if (roomId != null) {
-      final currentUserId =
-          (context.read<AuthBloc>().state as AuthAuthenticated).user.uid;
-      context.read<RoomBloc>().add(
-        LeaveRoomRequested(roomId: roomId, userId: currentUserId),
-      );
-    }
-
-    // Force pop
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
   }
 }
