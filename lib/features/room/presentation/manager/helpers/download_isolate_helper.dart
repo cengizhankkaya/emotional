@@ -1,6 +1,7 @@
 import 'dart:isolate';
 import 'dart:ui';
 
+@pragma('vm:entry-point')
 class DownloadIsolateHelper {
   final ReceivePort _port = ReceivePort();
 

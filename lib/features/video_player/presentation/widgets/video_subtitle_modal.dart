@@ -101,7 +101,7 @@ class VideoSubtitleModal extends StatelessWidget {
               track.id,
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
-            trailing: player.state.track.subtitle == track
+            trailing: player.state.track.subtitle.id == track.id
                 ? const Icon(Icons.check, color: Colors.blue)
                 : null,
             onTap: () {

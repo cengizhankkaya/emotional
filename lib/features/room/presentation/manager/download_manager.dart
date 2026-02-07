@@ -242,6 +242,9 @@ class DownloadManager extends ChangeNotifier {
 
   Future<void> checkFileExists(String fileName) async {
     final foundFile = await _fileHelper.checkFileExists(fileName);
+    debugPrint(
+      'DownloadManager: checkFileExists($fileName) -> found: ${foundFile?.path}',
+    );
 
     if (foundFile != null) {
       _isVideoDownloaded = true;

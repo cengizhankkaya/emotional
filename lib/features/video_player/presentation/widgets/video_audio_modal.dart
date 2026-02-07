@@ -32,7 +32,7 @@ class VideoAudioModal extends StatelessWidget {
             track.id,
             style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
-          trailing: player.state.track.audio == track
+          trailing: player.state.track.audio.id == track.id
               ? const Icon(Icons.check, color: Colors.blue)
               : null,
           onTap: () {

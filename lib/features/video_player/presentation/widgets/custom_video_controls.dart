@@ -5,7 +5,9 @@ import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 
+import 'package:emotional/features/video_player/bloc/video_player_event.dart';
 import 'package:emotional/features/video_player/bloc/video_player_state.dart';
+import 'package:emotional/features/video_player/presentation/widgets/video_settings_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -95,7 +97,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
       // then `positionStream` fires `OnPlayerStateChanged`, which triggers Sync.
       // MediaKit player.seek triggers position update.
 
-      state.player.seek(newPos);
+      context.read<VideoPlayerBloc>().add(SeekTo(newPos));
 
       // Show visual feedback (Ripple/Text) - omitted for brevity, can add overlay later
 
@@ -246,7 +248,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
             IconButton(
               icon: const Icon(Icons.settings, color: Colors.white),
               onPressed: () {
-                // Open Settings Modal
+                VideoSettingsModal.show(context, widget.controller.player);
                 _resetHideTimer();
               },
             ),
@@ -260,9 +262,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
     return BlocBuilder<VideoPlayerBloc, VideoPlayerState>(
       buildWhen: (previous, current) {
         if (current is VideoPlayerActive && previous is VideoPlayerActive) {
-          return current.player.state.playing !=
-                  previous.player.state.playing ||
-              current.isBuffering != previous.isBuffering;
+          return current.isBuffering != previous.isBuffering;
         }
         return false;
       },
@@ -275,53 +275,67 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
           );
         }
 
-        final isPlaying = state.player.state.playing;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmall = constraints.maxWidth < 300;
+            final double mainIconSize = isSmall ? 40 : 52;
+            final double sideIconSize = isSmall ? 28 : 36;
+            final double gap = isSmall ? 12 : 24;
 
-        return Center(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                iconSize: 48,
-                icon: const Icon(Icons.replay_10, color: Colors.white),
-                onPressed: () {
-                  _onDoubleTapSeek(false);
-                  _resetHideTimer();
-                },
-              ),
-              const SizedBox(width: 32),
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withOpacity(0.5),
-                ),
-                child: IconButton(
-                  iconSize: 64,
-                  icon: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
+            return Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    iconSize: sideIconSize,
+                    icon: const Icon(Icons.replay_10, color: Colors.white),
+                    onPressed: () {
+                      _onDoubleTapSeek(false);
+                      _resetHideTimer();
+                    },
                   ),
-                  onPressed: () {
-                    if (isPlaying) {
-                      state.player.pause();
-                    } else {
-                      state.player.play();
-                    }
-                    _resetHideTimer();
-                  },
-                ),
+                  SizedBox(width: gap),
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: 0.5),
+                    ),
+                    child: StreamBuilder<bool>(
+                      stream: state.player.stream.playing,
+                      builder: (context, snapshot) {
+                        final isPlaying =
+                            snapshot.data ?? state.player.state.playing;
+                        return IconButton(
+                          iconSize: mainIconSize,
+                          icon: Icon(
+                            isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {
+                            if (isPlaying) {
+                              state.player.pause();
+                            } else {
+                              state.player.play();
+                            }
+                            _resetHideTimer();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(width: gap),
+                  IconButton(
+                    iconSize: sideIconSize,
+                    icon: const Icon(Icons.forward_10, color: Colors.white),
+                    onPressed: () {
+                      _onDoubleTapSeek(true);
+                      _resetHideTimer();
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(width: 32),
-              IconButton(
-                iconSize: 48,
-                icon: const Icon(Icons.forward_10, color: Colors.white),
-                onPressed: () {
-                  _onDoubleTapSeek(true);
-                  _resetHideTimer();
-                },
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -377,10 +391,8 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
                               max: duration.inMilliseconds.toDouble(),
                               onChanged: (value) {
                                 _resetHideTimer();
-                                // Optional: don't seek immediately while dragging?
-                                // MediaKit handles it well usually.
-                                state.player.seek(
-                                  Duration(milliseconds: value.toInt()),
+                                context.read<VideoPlayerBloc>().add(
+                                  SeekTo(Duration(milliseconds: value.toInt())),
                                 );
                               },
                             ),

@@ -17,14 +17,29 @@ import 'package:emotional/features/room/domain/repositories/room_repository.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class RoomScreen extends StatefulWidget {
+class RoomScreen extends StatelessWidget {
   const RoomScreen({super.key});
 
   @override
-  State<RoomScreen> createState() => _RoomScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<DownloadCubit>(
+      create: (context) => DownloadCubit(
+        downloadManager: DownloadManager(),
+        driveService: context.read<DriveService>(),
+      ),
+      child: const _RoomBody(),
+    );
+  }
 }
 
-class _RoomScreenState extends State<RoomScreen>
+class _RoomBody extends StatefulWidget {
+  const _RoomBody();
+
+  @override
+  State<_RoomBody> createState() => _RoomBodyState();
+}
+
+class _RoomBodyState extends State<_RoomBody>
     with WidgetsBindingObserver, RoomMediaMixin, RoomExitMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final FloatingMessageManager _floatingMessageManager;
@@ -123,6 +138,7 @@ class _RoomScreenState extends State<RoomScreen>
           }
 
           if (state.driveFileName != null) {
+            // Now this works because DownloadCubit is provided above _RoomBody
             context.read<DownloadCubit>().checkFileExists(state.driveFileName!);
           }
         }
@@ -161,12 +177,7 @@ class _RoomScreenState extends State<RoomScreen>
                   roomId: roomId,
                 ),
               ),
-              BlocProvider(
-                create: (context) => DownloadCubit(
-                  downloadManager: DownloadManager(),
-                  driveService: context.read<DriveService>(),
-                ),
-              ),
+              // DownloadCubit is now provided at the top of RoomScreen
             ],
             child: Builder(
               builder: (context) {

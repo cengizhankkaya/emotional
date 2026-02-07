@@ -21,7 +21,10 @@ mixin RoomMediaMixin<T extends StatefulWidget> on State<T> {
     // context.read<DownloadCubit>().loadDownloadedVideos(); // Optional, if picker changes things
 
     if (file != null && mounted) {
+      debugPrint('RoomMediaMixin: File picked: ${file.name} (${file.id})');
       selectVideo(roomId, file);
+    } else {
+      debugPrint('RoomMediaMixin: No file picked (null)');
     }
   }
 

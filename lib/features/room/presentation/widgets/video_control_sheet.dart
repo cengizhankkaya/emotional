@@ -41,12 +41,18 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
   void didUpdateWidget(covariant VideoControlSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.fileName != oldWidget.fileName) {
+      debugPrint(
+        'VideoControlSheet: fileName changed from ${oldWidget.fileName} to ${widget.fileName}',
+      );
       _checkFile();
     }
   }
 
   void _checkFile() {
     if (widget.fileName != null) {
+      debugPrint(
+        'VideoControlSheet: Checking existence for ${widget.fileName}',
+      );
       context.read<DownloadCubit>().checkFileExists(widget.fileName!);
     }
   }
@@ -62,6 +68,9 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
         }
       },
       builder: (context, state) {
+        debugPrint(
+          'VideoControlSheet: Rebuild. fileName: ${widget.fileName}, isVideoDownloaded: ${state.isVideoDownloaded}',
+        );
         return Container(
           width: double.infinity,
           decoration: BoxDecoration(
@@ -195,7 +204,7 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        if (state.downloadProgress != null) ...[
+        if (state.downloadProgress != null && !state.isVideoDownloaded) ...[
           SizedBox(height: context.dynamicHeight(0.016)),
           LinearProgressIndicator(
             value: state.downloadProgress,
@@ -219,7 +228,9 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
   }
 
   Widget _buildActionButtons(BuildContext context, DownloadState state) {
-    final isDownloading = state.downloadProgress != null;
+    // If video is downloaded, we shouldn't consider it "downloading" even if progress is still clearing (e.g. 100%)
+    final isDownloading =
+        state.downloadProgress != null && !state.isVideoDownloaded;
 
     return Row(
       children: [

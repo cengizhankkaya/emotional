@@ -309,13 +309,16 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     Emitter<RoomState> emit,
   ) async {
     try {
+      print('RoomBloc: UpdateRoomVideoRequested for ${event.fileName}');
       await _updateRoomVideo(
         roomId: event.roomId,
         fileId: event.fileId,
         fileName: event.fileName,
         fileSize: event.fileSize,
       );
+      print('RoomBloc: UpdateRoomVideoRequested success');
     } catch (e) {
+      print('RoomBloc: UpdateRoomVideoRequested failed: $e');
       emit(RoomError('Failed to update room video: $e'));
     }
   }

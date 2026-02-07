@@ -27,6 +27,35 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     on<ClosePlayer>(_onClosePlayer);
     on<OnPlayerStateChanged>(_onPlayerStateChanged);
     on<OnRemoteStateChanged>(_onRemoteStateChanged);
+    on<SeekTo>(_onSeekTo);
+  }
+
+  Future<void> _onSeekTo(SeekTo event, Emitter<VideoPlayerState> emit) async {
+    if (state is! VideoPlayerActive) return;
+    final currentState = state as VideoPlayerActive;
+
+    // Explicit user action
+    _lastLocalActionTime = DateTime.now();
+
+    await _videoService.seek(event.position);
+
+    if (currentState.roomId != null &&
+        currentState.currentUserId != null &&
+        currentState.isHost) {
+      emit(
+        currentState.copyWith(
+          pendingSyncRequest: () => VideoSyncRequest(
+            roomId: currentState.roomId!,
+            isPlaying: _videoService.isPlaying,
+            position: event.position.inMilliseconds,
+            userId: currentState.currentUserId!,
+            speed: _videoService.rate,
+            audioTrack: _videoService.track.audio.id,
+            subtitleTrack: _videoService.track.subtitle.id,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _onInitializePlayer(
@@ -64,7 +93,12 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     });
 
     _videoService.trackStream.listen((track) {
-      add(const OnPlayerStateChanged());
+      add(
+        OnPlayerStateChanged(
+          audioTrack: _videoService.player.state.track.audio.id,
+          subtitleTrack: _videoService.player.state.track.subtitle.id,
+        ),
+      );
     });
 
     emit(
@@ -82,7 +116,9 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     OnPlayerStateChanged event,
     Emitter<VideoPlayerState> emit,
   ) async {
-    if (state is! VideoPlayerActive) return;
+    if (state is! VideoPlayerActive) {
+      return;
+    }
     final currentState = state as VideoPlayerActive;
 
     // Update local state for UI (buffering)
@@ -93,10 +129,15 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
       return;
     }
 
-    if (currentState.isSyncing) return;
-    if (currentState.roomId == null || currentState.currentUserId == null)
+    if (currentState.isSyncing) {
       return;
-    if (!currentState.isHost) return;
+    }
+    if (currentState.roomId == null || currentState.currentUserId == null) {
+      return;
+    }
+    if (!currentState.isHost) {
+      return;
+    }
 
     if (_lastLocalActionTime != null &&
         DateTime.now().difference(_lastLocalActionTime!).inMilliseconds <
@@ -117,6 +158,11 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         // Seeking while paused
         needsSync = true;
       }
+    }
+
+    // Track Change Logic:
+    if (event.audioTrack != null || event.subtitleTrack != null) {
+      needsSync = true;
     }
 
     if (needsSync) {

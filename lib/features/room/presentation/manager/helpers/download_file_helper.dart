@@ -6,8 +6,10 @@ import 'package:path_provider/path_provider.dart';
 class DownloadFileHelper {
   Future<File?> checkFileExists(String fileName) async {
     try {
-      final pathsToCheck = await _getPossiblePaths(fileName);
+      final cleanName = fileName.trim();
+      final pathsToCheck = await _getPossiblePaths(cleanName);
 
+      // 1. Exact path check
       for (final path in pathsToCheck) {
         final file = File(path);
         if (await file.exists() && await file.length() > 0) {
@@ -15,12 +17,47 @@ class DownloadFileHelper {
           return file;
         }
       }
+
+      // 2. Fallback: Check directory content for name mismatch (e.g. escaping, case sensitivity)
+      // This is more expensive but robust.
+      final directoryPaths = await _getPossibleSecondaryPaths(cleanName);
+      for (final dirPath in directoryPaths) {
+        final dir = Directory(dirPath);
+        if (await dir.exists()) {
+          try {
+            final entities = await dir.list().toList();
+            for (final entity in entities) {
+              if (entity is File) {
+                final name = entity.uri.pathSegments.last;
+                // Check if name contains the video name (fuzzy match) or matches sanitized version
+                // ignoring case
+                if (name.toLowerCase() == cleanName.toLowerCase() ||
+                    name.toLowerCase() == _sanitize(cleanName).toLowerCase()) {
+                  if (await entity.length() > 0) {
+                    debugPrint(
+                      'DownloadManager: File FOUND via fuzzy match at ${entity.path}',
+                    );
+                    return entity;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            // Ignore list errors
+          }
+        }
+      }
+
       debugPrint('DownloadManager: File NOT found: $fileName');
       return null;
     } catch (e) {
       debugPrint('DownloadManager: Error in checkFileExists: $e');
       return null;
     }
+  }
+
+  String _sanitize(String fileName) {
+    return fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
 
   Future<List<String>> _getPossiblePaths(String fileName) async {

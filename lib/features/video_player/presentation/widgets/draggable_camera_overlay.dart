@@ -139,13 +139,13 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: hasVideo
-              ? Colors.greenAccent.withOpacity(0.5)
+              ? Colors.greenAccent.withValues(alpha: 0.5)
               : Colors.white24,
           width: hasVideo ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 8,
             spreadRadius: 2,
           ),
@@ -179,7 +179,10 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
                 child: Row(
@@ -288,12 +291,12 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
             maxHeight: widget.constraints.maxHeight,
           ),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 15,
                 spreadRadius: 2,
               ),

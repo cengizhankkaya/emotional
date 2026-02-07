@@ -223,8 +223,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                     BlocBuilder<CallBloc, CallState>(
                       builder: (context, callState) {
-                        if (callState is! CallConnected)
+                        if (callState is! CallConnected) {
                           return const SizedBox.shrink();
+                        }
 
                         return DraggableCameraOverlay(
                           constraints: constraints,
