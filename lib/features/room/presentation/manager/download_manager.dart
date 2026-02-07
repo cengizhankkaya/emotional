@@ -1,15 +1,16 @@
 import 'dart:io';
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:emotional/core/services/drive_service.dart';
+import 'package:emotional/core/services/download/download_service.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_drive_helper.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_error_helper.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_file_helper.dart';
-import 'package:emotional/features/room/presentation/manager/helpers/download_isolate_helper.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_permission_helper.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_recovery_helper.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_task_helper.dart';
+import 'package:emotional/core/services/download/download_model.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
 
 class DownloadManager extends ChangeNotifier {
   static final DownloadManager _instance = DownloadManager._internal();
@@ -20,7 +21,7 @@ class DownloadManager extends ChangeNotifier {
   final DownloadPermissionHelper _permissionHelper = DownloadPermissionHelper();
   final DownloadFileHelper _fileHelper = DownloadFileHelper();
   final DownloadTaskHelper _taskHelper = DownloadTaskHelper();
-  final DownloadIsolateHelper _isolateHelper = DownloadIsolateHelper();
+
   final DownloadErrorHelper _errorHelper = DownloadErrorHelper();
 
   // High-level Helpers (Dependencies on low-level)
@@ -64,52 +65,59 @@ class DownloadManager extends ChangeNotifier {
 
     await _permissionHelper.requestInitialPermissions();
 
-    _isolateHelper.bindBackgroundIsolate(_onDownloadProgress);
-    FlutterDownloader.registerCallback(DownloadIsolateHelper.downloadCallback);
+    await _permissionHelper.requestInitialPermissions();
+
+    // Migrated to DownloadService for professional background handling
+    // _isolateHelper.bindBackgroundIsolate(_onDownloadProgress);
+
+    // Listen to DownloadService instead
+    DownloadService().taskStream.listen((task) {
+      _onDownloadProgress(task);
+    });
 
     _isInitialized = true;
 
     // Task Recovery
     final tasks = await _taskHelper.loadTasks();
     if (tasks != null && tasks.isNotEmpty) {
-      final lastTask = tasks.last;
+      final task = tasks.last;
       debugPrint(
-        'DownloadManager: Found existing task: ${lastTask.taskId} - Status: ${lastTask.status}',
+        'DownloadManager: Found existing task: ${task.taskId} - Status: ${task.status}',
       );
 
-      if (lastTask.status == DownloadTaskStatus.running ||
-          lastTask.status == DownloadTaskStatus.enqueued) {
+      if (task.status == TaskStatus.running ||
+          task.status == TaskStatus.enqueued) {
         _currentDownloadingFileId = null;
-        _currentDownloadingFileName = lastTask.filename;
-        _downloadProgress = lastTask.progress / 100.0;
+        _currentDownloadingFileName = task.filename;
+        _downloadProgress = task.progress;
         _downloadStatus = 'İndiriliyor...';
         notifyListeners();
-      } else if (lastTask.status == DownloadTaskStatus.complete) {
-        if (lastTask.filename != null) {
-          await checkFileExists(lastTask.filename!);
+      } else if (task.status == TaskStatus.complete) {
+        if (task.filename != null) {
+          await checkFileExists(task.filename!);
         }
       }
     }
   }
 
-  void _onDownloadProgress(String id, int statusCode, int progress) {
-    final status = DownloadTaskStatus.fromInt(statusCode);
+  void _onDownloadProgress(DownloadTaskOption task) {
     debugPrint(
-      'DownloadManager: Task $id - Status: $status, Progress: $progress',
+      'DownloadManager: Task ${task.taskId} - Status: ${task.status}, Progress: ${task.progress}',
     );
 
-    if (status == DownloadTaskStatus.complete) {
+    if (task.status == TaskStatus.complete) {
       _handleSuccess();
-    } else if (status == DownloadTaskStatus.failed ||
-        status == DownloadTaskStatus.canceled) {
-      _handleTaskEnd(id, status, progress);
-    } else if (status == DownloadTaskStatus.paused) {
-      _downloadStatus = 'Durduruldu ($progress%)';
-      debugPrint('DownloadManager: Download PAUSED (Status 6)');
+    } else if (task.status == TaskStatus.failed ||
+        task.status == TaskStatus.canceled ||
+        task.status == TaskStatus.notFound) {
+      _handleTaskEnd(task);
+    } else if (task.status == TaskStatus.paused) {
+      _downloadStatus = 'Durduruldu (${(task.progress * 100).toInt()}%)';
+      debugPrint('DownloadManager: Download PAUSED');
       _notifyStateChanged();
     } else {
-      _downloadProgress = progress / 100.0;
-      _downloadStatus = 'İndiriliyor: $progress%';
+      _downloadProgress = task.progress; // progress is 0.0 to 1.0
+      _downloadStatus = 'İndiriliyor: ${(task.progress * 100).toInt()}%';
       _notifyStateChanged();
     }
   }
@@ -140,14 +148,11 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _handleTaskEnd(
-    String id,
-    DownloadTaskStatus status,
-    int progress,
-  ) async {
-    final statusName = status == DownloadTaskStatus.failed
-        ? 'Failed'
-        : 'Canceled';
+  Future<void> _handleTaskEnd(DownloadTaskOption task) async {
+    final id = task.taskId;
+    final status = task.status;
+    final progress = task.progress;
+    final statusName = status == TaskStatus.failed ? 'Failed' : 'Canceled';
     debugPrint(
       'DownloadManager: Status $statusName received. Attempting recovery...',
     );
@@ -172,6 +177,12 @@ class DownloadManager extends ChangeNotifier {
 
     // --- RECOVERY FAILED ---
     debugPrint('DownloadManager: Recovery FAILED. Reporting error.');
+    if (task.error != null) {
+      debugPrint('DownloadManager: Task Exception: ${task.error}');
+    }
+    if (task.responseBody != null) {
+      debugPrint('DownloadManager: Response Body: ${task.responseBody}');
+    }
 
     // Get diagnostic info for error message
     final currentTask = await _taskHelper.getTaskById(id);
@@ -198,8 +209,7 @@ class DownloadManager extends ChangeNotifier {
     final tasks = await _taskHelper.loadTasks();
     if (tasks != null && tasks.isNotEmpty) {
       for (var task in tasks) {
-        if (task.status == DownloadTaskStatus.complete &&
-            task.filename != null) {
+        if (task.status == TaskStatus.complete && task.filename != null) {
           if (!_isVideoDownloaded || _localVideoFile == null) {
             await checkFileExists(task.filename!);
           }
@@ -220,7 +230,7 @@ class DownloadManager extends ChangeNotifier {
     if (tasks != null) {
       for (var task in tasks) {
         if (task.savedDir != null && task.filename != null) {
-          if (task.status != DownloadTaskStatus.complete) {
+          if (task.status != TaskStatus.complete) {
             final filePath = '${task.savedDir}/${task.filename}';
             incompleteTaskPaths.add(filePath);
           }

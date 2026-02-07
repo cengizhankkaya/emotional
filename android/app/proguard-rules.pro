@@ -1,4 +1,9 @@
--keep class vn.hunghd.flutterdownloader.** { *; }
+-keep class com.bbflight.background_downloader.** { *; }
 -keep class androidx.work.** { *; }
 -keep class com.google.common.util.concurrent.** { *; }
 -dontwarn com.google.common.util.concurrent.**
+-keep class dev.flutter.pigeon.** { *; }
+-keep interface dev.flutter.pigeon.** { *; }
+-keep class io.flutter.plugins.sharedpreferences.** { *; }
+-keep class io.flutter.plugins.** { *; }
+-keepattributes *Annotation*, Signature, Exceptions, InnerClasses

@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" /> <!-- Required for Android 14+ UIDT -->
     <application
         android:label="Emoti"
         android:name="${applicationName}"
@@ -39,6 +40,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Notification Color Customization -->
+            <meta-data
+                android:name="com.google.firebase.messaging.default_notification_color"
+                android:resource="@color/notification_accent_color" />
 
             <!-- Deep Link Intent Filter -->
             <intent-filter android:autoVerify="true">
@@ -69,43 +75,24 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <provider
-            android:name="vn.hunghd.flutterdownloader.DownloadedFileProvider"
-            android:authorities="${applicationId}.flutter_downloader.provider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/provider_paths"/>
-        </provider>
 
-        <provider
-            android:name="vn.hunghd.flutterdownloader.FlutterDownloaderInitializer"
-            android:authorities="${applicationId}.flutter-downloader-initializer"
-            android:exported="false">
-            <meta-data
-                android:name="vn.hunghd.flutterdownloader.MAX_CONCURRENT_TASKS"
-                android:value="5" />
-        </provider>
 
-        <!-- Disable default WorkManager initializer to avoid conflicts with flutter_downloader -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge"
-            tools:replace="android:authorities">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
-        </provider>
 
+
+        <!-- background_downloader configuration -->
         <service
-            android:name="androidx.work.impl.foreground.SystemForegroundService"
-            android:foregroundServiceType="dataSync|specialUse"
-            tools:node="merge"
-            tools:replace="android:foregroundServiceType" />
+            android:name="com.bbflight.background_downloader.TaskWorker"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+            
+        <!-- UIDT support for Android 14+ -->
+        <service
+            android:name="com.bbflight.background_downloader.UIDTJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            tools:ignore="Instantiatable" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

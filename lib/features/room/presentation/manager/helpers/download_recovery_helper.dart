@@ -16,7 +16,7 @@ class DownloadRecoveryHelper {
   Future<File?> attemptRecovery({
     required String taskId,
     required String? currentFileName,
-    required int progress,
+    required double progress,
   }) async {
     // 1. Immediate task-specific check
     final currentTask = await _taskHelper.getTaskById(taskId);
@@ -46,7 +46,7 @@ class DownloadRecoveryHelper {
     }
 
     // 3. Exhaustive search if high progress (Android job timeout / connection loss at the end)
-    if (progress >= 95) {
+    if (progress >= 0.95) {
       debugPrint(
         'DownloadManager: High progress ($progress%) but file not found. Starting exhaustive retries...',
       );

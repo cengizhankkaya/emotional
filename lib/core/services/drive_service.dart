@@ -4,7 +4,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:emotional/core/services/download/download_service.dart';
 
 class DriveService {
   final GoogleSignIn _googleSignIn;
@@ -101,16 +101,18 @@ class DriveService {
         'DriveService: [EXTERNAL-STABLE] Enqueuing download for $safeFileName',
       );
 
-      final taskId = await FlutterDownloader.enqueue(
+      final taskId = await DownloadService().download(
         url: url,
         headers: {"Authorization": "Bearer $cleanToken"},
-        savedDir: savedDir,
-        fileName: safeFileName,
+        // savedDir is handled by DownloadService (BaseDirectory.applicationDocuments)
+        filename: safeFileName,
         showNotification: showNotification,
         openFileFromNotification: true,
-        saveInPublicStorage: false,
-        allowCellular: true,
       );
+
+      if (taskId == null) {
+        throw Exception('Failed to enqueue download task');
+      }
 
       debugPrint(
         'DriveService: Enqueued task for $safeFileName with ID: $taskId at $savedDir',
