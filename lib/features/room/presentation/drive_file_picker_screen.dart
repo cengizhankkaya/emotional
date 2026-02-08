@@ -5,6 +5,7 @@ import 'package:emotional/features/room/presentation/widgets/drive_file_error_vi
 import 'package:emotional/features/room/presentation/widgets/drive_file_grid_item.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_list_item.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
+import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -68,11 +69,14 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2229),
-        title: const Text('Dosyayı Sil', style: TextStyle(color: Colors.white)),
+        backgroundColor: ColorsCustom.darkGray,
+        title: const Text(
+          'Dosyayı Sil',
+          style: TextStyle(color: ColorsCustom.white),
+        ),
         content: Text(
           '${file.name} dosyasını silmek istediğinize emin misiniz?',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: ColorsCustom.darkGray),
         ),
         actions: [
           TextButton(
@@ -138,12 +142,12 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
               ),
               child: TabBar(
                 indicator: BoxDecoration(
-                  color: Colors.deepPurpleAccent,
+                  color: ColorsCustom.skyBlue,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey,
+                labelColor: ColorsCustom.white,
+                unselectedLabelColor: ColorsCustom.gray,
                 dividerColor: Colors.transparent,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w600),
                 tabs: const [

@@ -2,6 +2,7 @@ import 'package:emotional/features/room/bloc/download_cubit.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -73,18 +74,35 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
         );
         return Container(
           width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E2229),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(context.dynamicValue(30)),
-              topRight: Radius.circular(context.dynamicValue(30)),
-            ),
+            color: ColorsCustom.darkABlue.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(context.dynamicValue(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+            border: Border.all(color: ColorsCustom.white10, width: 1),
           ),
           padding: const ProjectPadding.allLarge(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Container(
+                  width: context.dynamicValue(40),
+                  height: context.dynamicValue(4),
+                  decoration: BoxDecoration(
+                    color: ColorsCustom.white10,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.dynamicHeight(0.024)),
               if (widget.isHost && state.downloadedVideos.isNotEmpty) ...[
                 _buildDownloadedVideosSection(context, state.downloadedVideos),
                 SizedBox(height: context.dynamicHeight(0.024)),
@@ -185,45 +203,74 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
   }
 
   Widget _buildSelectedVideoSection(BuildContext context, DownloadState state) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Seçilen Video:',
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: context.dynamicValue(12),
+    return Container(
+      width: double.infinity,
+      padding: const ProjectPadding.allMedium(),
+      decoration: BoxDecoration(
+        color: ColorsCustom.darkGray.withValues(alpha: 0.3),
+        borderRadius: ProjectRadius.medium(),
+        border: Border.all(color: ColorsCustom.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.play_circle_outline_rounded,
+                color: ColorsCustom.skyBlue,
+                size: context.dynamicValue(24),
+              ),
+              SizedBox(width: context.dynamicValue(12)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Seçilen Video',
+                      style: TextStyle(
+                        color: ColorsCustom.gray,
+                        fontSize: context.dynamicValue(12),
+                      ),
+                    ),
+                    SizedBox(height: context.dynamicHeight(0.004)),
+                    Text(
+                      widget.fileName!,
+                      style: TextStyle(
+                        color: ColorsCustom.white,
+                        fontSize: context.dynamicValue(16),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
-        SizedBox(height: context.dynamicHeight(0.004)),
-        Text(
-          widget.fileName!,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: context.dynamicValue(16),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        if (state.downloadProgress != null && !state.isVideoDownloaded) ...[
-          SizedBox(height: context.dynamicHeight(0.016)),
-          LinearProgressIndicator(
-            value: state.downloadProgress,
-            backgroundColor: Colors.grey[800],
-            color: Colors.deepPurpleAccent,
-          ),
-        ],
-        if (state.statusMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: Text(
-              state.statusMessage!,
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: context.dynamicValue(12),
+          if (state.downloadProgress != null && !state.isVideoDownloaded) ...[
+            SizedBox(height: context.dynamicHeight(0.016)),
+            LinearProgressIndicator(
+              value: state.downloadProgress,
+              backgroundColor: ColorsCustom.darkGray,
+              color: ColorsCustom.skyBlue,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ],
+          if (state.statusMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                state.statusMessage!,
+                style: TextStyle(
+                  color: ColorsCustom.gray,
+                  fontSize: context.dynamicValue(12),
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -241,11 +288,12 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
               icon: const Icon(Icons.video_library),
               label: const Text('Tümünü Gör'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
+                foregroundColor: ColorsCustom.white,
+                side: const BorderSide(color: ColorsCustom.white10),
                 shape: RoundedRectangleBorder(
                   borderRadius: ProjectRadius.medium(),
                 ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
@@ -292,18 +340,20 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: state.isVideoDownloaded
-                    ? Colors.green
+                    ? ColorsCustom.cream
                     : isDownloading
-                    ? Colors.blueAccent.withValues(alpha: 0.5)
-                    : Colors.blueAccent,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.blueAccent.withValues(
+                    ? ColorsCustom.skyBlue.withValues(alpha: 0.5)
+                    : ColorsCustom.skyBlue,
+                foregroundColor: ColorsCustom.white,
+                disabledBackgroundColor: ColorsCustom.skyBlue.withValues(
                   alpha: 0.5,
                 ),
-                disabledForegroundColor: Colors.white,
+                disabledForegroundColor: ColorsCustom.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: ProjectRadius.medium(),
                 ),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
