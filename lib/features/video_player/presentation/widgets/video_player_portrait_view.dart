@@ -18,7 +18,7 @@ class VideoPlayerPortraitView extends StatelessWidget {
     return Column(
       children: [
         if (isChatVisible) ...[
-          SizedBox(height: context.width * 9 / 16, child: videoPlayer),
+          SizedBox(height: context.dynamicHeight(0.40), child: videoPlayer),
           Container(height: context.dynamicHeight(0.02), color: Colors.black),
           const Divider(height: 1, color: Colors.white24),
         ] else

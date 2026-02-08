@@ -16,7 +16,7 @@ class ChatPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: isLandscape ? 350 : null,
+      width: isLandscape ? 280 : null,
       decoration: BoxDecoration(
         border: Border(
           left: isLandscape

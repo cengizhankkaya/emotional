@@ -8,6 +8,7 @@ import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_event.dart';
 import 'package:emotional/features/video_player/bloc/video_player_state.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_settings_modal.dart';
+import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -139,34 +140,37 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
         child: Stack(
           children: [
             // Controls Overlay
-            AnimatedOpacity(
-              opacity: _isVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black54,
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black54,
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0.0, 0.2, 0.8, 1.0],
+            IgnorePointer(
+              ignoring: !_isVisible,
+              child: AnimatedOpacity(
+                opacity: _isVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.black54,
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black54,
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.2, 0.8, 1.0],
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    // Top Bar
-                    _buildTopBar(),
+                  child: Column(
+                    children: [
+                      // Top Bar
+                      _buildTopBar(),
 
-                    // Center Area (Play/Pause/Buffering)
-                    Expanded(child: _buildCenterArea()),
+                      // Center Area (Play/Pause/Buffering)
+                      Expanded(child: _buildCenterArea()),
 
-                    // Bottom Bar
-                    _buildBottomBar(),
-                  ],
+                      // Bottom Bar
+                      _buildBottomBar(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -278,7 +282,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
         return LayoutBuilder(
           builder: (context, constraints) {
             final isSmall = constraints.maxWidth < 300;
-            final double mainIconSize = isSmall ? 40 : 52;
+            final double mainIconSize = isSmall ? 32 : 42;
             final double sideIconSize = isSmall ? 28 : 36;
             final double gap = isSmall ? 12 : 24;
 
@@ -378,9 +382,9 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
                               overlayShape: const RoundSliderOverlayShape(
                                 overlayRadius: 14,
                               ),
-                              activeTrackColor: Colors.purpleAccent,
-                              inactiveTrackColor: Colors.white24,
-                              thumbColor: Colors.white,
+                              activeTrackColor: ColorsCustom.skyBlue,
+                              inactiveTrackColor: ColorsCustom.cream,
+                              thumbColor: ColorsCustom.cream,
                             ),
                             child: Slider(
                               value: position.inMilliseconds.toDouble().clamp(
@@ -400,25 +404,12 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
                         ),
                         Text(
                           _formatDuration(duration),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Speed Indicator?
-                        Text(
-                          "Speed: ${state.player.state.rate}x",
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                          style: const TextStyle(color: ColorsCustom.skyBlue),
                         ),
                         IconButton(
                           icon: const Icon(
                             Icons.fullscreen,
-                            color: Colors.white,
+                            color: ColorsCustom.skyBlue,
                           ),
                           onPressed: widget.onToggleFullscreen,
                         ),
