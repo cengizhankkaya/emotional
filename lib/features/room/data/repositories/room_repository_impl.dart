@@ -194,11 +194,13 @@ class RoomRepositoryImpl implements RoomRepository {
     String userId, {
     required bool isVideoEnabled,
     required bool isAudioEnabled,
+    required bool isScreenSharing,
   }) async {
     final userStateRef = _database.ref('rooms/$roomId/usersState/$userId');
     await userStateRef.update({
       'video': isVideoEnabled,
       'audio': isAudioEnabled,
+      'screen': isScreenSharing,
       'updatedAt': ServerValue.timestamp,
     });
   }
@@ -245,6 +247,7 @@ class RoomRepositoryImpl implements RoomRepository {
         usersState[key.toString()] = UserMediaState(
           isVideoEnabled: valMap['video'] as bool? ?? false,
           isAudioEnabled: valMap['audio'] as bool? ?? false,
+          isScreenSharing: valMap['screen'] as bool? ?? false,
           lastUpdatedAt: valMap['updatedAt'] as int? ?? 0,
         );
       });

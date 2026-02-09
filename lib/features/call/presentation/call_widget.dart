@@ -40,18 +40,20 @@ class _CallWidgetState extends State<CallWidget> {
                     return _buildMiniCameraItem(
                       name: 'Sen',
                       isLocal: true,
-                      hasVideo: state.isVideoEnabled,
+                      hasVideo: state.isVideoEnabled && !state.isScreenSharing,
                       renderer: state.localRenderer,
                     );
                   }
 
                   final renderer = state.remoteRenderers[userId];
                   final hasVideo = state.userVideoStates[userId] ?? false;
+                  final isScreenSharing =
+                      state.userScreenSharingStates[userId] ?? false;
 
                   return _buildMiniCameraItem(
                     name: userName,
                     isLocal: false,
-                    hasVideo: hasVideo,
+                    hasVideo: hasVideo && !isScreenSharing,
                     renderer: renderer,
                   );
                 },

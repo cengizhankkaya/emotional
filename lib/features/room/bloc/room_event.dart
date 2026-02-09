@@ -46,6 +46,7 @@ class RoomUpdated extends RoomEvent {
   final String roomId;
   final List<String> participants;
   final Map<String, String> userNames; // userId -> userName mapping
+  final Map<String, UserMediaState> usersState; // userId -> UserMediaState
   final String? driveFileId;
   final String? driveFileName;
   final String? driveFileSize;
@@ -67,6 +68,7 @@ class RoomUpdated extends RoomEvent {
     required this.roomId,
     required this.participants,
     this.userNames = const {},
+    this.usersState = const {},
     required this.hostId,
     this.driveFileId,
     this.driveFileName,
@@ -86,6 +88,7 @@ class RoomUpdated extends RoomEvent {
     roomId,
     participants,
     userNames,
+    usersState,
     driveFileId,
     driveFileName,
     driveFileSize,

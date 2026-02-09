@@ -4,48 +4,56 @@ import 'package:emotional/features/call/domain/services/i_media_device_service.d
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class MediaDeviceService implements IMediaDeviceService {
-  MediaStream? _localStream;
+  MediaStream? _cameraStream;
+  MediaStream? _screenStream;
   CallQualityPreset _currentQuality = CallQualityPreset.balanced;
 
   // Keep track of selected devices to preserve selection during quality change
   String? _selectedVideoDeviceId;
   String? _selectedAudioDeviceId;
+  bool _isBusy = false;
 
   @override
-  MediaStream? get localStream => _localStream;
+  MediaStream? get localStream => _cameraStream;
+
+  @override
+  MediaStream? get screenStream => _screenStream;
 
   @override
   Future<void> initialize({
     CallQualityPreset quality = CallQualityPreset.balanced,
+    bool enableVideo = true,
+    bool enableAudio = true,
   }) async {
     _currentQuality = quality;
 
     try {
-      await _tryStartStream(quality);
+      await _tryStartStream(quality, requireVideo: enableVideo);
     } catch (e) {
       print(
         "CRITICAL: Failed to initialize media stream even after fallback: $e",
       );
-      // Even if fallback fails, we might want to try AudioOnly as last resort
-      // But _tryStartStream logic below should handle degradation.
     }
 
     // Default states
-    toggleVideo(true);
-    toggleMute(false);
+    toggleVideo(enableVideo);
+    toggleMute(!enableAudio);
   }
 
   /// Attempts to start the stream with the requested quality.
   /// If it fails due to OverconstrainedError or similar, it recursively tries lower qualities.
-  Future<void> _tryStartStream(CallQualityPreset quality) async {
+  Future<void> _tryStartStream(
+    CallQualityPreset quality, {
+    bool requireVideo = true,
+  }) async {
     print(
       "MediaDeviceService: Attempting to start stream with quality: ${quality.name}",
     );
 
     // Dispose previous if any
-    if (_localStream != null) {
-      await _localStream!.dispose();
-      _localStream = null;
+    if (_cameraStream != null) {
+      await _cameraStream!.dispose();
+      _cameraStream = null;
     }
 
     final videoConstraints = quality.toConstraints();
@@ -75,11 +83,11 @@ class MediaDeviceService implements IMediaDeviceService {
 
     final mediaConstraints = {
       'audio': audioConstraints,
-      'video': videoConstraints,
+      'video': requireVideo ? videoConstraints : false,
     };
 
     try {
-      _localStream = await navigator.mediaDevices.getUserMedia(
+      _cameraStream = await navigator.mediaDevices.getUserMedia(
         mediaConstraints,
       );
       _currentQuality = quality; // Success, update current quality
@@ -97,14 +105,14 @@ class MediaDeviceService implements IMediaDeviceService {
         print(
           "MediaDeviceService: Fallback -> Retrying with ${nextQuality.name}",
         );
-        await _tryStartStream(nextQuality);
+        await _tryStartStream(nextQuality, requireVideo: requireVideo);
       } else {
         // If lowest quality video also fails, try AUDIO ONLY as last resort
         print(
           "MediaDeviceService: All video qualities failed. Trying Audio Only.",
         );
         try {
-          _localStream = await navigator.mediaDevices.getUserMedia({
+          _cameraStream = await navigator.mediaDevices.getUserMedia({
             'audio': audioConstraints,
             'video': false,
           });
@@ -133,8 +141,34 @@ class MediaDeviceService implements IMediaDeviceService {
   // Public Wrapper for changing quality manually
   @override
   Future<void> setQuality(CallQualityPreset preset) async {
-    if (_currentQuality == preset) return;
-    await _tryStartStream(preset);
+    if (_currentQuality == preset || _isBusy) return;
+    _isBusy = true;
+    final oldQuality = _currentQuality;
+    _currentQuality = preset;
+
+    print("[MediaDeviceService] Changing quality to ${preset.name}...");
+
+    try {
+      // 1. If camera is active, re-start it
+      if (_cameraStream != null) {
+        final hasVideo =
+            _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? true;
+        await _tryStartStream(preset, requireVideo: hasVideo);
+      }
+
+      // 2. If screen share is active, re-start it with new constraints
+      if (_screenStream != null) {
+        await startScreenShare();
+      }
+    } catch (e) {
+      print(
+        "[MediaDeviceService] Failed to set quality: $e. Reverting to ${oldQuality.name}",
+      );
+      _currentQuality = oldQuality;
+      rethrow;
+    } finally {
+      _isBusy = false;
+    }
   }
 
   // --- Standard Device Selection ---
@@ -160,13 +194,15 @@ class MediaDeviceService implements IMediaDeviceService {
   @override
   Future<void> selectVideoInput(MediaDeviceInfo device) async {
     _selectedVideoDeviceId = device.deviceId;
-    await _tryStartStream(_currentQuality);
+    await _tryStartStream(_currentQuality, requireVideo: true);
   }
 
   @override
   Future<void> selectAudioInput(MediaDeviceInfo device) async {
     _selectedAudioDeviceId = device.deviceId;
-    await _tryStartStream(_currentQuality);
+    final hasVideo =
+        _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? true;
+    await _tryStartStream(_currentQuality, requireVideo: hasVideo);
   }
 
   @override
@@ -181,28 +217,28 @@ class MediaDeviceService implements IMediaDeviceService {
 
   @override
   void toggleVideo(bool enabled) {
-    if (_localStream != null) {
-      final tracks = _localStream!.getVideoTracks();
-      tracks.forEach((track) {
+    if (_cameraStream != null) {
+      final tracks = _cameraStream!.getVideoTracks();
+      for (var track in tracks) {
         track.enabled = enabled;
-      });
+      }
     }
   }
 
   @override
   void toggleMute(bool muted) {
-    if (_localStream != null) {
-      final tracks = _localStream!.getAudioTracks();
-      tracks.forEach((track) {
+    if (_cameraStream != null) {
+      final tracks = _cameraStream!.getAudioTracks();
+      for (var track in tracks) {
         track.enabled = !muted;
-      });
+      }
     }
   }
 
   @override
   Future<void> switchCamera() async {
-    if (_localStream != null) {
-      final videoTracks = _localStream!.getVideoTracks();
+    if (_cameraStream != null) {
+      final videoTracks = _cameraStream!.getVideoTracks();
       if (videoTracks.isNotEmpty) {
         await Helper.switchCamera(videoTracks.first);
       }
@@ -218,9 +254,61 @@ class MediaDeviceService implements IMediaDeviceService {
     }
   }
 
+  // --- Screen Share ---
+
+  @override
+  Future<void> startScreenShare() async {
+    if (_isBusy && _screenStream == null) return;
+    final externalCall = !_isBusy;
+    if (externalCall) _isBusy = true;
+
+    try {
+      if (_screenStream != null) {
+        final tracks = _screenStream!.getTracks();
+        for (var track in tracks) {
+          track.stop();
+        }
+        await _screenStream!.dispose();
+        _screenStream = null;
+      }
+
+      final mediaConstraints = <String, dynamic>{
+        'audio': false,
+        'video': _currentQuality.toScreenConstraints(),
+      };
+
+      _screenStream = await navigator.mediaDevices.getDisplayMedia(
+        mediaConstraints,
+      );
+
+      print(
+        "MediaDeviceService: Screen share stream started with ${_currentQuality.name}.",
+      );
+    } catch (e) {
+      print("Error starting screen share: $e");
+      rethrow;
+    } finally {
+      if (externalCall) _isBusy = false;
+    }
+  }
+
+  @override
+  Future<void> stopScreenShare() async {
+    if (_screenStream != null) {
+      final tracks = _screenStream!.getTracks();
+      for (var track in tracks) {
+        track.stop();
+      }
+      await _screenStream!.dispose();
+      _screenStream = null;
+    }
+  }
+
   @override
   Future<void> dispose() async {
-    await _localStream?.dispose();
-    _localStream = null;
+    await _cameraStream?.dispose();
+    await _screenStream?.dispose();
+    _cameraStream = null;
+    _screenStream = null;
   }
 }

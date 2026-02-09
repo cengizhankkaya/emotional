@@ -47,11 +47,14 @@ class RoomJoined extends RoomState {
   final String? selectedSubtitleTrack;
   final String? armchairStyle;
 
+  final Map<String, UserMediaState> usersState;
+
   const RoomJoined(
     this.roomId, {
     required this.userId,
     this.participants = const [],
     this.userNames = const {},
+    this.usersState = const {},
     this.notificationMessage,
     required this.hostId,
     this.driveFileId,
@@ -73,6 +76,7 @@ class RoomJoined extends RoomState {
     userId,
     participants,
     userNames,
+    usersState,
     notificationMessage,
     hostId,
     driveFileId,
@@ -93,6 +97,7 @@ class RoomJoined extends RoomState {
     String? userId,
     List<String>? participants,
     Map<String, String>? userNames,
+    Map<String, UserMediaState>? usersState,
     String? notificationMessage,
     String? hostId,
     String? driveFileId,
@@ -112,6 +117,7 @@ class RoomJoined extends RoomState {
       userId: userId ?? this.userId,
       participants: participants ?? this.participants,
       userNames: userNames ?? this.userNames,
+      usersState: usersState ?? this.usersState,
       notificationMessage: notificationMessage ?? this.notificationMessage,
       hostId: hostId ?? this.hostId,
       driveFileId: driveFileId ?? this.driveFileId,

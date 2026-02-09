@@ -81,3 +81,11 @@ class SwitchCamera extends CallEvent {} // Acts as "Next Camera" legacy support
 class SuspendMedia extends CallEvent {}
 
 class ResumeMedia extends CallEvent {}
+
+class ToggleScreenShare extends CallEvent {
+  final bool fromNotification;
+  const ToggleScreenShare({this.fromNotification = false});
+
+  @override
+  List<Object?> get props => [fromNotification];
+}

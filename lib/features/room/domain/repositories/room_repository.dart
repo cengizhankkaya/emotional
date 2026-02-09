@@ -40,6 +40,7 @@ abstract class RoomRepository {
     String userId, {
     required bool isVideoEnabled,
     required bool isAudioEnabled,
+    required bool isScreenSharing, // New parameter
   });
 
   Future<void> updateArmchairStyle(String roomId, String styleName);

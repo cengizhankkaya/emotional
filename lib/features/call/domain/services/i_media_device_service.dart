@@ -5,6 +5,8 @@ abstract class IMediaDeviceService {
   /// Initialize media devices (request permissions, get initial stream)
   Future<void> initialize({
     CallQualityPreset quality = CallQualityPreset.balanced,
+    bool enableVideo = true,
+    bool enableAudio = true,
   });
 
   /// Get the current local media stream
@@ -42,6 +44,12 @@ abstract class IMediaDeviceService {
 
   /// Enable/Disable speakerphone (Mobile specific)
   Future<void> enableSpeakerphone(bool enabled);
+
+  /// Start screen sharing
+  Future<void> startScreenShare();
+
+  /// Stop screen sharing and revert to camera
+  Future<void> stopScreenShare();
 
   /// Clean up resources
   Future<void> dispose();

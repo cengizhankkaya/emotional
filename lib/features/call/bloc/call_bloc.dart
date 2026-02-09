@@ -11,6 +11,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:emotional/core/services/permission_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+
+const channel = MethodChannel('com.example.emotional/screen_share');
 
 class CallBloc extends Bloc<CallEvent, CallState> {
   final RoomRepository roomRepository; // Interface
@@ -25,6 +30,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   Map<String, String> _activeUsers = {};
   Map<String, bool> _userVideoStates = {};
   Map<String, bool> _userAudioStates = {};
+  Map<String, bool> _userScreenSharingStates = {};
 
   final Set<String> _connectionInitiated = {};
 
@@ -33,6 +39,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   String? _roomId;
   String? _userId;
   String? get userId => _userId;
+
+  MediaStream? _compositeStream; // Combined stream for sharing (audio + screen)
 
   CallBloc({required this.roomRepository})
     : _callService = WebRTCService(),
@@ -48,8 +56,10 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     on<InternalStreamRemoved>(_onInternalStreamRemoved);
 
     // Device & Quality Events
+    // Device & Quality Events
     on<ToggleMute>(_onToggleMute);
     on<ToggleVideo>(_onToggleVideo);
+    on<ToggleScreenShare>(_onToggleScreenShare);
     on<SwitchCamera>(_onSwitchCamera);
     on<ChangeVideoInput>(_onChangeVideoInput);
     on<ChangeAudioInput>(_onChangeAudioInput);
@@ -59,21 +69,48 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     on<InternalUpdateActiveSpeaker>(_onInternalUpdateActiveSpeaker);
     on<SuspendMedia>(_onSuspendMedia);
     on<ResumeMedia>(_onResumeMedia);
+
+    // Listen to native calls
+    channel.setMethodCallHandler((call) async {
+      debugPrint(
+        '[CallBloc] !!! Native MethodChannel call received: ${call.method} !!!',
+      );
+      if (call.method == 'onStopPressed') {
+        debugPrint(
+          '[CallBloc] onStopPressed received. Current Bloc State: $state',
+        );
+        final currentState = state;
+        if (currentState is CallConnected && currentState.isScreenSharing) {
+          debugPrint(
+            '[CallBloc] Triggering ToggleScreenShare(fromNotification: true)',
+          );
+          add(const ToggleScreenShare(fromNotification: true));
+        } else {
+          debugPrint(
+            '[CallBloc] isScreenSharing is FALSE or state not connected. Ignoring stop request.',
+          );
+        }
+      }
+    });
   }
 
   bool _isVideoEnabledBeforeSuspend = false;
   bool _isAudioEnabledBeforeSuspend = true;
   bool _isSuspended = false;
   bool _isCallActive = false;
+  bool _isRequestingScreenShare =
+      false; // Flag to prevent suspend during permission dialog
+  bool _isVideoEnabledBeforeScreenShare = false;
 
   Future<void> _onJoinCall(JoinCall event, Emitter<CallState> emit) async {
+    // ... existing ...
     emit(CallLoading());
     try {
       _roomId = event.roomId;
       _userId = event.userId;
 
       if (_isSuspended) {
-        print(
+        debugPrint(
           '[CallBloc] JoinCall received but app is SUSPENDED. Initializing in BACKGROUND mode (No camera).',
         );
         emit(
@@ -148,6 +185,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         _userId!,
         isVideoEnabled: false,
         isAudioEnabled: true,
+        isScreenSharing: false,
       );
 
       // 8. Get Initial Devices List
@@ -235,9 +273,11 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       // Handle Users State (Video/Audio)
       _userVideoStates.clear();
       _userAudioStates.clear();
+      _userScreenSharingStates.clear();
       roomEntity.usersState.forEach((uid, state) {
         _userVideoStates[uid] = state.isVideoEnabled;
         _userAudioStates[uid] = state.isAudioEnabled;
+        _userScreenSharingStates[uid] = state.isScreenSharing;
       });
 
       // Connect to new users
@@ -285,6 +325,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           activeUsers: Map.from(_activeUsers),
           userVideoStates: Map.from(_userVideoStates),
           userAudioStates: Map.from(_userAudioStates),
+          userScreenSharingStates: Map.from(_userScreenSharingStates),
         ),
       );
     }
@@ -350,6 +391,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
     await _callService.dispose();
     await _mediaDeviceService.dispose();
+    await _compositeStream?.dispose();
+    _compositeStream = null;
     await _audioSessionService.deactivate();
   }
 
@@ -364,6 +407,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           userId!,
           video: s.isVideoEnabled,
           audio: !s.isMuted,
+          screen: s.isScreenSharing,
         );
       }
     }
@@ -375,6 +419,16 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   ) async {
     if (state is CallConnected && !_isSuspended) {
       final s = state as CallConnected;
+
+      // CRITICAL: Do not suspend if we are screen sharing or requesting it (permission dialog open)
+      // Screen share implies background execution is allowed/expected.
+      if (s.isScreenSharing || _isRequestingScreenShare) {
+        print(
+          'CallBloc: SuspendMedia ignored because screen share is active/requesting.',
+        );
+        return;
+      }
+
       _isVideoEnabledBeforeSuspend = s.isVideoEnabled;
       _isAudioEnabledBeforeSuspend = !s.isMuted;
       _isSuspended = true;
@@ -437,19 +491,311 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           _userId!,
           video: _isVideoEnabledBeforeSuspend,
           audio: _isAudioEnabledBeforeSuspend,
+          screen: s
+              .isScreenSharing, // Resume might need to handle screen share too?
+          // For now assuming resume implies restoring audio/video,
+          // screen share might be lost on suspend/resume cycle if we didn't store it.
+          // But 's' here is the state BEFORE resume finished? No, 's' is state at start of method.
+          // IsScreenSharing is in state.
         );
       }
     }
   }
 
-  void _onToggleVideo(ToggleVideo event, Emitter<CallState> emit) {
+  Future<void> _onToggleVideo(
+    ToggleVideo event,
+    Emitter<CallState> emit,
+  ) async {
     if (state is CallConnected) {
       final s = state as CallConnected;
-      final newVideo = !s.isVideoEnabled;
-      _mediaDeviceService.toggleVideo(newVideo);
+      final newVideoState = !s.isVideoEnabled;
 
-      emit(s.copyWith(isVideoEnabled: newVideo));
-      _syncState(_roomId!, userId!, video: newVideo, audio: !s.isMuted);
+      if (newVideoState) {
+        // If we are turning video ON, check if we have a video track
+        final hasVideoTrack =
+            _mediaDeviceService.localStream?.getVideoTracks().isNotEmpty ??
+            false;
+
+        if (!hasVideoTrack) {
+          debugPrint(
+            '[CallBloc] No video track found while toggling ON. Re-initializing stream...',
+          );
+          await _mediaDeviceService.initialize(enableVideo: true);
+
+          // Update everyone with the new stream/track
+          _callService.updateLocalStream(_mediaDeviceService.localStream);
+          if (_localRenderer != null) {
+            _localRenderer!.srcObject = _mediaDeviceService.localStream;
+          }
+          final videoTrack = _mediaDeviceService.localStream
+              ?.getVideoTracks()
+              .firstOrNull;
+          if (videoTrack != null) {
+            await _callService.replaceLocalAllVideoTrack(videoTrack);
+          }
+        } else {
+          _mediaDeviceService.toggleVideo(true);
+        }
+      } else {
+        // Toggling OFF is easy
+        _mediaDeviceService.toggleVideo(false);
+      }
+
+      emit(s.copyWith(isVideoEnabled: newVideoState));
+      _syncState(
+        _roomId!,
+        userId!,
+        video: newVideoState,
+        audio: !s.isMuted,
+        screen: s.isScreenSharing,
+      );
+    }
+  }
+
+  Future<void> _onToggleScreenShare(
+    ToggleScreenShare event,
+    Emitter<CallState> emit,
+  ) async {
+    if (state is CallConnected) {
+      final s = state as CallConnected;
+      debugPrint(
+        '[CallBloc] ToggleScreenShare event processing. Current state: isScreenSharing=${s.isScreenSharing}',
+      );
+      _isRequestingScreenShare = true; // Protect against SuspendMedia
+
+      try {
+        if (s.isScreenSharing) {
+          // STOP Screen Share
+          final shouldRestoreCamera = _isVideoEnabledBeforeScreenShare;
+          debugPrint(
+            '[CallBloc] Stopping screen share. Restore camera? $shouldRestoreCamera',
+          );
+
+          // 1. Unbind renderer FIRST to stop UI from trying to draw native textures
+          if (_localRenderer != null) {
+            debugPrint('[CallBloc] Unbinding local renderer source...');
+            _localRenderer!.srcObject = null;
+            // Short delay to let the UI thread process the unbind before we touch tracks
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+
+          // 2. Stop streams and tracks
+          await _mediaDeviceService.stopScreenShare();
+
+          if (Platform.isAndroid) {
+            try {
+              // Safety delay: Ensure MediaProjection is fully released before killing FGS
+              debugPrint('[CallBloc] Waiting 500ms for safety...');
+              await Future.delayed(const Duration(milliseconds: 500));
+              await channel.invokeMethod('stopService');
+            } catch (e) {
+              print("Failed to stop Android foreground service: $e");
+            }
+          }
+
+          // RE-INITIALIZE Camera stream fresh with the PREVIOUS camera preference
+          debugPrint(
+            '[CallBloc] Re-initializing camera with enableVideo: $shouldRestoreCamera',
+          );
+          await _mediaDeviceService.initialize(
+            enableVideo: shouldRestoreCamera,
+          );
+
+          // Clear any old composite stream
+          await _compositeStream?.dispose();
+          _compositeStream = null;
+
+          _callService.updateLocalStream(_mediaDeviceService.localStream);
+
+          if (shouldRestoreCamera) {
+            debugPrint(
+              '[CallBloc] Enabling camera as it was ON before screen share',
+            );
+            _mediaDeviceService.toggleVideo(true);
+          }
+
+          if (_localRenderer != null) {
+            _localRenderer!.srcObject = _mediaDeviceService.localStream;
+          }
+
+          final videoTrack = _mediaDeviceService.localStream
+              ?.getVideoTracks()
+              .firstOrNull;
+          if (videoTrack != null) {
+            await _callService.replaceLocalAllVideoTrack(videoTrack);
+          }
+
+          debugPrint(
+            "[CallBloc] SUCCESS: Emitting CallConnected with isScreenSharing=false, isVideoEnabled=$shouldRestoreCamera",
+          );
+          emit(
+            s.copyWith(
+              isScreenSharing: false,
+              isVideoEnabled: shouldRestoreCamera,
+            ),
+          );
+
+          // Synchronize state IMMEDIATELY for responsive transition across all users
+          if (_roomId != null && userId != null) {
+            _syncState(
+              _roomId!,
+              userId!,
+              video: shouldRestoreCamera,
+              audio: !s.isMuted,
+              screen: false,
+            );
+          }
+          return; // Exit early to avoid the redundant sync at the end
+        } else {
+          // START Screen Share
+          _isVideoEnabledBeforeScreenShare = s.isVideoEnabled;
+          debugPrint(
+            "[CallBloc] Storing camera state: $_isVideoEnabledBeforeScreenShare",
+          );
+
+          try {
+            if (Platform.isAndroid) {
+              debugPrint("[CallBloc] Requesting screen capture permission...");
+              final hasPermission = await Helper.requestCapturePermission();
+              if (hasPermission != true) {
+                debugPrint(
+                  "[CallBloc] Screen capture permission denied by user.",
+                );
+                _isRequestingScreenShare = false;
+                return;
+              }
+
+              try {
+                debugPrint(
+                  "[CallBloc] Permission granted. Starting Foreground Service with PROJECTION_READY...",
+                );
+                await channel.invokeMethod('startService', {
+                  'action': 'PROJECTION_READY',
+                });
+                await Future.delayed(const Duration(milliseconds: 500));
+              } catch (e) {
+                debugPrint("Failed to start Android foreground service: $e");
+                rethrow; // Re-throw to trigger cleanup below
+              }
+            }
+
+            try {
+              debugPrint("[CallBloc] Initiating getDisplayMedia...");
+              await _mediaDeviceService.startScreenShare();
+            } catch (e) {
+              debugPrint("[CallBloc] getDisplayMedia failed: $e");
+              rethrow;
+            }
+
+            // Update tracks
+            debugPrint(
+              "[CallBloc] Creating composite stream (Camera Audio + Screen Video)...",
+            );
+            final screenStream = _mediaDeviceService.screenStream;
+            final cameraStream = _mediaDeviceService.localStream;
+
+            if (screenStream != null) {
+              final screenVideoTrack = screenStream
+                  .getVideoTracks()
+                  .firstOrNull;
+
+              if (screenVideoTrack != null) {
+                // 1. UI update
+                if (_localRenderer != null) {
+                  _localRenderer!.srcObject = screenStream;
+                }
+
+                // 2. Create composite stream for WebRTC service (for NEW connections)
+                final composite = await createLocalMediaStream(
+                  'sharing_stream',
+                );
+                _compositeStream = composite; // Store for cleanup
+                if (cameraStream != null) {
+                  for (var track in cameraStream.getAudioTracks()) {
+                    await composite.addTrack(track);
+                  }
+                }
+                await composite.addTrack(screenVideoTrack);
+
+                _callService.updateLocalStream(composite);
+
+                // 3. Update EXISTING connections
+                debugPrint(
+                  "[CallBloc] Replacing local video track for all peers...",
+                );
+                await _callService.replaceLocalAllVideoTrack(screenVideoTrack);
+              }
+            }
+
+            debugPrint(
+              "[CallBloc] SUCCESS: Emitting CallConnected with isScreenSharing=true",
+            );
+            emit(s.copyWith(isScreenSharing: true, isVideoEnabled: true));
+          } catch (e) {
+            debugPrint("[CallBloc] Screen share startup phase failed: $e");
+
+            // CRITICAL CLEANUP: If anything failed during START, ensure service is stopped
+            if (Platform.isAndroid) {
+              try {
+                debugPrint(
+                  "[CallBloc] Fatal error during start. Stopping service...",
+                );
+                await channel.invokeMethod('stopService');
+              } catch (se) {
+                // ignore
+              }
+            }
+
+            // Restore camera if we were in the middle of transitioning
+            try {
+              await _mediaDeviceService.stopScreenShare();
+              await _compositeStream?.dispose();
+              _compositeStream = null;
+
+              _callService.updateLocalStream(_mediaDeviceService.localStream);
+              if (_localRenderer != null) {
+                _localRenderer!.srcObject = _mediaDeviceService.localStream;
+              }
+              final videoTrack = _mediaDeviceService.localStream
+                  ?.getVideoTracks()
+                  .firstOrNull;
+              if (videoTrack != null) {
+                await _callService.replaceLocalAllVideoTrack(videoTrack);
+              }
+            } catch (re) {
+              debugPrint("[CallBloc] Failed to revert to camera: $re");
+            }
+
+            emit(s.copyWith(isScreenSharing: false, isVideoEnabled: true));
+            if (_roomId != null && userId != null) {
+              _syncState(
+                _roomId!,
+                userId!,
+                video: true,
+                audio: !s.isMuted,
+                screen: false,
+              );
+            }
+            return; // Exit early as we already handled the error
+          }
+        }
+
+        if (_roomId != null && userId != null) {
+          // We treat screen share as "video enabled"
+          final newS = state as CallConnected;
+          _syncState(
+            _roomId!,
+            userId!,
+            video: newS.isVideoEnabled,
+            audio: !newS.isMuted,
+            screen: newS.isScreenSharing,
+          );
+        }
+      } catch (e) {
+        debugPrint("Error toggling screen share: $e");
+      } finally {
+        _isRequestingScreenShare = false; // Release protection
+      }
     }
   }
 
@@ -508,13 +854,76 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     ChangeQuality event,
     Emitter<CallState> emit,
   ) async {
-    await _mediaDeviceService.setQuality(event.preset);
-    _callService.updateLocalStream(_mediaDeviceService.localStream);
-    if (_localRenderer != null) {
-      _localRenderer!.srcObject = _mediaDeviceService.localStream;
-    }
-    if (state is CallConnected) {
-      emit((state as CallConnected).copyWith(currentQuality: event.preset));
+    final currentState = state;
+    if (currentState is! CallConnected) return;
+
+    try {
+      await _mediaDeviceService.setQuality(event.preset);
+
+      // Give a small delay to allow tracks to stabilize after restart
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Re-verify state after async call
+      final nextState = state;
+      if (nextState is! CallConnected) return;
+
+      // If Screen Sharing is active, we need to update the composite stream and send the new tracks
+      if (nextState.isScreenSharing) {
+        final screenStream = _mediaDeviceService.screenStream;
+        final cameraStream = _mediaDeviceService.localStream;
+
+        if (screenStream != null) {
+          final screenVideoTrack = screenStream.getVideoTracks().firstOrNull;
+          if (screenVideoTrack != null) {
+            // 1. Update UI renderer
+            if (_localRenderer != null) {
+              _localRenderer!.srcObject = screenStream;
+            }
+
+            // 2. Clear and Recreate composite stream (Camera Audio + NEW Screen Video)
+            await _compositeStream?.dispose();
+            final composite = await createLocalMediaStream('sharing_stream');
+            _compositeStream = composite;
+
+            final audioTracks = cameraStream?.getAudioTracks() ?? [];
+            for (var track in audioTracks) {
+              try {
+                await composite.addTrack(track);
+              } catch (e) {
+                print("[CallBloc] Failed to add audio track: $e");
+              }
+            }
+
+            if (screenVideoTrack != null) {
+              try {
+                await composite.addTrack(screenVideoTrack);
+              } catch (e) {
+                print("[CallBloc] Failed to add screen track: $e");
+              }
+            }
+
+            // 3. Update WebRTC Service and peers
+            _callService.updateLocalStream(composite);
+            await _callService.replaceLocalAllVideoTrack(screenVideoTrack);
+          }
+        }
+      } else {
+        // Normal camera mode
+        _callService.updateLocalStream(_mediaDeviceService.localStream);
+        if (_localRenderer != null) {
+          _localRenderer!.srcObject = _mediaDeviceService.localStream;
+        }
+        final videoTrack = _mediaDeviceService.localStream
+            ?.getVideoTracks()
+            .firstOrNull;
+        if (videoTrack != null) {
+          await _callService.replaceLocalAllVideoTrack(videoTrack);
+        }
+      }
+
+      emit(nextState.copyWith(currentQuality: event.preset));
+    } catch (e) {
+      print("[CallBloc] Error changing quality: $e");
     }
   }
 
@@ -530,12 +939,14 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     String userId, {
     required bool video,
     required bool audio,
+    required bool screen,
   }) async {
     await roomRepository.updateUserMediaState(
       roomId,
       userId,
       isVideoEnabled: video,
       isAudioEnabled: audio,
+      isScreenSharing: screen,
     );
   }
 }

@@ -19,6 +19,19 @@ extension CallQualityExtension on CallQualityPreset {
     }
   }
 
+  Map<String, dynamic> toScreenConstraints() {
+    switch (this) {
+      case CallQualityPreset.low:
+        return {'width': 640, 'height': 360, 'frameRate': 15};
+      case CallQualityPreset.balanced:
+        return {'width': 960, 'height': 540, 'frameRate': 24};
+      case CallQualityPreset.high:
+        return {'width': 1280, 'height': 720, 'frameRate': 30};
+      case CallQualityPreset.ultra:
+        return {'width': 1920, 'height': 1080, 'frameRate': 60};
+    }
+  }
+
   String get displayName {
     switch (this) {
       case CallQualityPreset.low:

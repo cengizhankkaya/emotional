@@ -11,6 +11,7 @@ import 'package:emotional/features/room/domain/usecases/sync_video_usecase.dart'
 import 'package:emotional/features/room/domain/usecases/update_room_video_usecase.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 
 part 'room_event.dart';
 part 'room_state.dart';
@@ -65,7 +66,9 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     Emitter<RoomState> emit,
   ) {
     _isAppInBackgrounded = event.isBackgrounded;
-    print('RoomBloc: App background state changed to: $_isAppInBackgrounded');
+    debugPrint(
+      'RoomBloc: App background state changed to: $_isAppInBackgrounded',
+    );
   }
 
   Future<void> _onTransferHostRequested(
@@ -75,7 +78,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     try {
       await _reassignHost(event.roomId, event.newHostId);
     } catch (e) {
-      print('RoomBloc: Error transferring host: $e');
+      debugPrint('RoomBloc: Error transferring host: $e');
     }
   }
 
@@ -222,6 +225,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
             roomId: roomId,
             participants: participants,
             userNames: roomEntity.users,
+            usersState: roomEntity.usersState,
             driveFileId: roomEntity.driveFileId,
             driveFileName: roomEntity.driveFileName,
             driveFileSize: roomEntity.driveFileSize,
@@ -287,6 +291,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         userId: uid,
         participants: newParticipants,
         userNames: event.userNames,
+        usersState: event.usersState,
         notificationMessage: notification,
         driveFileId: event.driveFileId,
         driveFileName: event.driveFileName,

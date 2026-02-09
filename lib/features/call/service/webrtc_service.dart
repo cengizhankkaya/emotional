@@ -34,35 +34,48 @@ class WebRTCService implements ICallService {
 
   // Method to update local stream (e.g. when device changes)
   // This is not in ICallService but specific to implementation that needs to re-add tracks
-  void updateLocalStream(MediaStream? stream) {
+  void updateLocalStream(webrtc.MediaStream? stream) {
     _localStream = stream;
-    _peerConnections.values.forEach((pc) {
-      // Replacing tracks is complex, for simple V1 we might re-negotiate or use replaceTrack
-      // For now, let's assume we might need to use replaceTrack sender logic if we want smooth switch
-      // Or just simple:
-      if (stream != null) {
-        stream.getTracks().forEach((track) {
-          pc.addTrack(track, stream);
-        });
-      }
-    });
-    // Note: Proper track replacement is more involved than just addTrack loop for existing connections.
-    // Ideally we find RtcRtpSender and replaceTrack.
-    // For this pass, we will focus on initial connection.
-    // TODO: Implement replaceTrack for established connections.
+    // CRITICAL: We DO NOT manually loop and addTrack here anymore.
+    // addTrack fails if the same kind of track is already added, causing crashes.
+    // Dynamic track updates should be handled via replaceLocalAllVideoTrack/replaceLocalAllAudioTrack
+    // which use replaceTrack on existing senders.
+    print("[WebRTC] localStream updated. New StreamID: ${stream?.id}");
   }
 
   // Specific helper to replace track for all peers
-  Future<void> replaceLocalAllVideoTrack(MediaStreamTrack newTrack) async {
-    for (var pc in _peerConnections.values) {
-      var senders = await pc.getSenders();
-      for (var sender in senders) {
-        if (sender.track?.kind == 'video') {
-          print(
-            "[WebRTC] Replacing video track for a peer. NewTrackID: ${newTrack.id}",
-          );
-          await sender.replaceTrack(newTrack);
+  Future<void> replaceLocalAllVideoTrack(
+    webrtc.MediaStreamTrack newTrack,
+  ) async {
+    for (var entry in _peerConnections.entries) {
+      final userId = entry.key;
+      final pc = entry.value;
+      try {
+        var senders = await pc.getSenders();
+        // Modern WebRTC way: find the video sender and replace track
+        bool replaced = false;
+        for (var sender in senders) {
+          if (sender.track?.kind == 'video') {
+            print(
+              "[WebRTC] Replacing video track for user $userId. NewTrackID: ${newTrack.id}",
+            );
+            await sender.replaceTrack(newTrack);
+            replaced = true;
+          }
         }
+
+        // If no video sender was found (e.g. user started without camera)
+        // we must initiate a full reconnect to add the new track,
+        // as this service's basic signaling doesn't support easy mid-call addTrack negotiation.
+        if (!replaced) {
+          print(
+            "[WebRTC] No video sender found for $userId. Triggering full reconnect to add screen/video track.",
+          );
+          // We don't call pc.addTrack here because connect() will create a fresh PC with the new _localStream
+          await connect(userId);
+        }
+      } catch (e) {
+        print("[WebRTC] Error replacing video track for $userId: $e");
       }
     }
   }

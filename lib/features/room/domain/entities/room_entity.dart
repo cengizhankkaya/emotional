@@ -3,16 +3,23 @@ import 'package:equatable/equatable.dart';
 class UserMediaState extends Equatable {
   final bool isVideoEnabled;
   final bool isAudioEnabled;
+  final bool isScreenSharing; // New field
   final int lastUpdatedAt;
 
   const UserMediaState({
     required this.isVideoEnabled,
     required this.isAudioEnabled,
+    this.isScreenSharing = false, // Default to false
     required this.lastUpdatedAt,
   });
 
   @override
-  List<Object?> get props => [isVideoEnabled, isAudioEnabled, lastUpdatedAt];
+  List<Object?> get props => [
+    isVideoEnabled,
+    isAudioEnabled,
+    isScreenSharing,
+    lastUpdatedAt,
+  ];
 }
 
 class RoomEntity extends Equatable {

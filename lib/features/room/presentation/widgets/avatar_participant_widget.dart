@@ -1,6 +1,4 @@
-import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
-import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:emotional/features/room/presentation/widgets/audio_visualizer.dart';
@@ -67,19 +65,22 @@ class AvatarParticipantWidget extends StatelessWidget {
     RTCVideoRenderer? renderer;
 
     if (callState is CallConnected) {
+      final connectedState = callState as CallConnected;
       if (isLocal) {
-        hasVideo = showVideo && (callState as CallConnected).isVideoEnabled;
-        isMuted = (callState as CallConnected).isMuted;
-        renderer = (callState as CallConnected).localRenderer;
+        final isSharing = connectedState.isScreenSharing;
+        // Don't show video in this tile if screen sharing is active
+        hasVideo = showVideo && connectedState.isVideoEnabled && !isSharing;
+        renderer = connectedState.localRenderer;
       } else if (participantId != null) {
+        final isSharing =
+            connectedState.userScreenSharingStates[participantId] ?? false;
+        // Don't show video in this tile if remote user is screen sharing
         hasVideo =
             showVideo &&
-            ((callState as CallConnected).userVideoStates[participantId] ??
-                false);
-        isMuted =
-            !((callState as CallConnected).userAudioStates[participantId] ??
-                true);
-        renderer = (callState as CallConnected).remoteRenderers[participantId];
+            (connectedState.userVideoStates[participantId] ?? false) &&
+            !isSharing;
+        isMuted = !(connectedState.userAudioStates[participantId] ?? true);
+        renderer = connectedState.remoteRenderers[participantId];
       }
     }
 
@@ -117,7 +118,7 @@ class AvatarParticipantWidget extends StatelessWidget {
                   boxShadow: [
                     if (isActiveSpeaker)
                       BoxShadow(
-                        color: Colors.greenAccent.withOpacity(0.6),
+                        color: Colors.greenAccent.withValues(alpha: 0.6),
                         blurRadius: 12,
                         spreadRadius: 2,
                       )
@@ -173,28 +174,7 @@ class AvatarParticipantWidget extends StatelessWidget {
                   ),
                 ),
               if (isLocal && showControls)
-                Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildMiniToggle(
-                        icon: isMuted ? Icons.mic_off : Icons.mic,
-                        isActive: !isMuted,
-                        onTap: () => context.read<CallBloc>().add(ToggleMute()),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildMiniToggle(
-                        icon: hasVideo ? Icons.videocam : Icons.videocam_off,
-                        isActive: hasVideo,
-                        onTap: () =>
-                            context.read<CallBloc>().add(ToggleVideo()),
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox.shrink(), // Hidden as it's now in the bottom panel
             ],
           ),
         const SizedBox(height: 4),
@@ -215,6 +195,14 @@ class AvatarParticipantWidget extends StatelessWidget {
                       isSpeaking: true,
                       color: Colors.greenAccent,
                       barCount: 3,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (isMuted) ...[
+                    const Icon(
+                      Icons.mic_off,
+                      color: Colors.redAccent,
+                      size: 10,
                     ),
                     const SizedBox(width: 4),
                   ],
@@ -244,28 +232,6 @@ class AvatarParticipantWidget extends StatelessWidget {
     }
 
     return avatarContent;
-  }
-
-  Widget _buildMiniToggle({
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.transparent, // Transparent background
-          shape: BoxShape.circle, // Circular hit area
-        ),
-        child: Icon(
-          icon,
-          color: isActive ? Colors.white : Colors.redAccent, // Simple colors
-          size: 18, // Smaller icon
-        ),
-      ),
-    );
   }
 
   void _showTransferHostDialog(

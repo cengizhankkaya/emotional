@@ -15,6 +15,7 @@ import 'package:emotional/features/room/presentation/widgets/room_screen_content
 import 'package:emotional/features/room/presentation/widgets/room_screen_listeners.dart';
 import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class RoomScreen extends StatelessWidget {
@@ -43,6 +44,8 @@ class _RoomBodyState extends State<_RoomBody>
     with WidgetsBindingObserver, RoomMediaMixin, RoomExitMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final FloatingMessageManager _floatingMessageManager;
+  static const _channel = MethodChannel('com.example.emotional/screen_share');
+  bool _isInPiPMode = false;
 
   @override
   void initState() {
@@ -62,6 +65,15 @@ class _RoomBodyState extends State<_RoomBody>
       }
     });
 
+    // PiP Listener
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onPiPModeChanged') {
+        setState(() {
+          _isInPiPMode = call.arguments as bool;
+        });
+      }
+    });
+
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -69,6 +81,9 @@ class _RoomBodyState extends State<_RoomBody>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
+      // If we are in PiP mode, DO NOT suspend media
+      if (_isInPiPMode) return;
+
       // Suspend camera and mic when app goes to background or task switcher
       context.read<CallBloc>().add(SuspendMedia());
       // Notify RoomBloc to stop aggressive re-joins
@@ -215,6 +230,7 @@ class _RoomBodyState extends State<_RoomBody>
                     driveFileName: driveFileName,
                     driveFileId: driveFileId,
                     scaffoldKey: _scaffoldKey,
+                    isInPiPMode: _isInPiPMode,
                     onLeave: () async {
                       if (context.mounted) {
                         final shouldLeave = await showExitConfirmationDialog(

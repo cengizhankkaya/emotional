@@ -73,5 +73,9 @@
 				</array>
 			</dict>
 		</array>
+			</dict>
+		</array>
+		<key>RTCApplicationGroupIdentifier</key>
+		<string>group.com.example.emotional</string>
 	</dict>
 </plist>

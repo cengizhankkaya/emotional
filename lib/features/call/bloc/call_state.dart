@@ -21,6 +21,7 @@ class CallConnected extends CallState {
   final Map<String, String> activeUsers;
   final Map<String, bool> userVideoStates;
   final Map<String, bool> userAudioStates;
+  final Map<String, bool> userScreenSharingStates;
   final bool isMuted;
   final bool isVideoEnabled;
 
@@ -35,6 +36,7 @@ class CallConnected extends CallState {
   final String? selectedAudioOutputId;
   final String? activeSpeakerId; // New field
   final CallVideoSize videoSize;
+  final bool isScreenSharing;
 
   const CallConnected({
     required this.localRenderer,
@@ -42,6 +44,7 @@ class CallConnected extends CallState {
     this.activeUsers = const {},
     this.userVideoStates = const {},
     this.userAudioStates = const {},
+    this.userScreenSharingStates = const {},
     this.isMuted = false,
     this.isVideoEnabled = false,
     this.videoInputs = const [],
@@ -53,6 +56,7 @@ class CallConnected extends CallState {
     this.selectedAudioOutputId,
     this.activeSpeakerId, // Added to constructor
     this.videoSize = CallVideoSize.medium,
+    this.isScreenSharing = false,
   });
 
   CallConnected copyWith({
@@ -61,6 +65,7 @@ class CallConnected extends CallState {
     Map<String, String>? activeUsers,
     Map<String, bool>? userVideoStates,
     Map<String, bool>? userAudioStates,
+    Map<String, bool>? userScreenSharingStates,
     bool? isMuted,
     bool? isVideoEnabled,
     List<MediaDeviceInfo>? videoInputs,
@@ -72,6 +77,7 @@ class CallConnected extends CallState {
     String? selectedAudioOutputId,
     String? activeSpeakerId, // Added to copyWith
     CallVideoSize? videoSize,
+    bool? isScreenSharing,
   }) {
     return CallConnected(
       localRenderer: localRenderer ?? this.localRenderer,
@@ -79,6 +85,8 @@ class CallConnected extends CallState {
       activeUsers: activeUsers ?? this.activeUsers,
       userVideoStates: userVideoStates ?? this.userVideoStates,
       userAudioStates: userAudioStates ?? this.userAudioStates,
+      userScreenSharingStates:
+          userScreenSharingStates ?? this.userScreenSharingStates,
       isMuted: isMuted ?? this.isMuted,
       isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,
       videoInputs: videoInputs ?? this.videoInputs,
@@ -92,6 +100,7 @@ class CallConnected extends CallState {
       activeSpeakerId:
           activeSpeakerId ?? this.activeSpeakerId, // Added to return
       videoSize: videoSize ?? this.videoSize,
+      isScreenSharing: isScreenSharing ?? this.isScreenSharing,
     );
   }
 
@@ -102,6 +111,7 @@ class CallConnected extends CallState {
     activeUsers,
     userVideoStates,
     userAudioStates,
+    userScreenSharingStates,
     isMuted,
     isVideoEnabled,
     videoInputs,
@@ -113,6 +123,7 @@ class CallConnected extends CallState {
     selectedAudioOutputId,
     activeSpeakerId, // Added to props
     videoSize,
+    isScreenSharing,
   ];
 }
 
