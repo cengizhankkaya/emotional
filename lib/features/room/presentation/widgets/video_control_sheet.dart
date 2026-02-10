@@ -9,6 +9,7 @@ import 'package:emotional/product/utility/responsiveness/responsive_extension.da
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 class VideoControlSheet extends StatefulWidget {
@@ -175,7 +176,13 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildQualitySelector(context, state.currentQuality),
+            _buildCallControlButton(
+              context: context,
+              onPressed: () => _showSettingsModal(context, state),
+              icon: Icons.settings_outlined,
+              label: 'Ayarlar',
+              color: Colors.white70,
+            ),
             _buildCallControlButton(
               context: context,
               onPressed: () => context.read<CallBloc>().add(ToggleMute()),
@@ -208,58 +215,341 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
     );
   }
 
-  Widget _buildQualitySelector(
-    BuildContext context,
-    CallQualityPreset current,
-  ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        PopupMenuButton<CallQualityPreset>(
-          initialValue: current,
-          icon: const Icon(Icons.high_quality_outlined, color: Colors.white70),
-          onSelected: (quality) =>
-              context.read<CallBloc>().add(ChangeQuality(quality)),
-          itemBuilder: (context) => CallQualityPreset.values
-              .map(
-                (q) => PopupMenuItem(
-                  value: q,
-                  child: Row(
+  void _showSettingsModal(BuildContext context, CallConnected state) {
+    final callBloc = context.read<CallBloc>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsCustom.darkABlue,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalContext) => BlocProvider.value(
+        value: callBloc,
+        child: BlocBuilder<CallBloc, CallState>(
+          builder: (context, state) {
+            if (state is! CallConnected) return const SizedBox.shrink();
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Görüşme Ayarları',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: modalContext.dynamicValue(18),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white10),
+                  _buildSettingsListTile(
+                    context: modalContext,
+                    icon: Icons.high_quality_outlined,
+                    title: 'Yayın Kalitesi',
+                    subtitle: state.currentQuality.displayName,
+                    onTap: () => _showQualityMenu(modalContext, state),
+                  ),
+                  _buildSettingsListTile(
+                    context: modalContext,
+                    icon: Icons.videocam_outlined,
+                    title: 'Kamera',
+                    subtitle:
+                        state.videoInputs
+                            .where(
+                              (d) => d.deviceId == state.selectedVideoInputId,
+                            )
+                            .firstOrNull
+                            ?.label ??
+                        'Varsayılan',
+                    onTap: () => _showDeviceMenu(
+                      modalContext,
+                      'Kamera Seçimi',
+                      state.videoInputs,
+                      state.selectedVideoInputId,
+                      (d) => callBloc.add(ChangeVideoInput(d)),
+                    ),
+                  ),
+                  _buildSettingsListTile(
+                    context: modalContext,
+                    icon: Icons.mic_none_outlined,
+                    title: 'Mikrofon',
+                    subtitle:
+                        state.audioInputs
+                            .where(
+                              (d) => d.deviceId == state.selectedAudioInputId,
+                            )
+                            .firstOrNull
+                            ?.label ??
+                        'Varsayılan',
+                    onTap: () => _showDeviceMenu(
+                      modalContext,
+                      'Mikrofon Seçimi',
+                      state.audioInputs,
+                      state.selectedAudioInputId,
+                      (d) => callBloc.add(ChangeAudioInput(d)),
+                    ),
+                  ),
+                  _buildSettingsListTile(
+                    context: modalContext,
+                    icon: Icons.speaker_outlined,
+                    title: 'Hoparlör',
+                    subtitle:
+                        state.audioOutputs
+                            .where(
+                              (d) => d.deviceId == state.selectedAudioOutputId,
+                            )
+                            .firstOrNull
+                            ?.label ??
+                        'Varsayılan',
+                    onTap: () => _showDeviceMenu(
+                      modalContext,
+                      'Hoparlör Seçimi',
+                      state.audioOutputs,
+                      state.selectedAudioOutputId,
+                      (d) => callBloc.add(ChangeAudioOutput(d)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsListTile({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: ColorsCustom.skyBlue),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: Colors.white30),
+      onTap: onTap,
+    );
+  }
+
+  void _showQualityMenu(BuildContext context, CallConnected initialState) {
+    final callBloc = context.read<CallBloc>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsCustom.darkABlue,
+      builder: (modalContext) => BlocProvider.value(
+        value: callBloc,
+        child: BlocBuilder<CallBloc, CallState>(
+          builder: (context, state) {
+            if (state is! CallConnected) return const SizedBox.shrink();
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      Icon(
-                        q == current
-                            ? Icons.check_circle
-                            : Icons.circle_outlined,
-                        size: 16,
-                        color: q == current
-                            ? ColorsCustom.skyBlue
-                            : Colors.grey,
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showSettingsModal(context, state);
+                        },
                       ),
-                      const SizedBox(width: 8),
-                      Text(q.displayName, style: const TextStyle(fontSize: 13)),
+                      const Expanded(
+                        child: Text(
+                          'Yayın Kalitesi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 48),
                     ],
                   ),
-                ),
-              )
-              .toList(),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withOpacity(0.05),
-            padding: const EdgeInsets.all(10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: Colors.white10),
-            ),
-          ),
+                  const SizedBox(height: 10),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: CallQualityPreset.values
+                          .map(
+                            (q) => ListTile(
+                              leading: Icon(
+                                q == state.currentQuality
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
+                                color: q == state.currentQuality
+                                    ? ColorsCustom.cream
+                                    : Colors.white30,
+                              ),
+                              title: Text(
+                                q.displayName,
+                                style: TextStyle(
+                                  color: q == state.currentQuality
+                                      ? ColorsCustom.cream
+                                      : Colors.white,
+                                  fontWeight: q == state.currentQuality
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              onTap: () {
+                                debugPrint(
+                                  '[VideoControlSheet] Quality selected: $q',
+                                );
+                                callBloc.add(ChangeQuality(q));
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Kalite',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: context.dynamicValue(10),
-          ),
+      ),
+    );
+  }
+
+  void _showDeviceMenu(
+    BuildContext context,
+    String title,
+    List<MediaDeviceInfo> initialDevices,
+    String? initialId,
+    Function(MediaDeviceInfo) onSelected,
+  ) {
+    final callBloc = context.read<CallBloc>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsCustom.darkABlue,
+      isScrollControlled: true,
+      builder: (modalContext) => BlocProvider.value(
+        value: callBloc,
+        child: BlocBuilder<CallBloc, CallState>(
+          builder: (context, state) {
+            if (state is! CallConnected) return const SizedBox.shrink();
+
+            final List<MediaDeviceInfo> devices;
+            final String? currentId;
+            if (title.contains('Kamera')) {
+              devices = state.videoInputs;
+              currentId = state.selectedVideoInputId;
+            } else if (title.contains('Mikrofon')) {
+              devices = state.audioInputs;
+              currentId = state.selectedAudioInputId;
+            } else if (title.contains('Hoparlör')) {
+              devices = state.audioOutputs;
+              currentId = state.selectedAudioOutputId;
+            } else {
+              devices = initialDevices;
+              currentId = initialId;
+            }
+
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(modalContext).size.height * 0.7,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showSettingsModal(context, state);
+                        },
+                      ),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (devices.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text(
+                        'Cihaz bulunamadı',
+                        style: TextStyle(color: Colors.white60),
+                      ),
+                    ),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: devices
+                          .map(
+                            (d) => ListTile(
+                              leading: Icon(
+                                d.deviceId == currentId
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
+                                color: d.deviceId == currentId
+                                    ? ColorsCustom.cream
+                                    : Colors.white30,
+                              ),
+                              title: Text(
+                                d.label.isEmpty ? 'Bilinmeyen Cihaz' : d.label,
+                                style: TextStyle(
+                                  color: d.deviceId == currentId
+                                      ? ColorsCustom.cream
+                                      : Colors.white,
+                                  fontWeight: d.deviceId == currentId
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              onTap: () {
+                                debugPrint(
+                                  '[VideoControlSheet] Device selected: ${d.label} (${d.deviceId})',
+                                );
+                                onSelected(d);
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
-      ],
+      ),
     );
   }
 

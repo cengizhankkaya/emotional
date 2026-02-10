@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/call/domain/services/i_media_device_service.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:audio_session/audio_session.dart';
 
 class MediaDeviceService implements IMediaDeviceService {
   MediaStream? _cameraStream;
@@ -11,7 +11,12 @@ class MediaDeviceService implements IMediaDeviceService {
   // Keep track of selected devices to preserve selection during quality change
   String? _selectedVideoDeviceId;
   String? _selectedAudioDeviceId;
+  String? _selectedAudioOutputId;
   bool _isBusy = false;
+
+  String? get selectedVideoDeviceId => _selectedVideoDeviceId;
+  String? get selectedAudioDeviceId => _selectedAudioDeviceId;
+  String? get selectedAudioOutputId => _selectedAudioOutputId;
 
   @override
   MediaStream? get localStream => _cameraStream;
@@ -181,14 +186,142 @@ class MediaDeviceService implements IMediaDeviceService {
 
   @override
   Future<List<MediaDeviceInfo>> getAudioInputs() async {
-    final devices = await navigator.mediaDevices.enumerateDevices();
-    return devices.where((d) => d.kind == 'audioinput').toList();
+    List<MediaDeviceInfo> devices = [];
+    try {
+      final allDevices = await navigator.mediaDevices.enumerateDevices();
+      devices = allDevices.where((d) => d.kind == 'audioinput').toList();
+    } catch (e) {
+      print("Error enumerating audio inputs: $e");
+    }
+
+    // On mobile, native labels are often generic. Use audio_session to refine.
+    try {
+      final session = await AudioSession.instance;
+      final audioDevices = await session.getDevices();
+
+      final List<MediaDeviceInfo> mappedDevices = [];
+      for (var d in audioDevices) {
+        if (d.isInput) {
+          String label = d.name;
+          final typeStr = d.type.toString().toLowerCase();
+
+          if (typeStr.contains('builtinmic')) {
+            label = 'Telefon Mikrofonu';
+          } else if (typeStr.contains('wired') || typeStr.contains('headset')) {
+            label = 'Kulaklık Mikrofonu';
+          } else if (typeStr.contains('bluetooth')) {
+            label = 'Bluetooth Mikrofon (${d.name})';
+          }
+
+          // Try to match with existing enumerated device if possible, or create NEW entry
+          final existing = devices
+              .where(
+                (ed) =>
+                    ed.label.toLowerCase().contains(d.name.toLowerCase()) ||
+                    ed.deviceId == d.id,
+              )
+              .firstOrNull;
+
+          mappedDevices.add(
+            MediaDeviceInfo(
+              deviceId: existing?.deviceId ?? d.id,
+              label: label,
+              kind: 'audioinput',
+              groupId: existing?.groupId ?? 'default',
+            ),
+          );
+        }
+      }
+
+      if (mappedDevices.isNotEmpty) {
+        return mappedDevices;
+      }
+    } catch (e) {
+      print("Error refining audio inputs with audio_session: $e");
+    }
+
+    return devices;
   }
 
   @override
   Future<List<MediaDeviceInfo>> getAudioOutputs() async {
-    final devices = await navigator.mediaDevices.enumerateDevices();
-    return devices.where((d) => d.kind == 'audiooutput').toList();
+    List<MediaDeviceInfo> devices = [];
+    try {
+      final allDevices = await navigator.mediaDevices.enumerateDevices();
+      devices = allDevices.where((d) => d.kind == 'audiooutput').toList();
+    } catch (e) {
+      print("Error enumerating audio outputs: $e");
+    }
+
+    if (devices.isEmpty) {
+      // Fallback using audio_session for better labels on mobile
+      try {
+        final session = await AudioSession.instance;
+        final audioDevices = await session.getDevices();
+
+        final List<MediaDeviceInfo> mappedDevices = [];
+        for (var d in audioDevices) {
+          if (d.isOutput) {
+            String label = d.name;
+            String deviceId = d.id;
+
+            // Use string-based checks for safety across package versions
+            final typeStr = d.type.toString().toLowerCase();
+
+            if (typeStr.contains('speaker')) {
+              label = 'Hoparlör (Telefon)';
+              deviceId = 'speaker';
+            } else if (typeStr.contains('earpiece') ||
+                typeStr.contains('receiver')) {
+              label = 'Ahize';
+              deviceId = 'earpiece';
+            } else if (typeStr.contains('headset') ||
+                typeStr.contains('headphones') ||
+                typeStr.contains('wired')) {
+              label = 'Kulaklık (Kablolu)';
+              deviceId = 'earpiece'; // Map to earpiece route in our logic
+            } else if (typeStr.contains('bluetooth')) {
+              label = 'Bluetooth Kulaklık (${d.name})';
+              deviceId = 'earpiece'; // Map to earpiece route in our logic
+            }
+
+            mappedDevices.add(
+              MediaDeviceInfo(
+                deviceId: deviceId,
+                label: label,
+                kind: 'audiooutput',
+                groupId: 'default',
+              ),
+            );
+          }
+        }
+
+        if (mappedDevices.isNotEmpty) {
+          // Ensure we always have at least Speaker and Earpiece even if not detected?
+          // Actually session.getDevices should be quite accurate.
+          return mappedDevices;
+        }
+      } catch (e) {
+        print("Error getting devices from audio_session: $e");
+      }
+
+      // Final fallback if everything fails
+      return [
+        MediaDeviceInfo(
+          deviceId: 'speaker',
+          label: 'Hoparlör (Telefon)',
+          kind: 'audiooutput',
+          groupId: 'default',
+        ),
+        MediaDeviceInfo(
+          deviceId: 'earpiece',
+          label: 'Ahize / Kulaklık',
+          kind: 'audiooutput',
+          groupId: 'default',
+        ),
+      ];
+    }
+    return devices;
   }
 
   @override
@@ -207,9 +340,17 @@ class MediaDeviceService implements IMediaDeviceService {
 
   @override
   Future<void> selectAudioOutput(MediaDeviceInfo device) async {
+    _selectedAudioOutputId = device.deviceId;
     try {
-      // Helper.selectAudioOutput(device.deviceId);
-      print("Mock: Selecting Audio Output ${device.label}");
+      final label = device.label.toLowerCase();
+      // On mobile, we use setSpeakerphoneOn.
+      // 'speaker' is for the loud speaker.
+      // 'earpiece' or empty usually refers to the internal receiver or connected headset.
+      final isSpeaker = label.contains('speaker') || label.contains('hoparlör');
+      await Helper.setSpeakerphoneOn(isSpeaker);
+      print(
+        "MediaDeviceService: Selected Audio Output ${device.label} (Speaker=$isSpeaker)",
+      );
     } catch (e) {
       print("Error selecting audio output: $e");
     }
