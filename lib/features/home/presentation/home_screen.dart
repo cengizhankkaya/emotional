@@ -1,4 +1,5 @@
 import 'package:app_links/app_links.dart';
+import 'package:emotional/features/room/presentation/manager/helpers/download_permission_helper.dart';
 import 'package:emotional/core/services/permission_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/home/presentation/helpers/user_helper.dart';
@@ -127,8 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.pop(context);
           // Request all sequentialy
           await permissionService.requestCameraAndMicrophonePermissions();
-          await permissionService.requestNotificationPermission();
-          await permissionService.requestStoragePermission();
+          // Use helper for advanced storage/gallery permissions
+          await DownloadPermissionHelper().requestInitialPermissions();
         },
       ),
     );

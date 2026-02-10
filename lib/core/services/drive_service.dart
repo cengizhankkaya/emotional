@@ -21,11 +21,19 @@ class DriveService {
     }
   }
 
-  Future<drive.DriveApi?> _getDriveApi() async {
-    // Mevcut bir oturum yoksa önce sessizce, sonra etkileşimli giriş dene.
+  Future<drive.DriveApi?> _getDriveApi({bool silentOnly = false}) async {
+    // Mevcut bir oturum yoksa önce sessizce, sonra (istenirse) etkileşimli giriş dene.
     var account = _googleSignIn.currentUser;
     account ??= await _googleSignIn.signInSilently();
-    account ??= await _googleSignIn.signIn();
+
+    if (!silentOnly && account == null) {
+      try {
+        account = await _googleSignIn.signIn();
+      } catch (e) {
+        debugPrint('DriveService: Error signing in interactively: $e');
+      }
+    }
+
     if (account == null) return null;
 
     final httpClient = await _googleSignIn.authenticatedClient();
@@ -34,24 +42,35 @@ class DriveService {
     return drive.DriveApi(httpClient);
   }
 
-  Future<List<drive.File>> listVideoFiles() async {
-    final driveApi = await _getDriveApi();
+  Future<List<drive.File>> listVideoFiles({bool silentOnly = false}) async {
+    final driveApi = await _getDriveApi(silentOnly: silentOnly);
     if (driveApi == null) return [];
 
-    final response = await driveApi.files.list(
-      q: "mimeType contains 'video/' and trashed = false",
-      $fields: 'files(id, name, mimeType, size, thumbnailLink)',
-    );
-
-    return response.files ?? [];
+    try {
+      final response = await driveApi.files.list(
+        q: "mimeType contains 'video/' and trashed = false",
+        $fields: 'files(id, name, mimeType, size, thumbnailLink)',
+      );
+      return response.files ?? [];
+    } catch (e) {
+      debugPrint('DriveService: Error listing files: $e');
+      return [];
+    }
   }
 
   Future<String?> downloadVideoInBackground(
     String fileId,
     String fileName, {
     bool showNotification = true,
+    bool silentOnly = false,
   }) async {
     try {
+      // Ensure we have a valid account (silent or interactive)
+      final driveApi = await _getDriveApi(silentOnly: silentOnly);
+      if (driveApi == null) {
+        throw Exception('User not signed in or Drive access denied.');
+      }
+
       final account = _googleSignIn.currentUser;
       if (account == null) {
         throw Exception('User not signed in.');
@@ -69,10 +88,6 @@ class DriveService {
 
       // 1. Verify the file and token with a small metadata call first
       try {
-        final driveApi = await _getDriveApi();
-        if (driveApi == null) {
-          throw Exception('Drive API could not be initialized.');
-        }
         await driveApi.files.get(fileId, $fields: 'id,name');
       } catch (e) {
         throw Exception('File access/token check failed: $e');

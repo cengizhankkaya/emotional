@@ -53,6 +53,13 @@ class PermissionSheet extends StatelessWidget {
             SizedBox(height: context.dynamicHeight(0.02)),
             _buildPermissionItem(
               context,
+              icon: Icons.photo_library_rounded,
+              title: 'Galeri ve Medya',
+              subtitle: 'Videoları seçip arkadaşlarınızla izleyebilmek için',
+            ),
+            SizedBox(height: context.dynamicHeight(0.02)),
+            _buildPermissionItem(
+              context,
               icon: Icons.notifications_active_rounded,
               title: 'Bildirimler',
               subtitle: 'İndirme durumunu takip edebilmeniz için',

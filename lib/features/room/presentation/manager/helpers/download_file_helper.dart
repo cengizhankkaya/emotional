@@ -89,7 +89,11 @@ class DownloadFileHelper {
       appDir.path,
       if (extDir != null) extDir.path,
       '${appDir.parent.path}/app_flutter',
-      if (Platform.isAndroid) '/storage/emulated/0/Download',
+      if (Platform.isAndroid) ...[
+        '/storage/emulated/0/Download',
+        '/storage/emulated/0/Movies',
+        '/storage/emulated/0/DCIM/Camera', // Common for camera videos
+      ],
     ];
   }
 
@@ -145,6 +149,110 @@ class DownloadFileHelper {
       }
     } catch (e) {
       debugPrint('Error deleting video: $e');
+    }
+  }
+
+  Future<List<File>> listGalleryVideos() async {
+    final videoExtensions = {'.mp4', '.mkv', '.avi', '.mov', '.webm'};
+    final List<File> videoFiles = [];
+    final Set<String> processedPaths = {};
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final extDir = await getExternalStorageDirectory();
+
+    // Directories to scan
+    final List<Directory> dirsToScan = [];
+
+    // 1. App Docs (Downloaded by app)
+    dirsToScan.add(appDir);
+
+    // 2. External Storage directories (Only Download folder as requested)
+    if (Platform.isAndroid) {
+      dirsToScan.add(Directory('/storage/emulated/0/Download'));
+    }
+
+    if (extDir != null) {
+      dirsToScan.add(extDir);
+    }
+
+    for (var dir in dirsToScan) {
+      if (await dir.exists()) {
+        try {
+          await _scanDirectoryRecursive(
+            dir,
+            videoFiles,
+            processedPaths,
+            videoExtensions,
+          );
+        } catch (e) {
+          debugPrint('Error scanning dir ${dir.path}: $e');
+        }
+      }
+    }
+
+    // Sort by modification time (newest first)
+    // Sort by modification time (newest first)
+    videoFiles.sort((a, b) {
+      try {
+        return b.lastModifiedSync().compareTo(a.lastModifiedSync());
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    return videoFiles;
+  }
+
+  Future<void> _scanDirectoryRecursive(
+    Directory dir,
+    List<File> videoFiles,
+    Set<String> processedPaths,
+    Set<String> videoExtensions, {
+    int depth = 0,
+  }) async {
+    // Limit recursion depth to avoid infinite loops and performance issues
+    if (depth > 3) return;
+
+    try {
+      final entities = dir.listSync(recursive: false, followLinks: false);
+      for (var entity in entities) {
+        if (entity is File) {
+          if (processedPaths.contains(entity.path)) continue;
+
+          final ext = entity.path.contains('.')
+              ? entity.path
+                    .substring(entity.path.lastIndexOf('.'))
+                    .toLowerCase()
+              : '';
+
+          if (videoExtensions.contains(ext)) {
+            // Check size to avoid empty/corrupt files
+            try {
+              if (entity.lengthSync() > 10 * 1024) {
+                // > 10KB
+                videoFiles.add(entity);
+                processedPaths.add(entity.path);
+              }
+            } catch (e) {
+              // Ignore file access errors
+            }
+          }
+        } else if (entity is Directory) {
+          // Skip hidden folders
+          if (entity.path.split('/').last.startsWith('.')) continue;
+
+          await _scanDirectoryRecursive(
+            entity,
+            videoFiles,
+            processedPaths,
+            videoExtensions,
+            depth: depth + 1,
+          );
+        }
+      }
+    } catch (e) {
+      // Ignore directory access errors (Permission denied etc.)
+      // debugPrint('Skipping dir ${dir.path}: $e');
     }
   }
 }

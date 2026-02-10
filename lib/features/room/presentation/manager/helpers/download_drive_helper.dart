@@ -15,10 +15,11 @@ class DownloadDriveHelper {
 
       List<drive.File> driveMetadata = [];
       try {
-        driveMetadata = await driveService.listVideoFiles();
+        // Only try silent sign-in for background checks
+        driveMetadata = await driveService.listVideoFiles(silentOnly: true);
       } catch (e) {
         debugPrint(
-          'DownloadManager: Could not fetch Drive metadata, using local-only info: $e',
+          'DownloadManager: Could not fetch Drive metadata (silent), using local-only info: $e',
         );
       }
 

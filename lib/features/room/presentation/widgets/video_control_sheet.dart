@@ -398,59 +398,72 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
         if (widget.fileName != null && widget.fileId != null)
           Expanded(
             flex: 2,
-            child: ElevatedButton.icon(
-              onPressed: isDownloading
-                  ? null
-                  : () {
-                      if (state.isVideoDownloaded) {
-                        widget.onPlay();
-                      } else {
-                        context.read<DownloadCubit>().downloadVideo(
-                          widget.fileId!,
-                          widget.fileName!,
-                        );
-                      }
-                    },
-              icon: isDownloading
-                  ? SizedBox(
-                      width: context.dynamicValue(16),
-                      height: context.dynamicValue(16),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withValues(alpha: 0.7),
+            child: Builder(
+              builder: (context) {
+                final isLocalFile = widget.fileId!.startsWith('local://');
+                final isMissingLocalFile =
+                    isLocalFile && !state.isVideoDownloaded;
+
+                return ElevatedButton.icon(
+                  onPressed: isDownloading || isMissingLocalFile
+                      ? null
+                      : () {
+                          if (state.isVideoDownloaded) {
+                            widget.onPlay();
+                          } else {
+                            // Only try to download if it's NOT a local-only file
+                            context.read<DownloadCubit>().downloadVideo(
+                              widget.fileId!,
+                              widget.fileName!,
+                            );
+                          }
+                        },
+                  icon: isDownloading
+                      ? SizedBox(
+                          width: context.dynamicValue(16),
+                          height: context.dynamicValue(16),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          state.isVideoDownloaded
+                              ? Icons.play_arrow
+                              : isMissingLocalFile
+                              ? Icons.error_outline
+                              : Icons.download,
                         ),
-                      ),
-                    )
-                  : Icon(
-                      state.isVideoDownloaded
-                          ? Icons.play_arrow
-                          : Icons.download,
+                  label: Text(
+                    state.isVideoDownloaded
+                        ? 'Oynat'
+                        : isDownloading
+                        ? 'İndiriliyor %${(state.downloadProgress! * 100).toInt()}'
+                        : isMissingLocalFile
+                        ? 'Yerel Dosya (Eksik)'
+                        : 'İndir',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: state.isVideoDownloaded
+                        ? ColorsCustom.cream
+                        : isDownloading || isMissingLocalFile
+                        ? ColorsCustom.skyBlue.withValues(alpha: 0.5)
+                        : ColorsCustom.skyBlue,
+                    foregroundColor: ColorsCustom.white,
+                    disabledBackgroundColor: ColorsCustom.skyBlue.withValues(
+                      alpha: 0.5,
                     ),
-              label: Text(
-                state.isVideoDownloaded
-                    ? 'Oynat'
-                    : isDownloading
-                    ? 'İndiriliyor %${(state.downloadProgress! * 100).toInt()}'
-                    : 'İndir',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: state.isVideoDownloaded
-                    ? ColorsCustom.cream
-                    : isDownloading
-                    ? ColorsCustom.skyBlue.withValues(alpha: 0.5)
-                    : ColorsCustom.skyBlue,
-                foregroundColor: ColorsCustom.white,
-                disabledBackgroundColor: ColorsCustom.skyBlue.withValues(
-                  alpha: 0.5,
-                ),
-                disabledForegroundColor: ColorsCustom.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: ProjectRadius.medium(),
-                ),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+                    disabledForegroundColor: ColorsCustom.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: ProjectRadius.medium(),
+                    ),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                );
+              },
             ),
           ),
       ],
