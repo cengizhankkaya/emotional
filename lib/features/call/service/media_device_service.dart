@@ -194,12 +194,13 @@ class MediaDeviceService implements IMediaDeviceService {
       print("Error enumerating audio inputs: $e");
     }
 
+    final Map<String, MediaDeviceInfo> uniqueDevices = {};
+
     // On mobile, native labels are often generic. Use audio_session to refine.
     try {
       final session = await AudioSession.instance;
       final audioDevices = await session.getDevices();
 
-      final List<MediaDeviceInfo> mappedDevices = [];
       for (var d in audioDevices) {
         if (d.isInput) {
           String label = d.name;
@@ -213,7 +214,7 @@ class MediaDeviceService implements IMediaDeviceService {
             label = 'Bluetooth Mikrofon (${d.name})';
           }
 
-          // Try to match with existing enumerated device if possible, or create NEW entry
+          // Try to match with existing enumerated device if possible
           final existing = devices
               .where(
                 (ed) =>
@@ -222,25 +223,26 @@ class MediaDeviceService implements IMediaDeviceService {
               )
               .firstOrNull;
 
-          mappedDevices.add(
-            MediaDeviceInfo(
-              deviceId: existing?.deviceId ?? d.id,
-              label: label,
-              kind: 'audioinput',
-              groupId: existing?.groupId ?? 'default',
-            ),
+          uniqueDevices[label] = MediaDeviceInfo(
+            deviceId: existing?.deviceId ?? d.id,
+            label: label,
+            kind: 'audioinput',
+            groupId: existing?.groupId ?? 'default',
           );
         }
-      }
-
-      if (mappedDevices.isNotEmpty) {
-        return mappedDevices;
       }
     } catch (e) {
       print("Error refining audio inputs with audio_session: $e");
     }
 
-    return devices;
+    // If audio_session logic didn't populate uniqueDevices, use enumerated ones
+    if (uniqueDevices.isEmpty) {
+      for (var d in devices) {
+        uniqueDevices[d.label] = d;
+      }
+    }
+
+    return uniqueDevices.values.toList();
   }
 
   @override
@@ -253,75 +255,72 @@ class MediaDeviceService implements IMediaDeviceService {
       print("Error enumerating audio outputs: $e");
     }
 
-    if (devices.isEmpty) {
-      // Fallback using audio_session for better labels on mobile
-      try {
-        final session = await AudioSession.instance;
-        final audioDevices = await session.getDevices();
+    final Map<String, MediaDeviceInfo> uniqueDevices = {};
 
-        final List<MediaDeviceInfo> mappedDevices = [];
-        for (var d in audioDevices) {
-          if (d.isOutput) {
-            String label = d.name;
-            String deviceId = d.id;
+    try {
+      final session = await AudioSession.instance;
+      final audioDevices = await session.getDevices();
 
-            // Use string-based checks for safety across package versions
-            final typeStr = d.type.toString().toLowerCase();
+      for (var d in audioDevices) {
+        if (d.isOutput) {
+          String label = d.name;
+          String deviceId = d.id;
 
-            if (typeStr.contains('speaker')) {
-              label = 'Hoparlör (Telefon)';
-              deviceId = 'speaker';
-            } else if (typeStr.contains('earpiece') ||
-                typeStr.contains('receiver')) {
-              label = 'Ahize';
-              deviceId = 'earpiece';
-            } else if (typeStr.contains('headset') ||
-                typeStr.contains('headphones') ||
-                typeStr.contains('wired')) {
-              label = 'Kulaklık (Kablolu)';
-              deviceId = 'earpiece'; // Map to earpiece route in our logic
-            } else if (typeStr.contains('bluetooth')) {
-              label = 'Bluetooth Kulaklık (${d.name})';
-              deviceId = 'earpiece'; // Map to earpiece route in our logic
-            }
+          final typeStr = d.type.toString().toLowerCase();
 
-            mappedDevices.add(
-              MediaDeviceInfo(
-                deviceId: deviceId,
-                label: label,
-                kind: 'audiooutput',
-                groupId: 'default',
-              ),
-            );
+          if (typeStr.contains('speaker')) {
+            label = 'Hoparlör (Telefon)';
+            deviceId = 'speaker';
+          } else if (typeStr.contains('earpiece') ||
+              typeStr.contains('receiver')) {
+            label = 'Ahize';
+            deviceId = 'earpiece';
+          } else if (typeStr.contains('headset') ||
+              typeStr.contains('headphones') ||
+              typeStr.contains('wired')) {
+            label = 'Kulaklık (Kablolu)';
+            deviceId = 'earpiece';
+          } else if (typeStr.contains('bluetooth')) {
+            label = 'Bluetooth Kulaklık (${d.name})';
+            deviceId = 'earpiece';
           }
-        }
 
-        if (mappedDevices.isNotEmpty) {
-          // Ensure we always have at least Speaker and Earpiece even if not detected?
-          // Actually session.getDevices should be quite accurate.
-          return mappedDevices;
+          uniqueDevices[label] = MediaDeviceInfo(
+            deviceId: deviceId,
+            label: label,
+            kind: 'audiooutput',
+            groupId: 'default',
+          );
         }
-      } catch (e) {
-        print("Error getting devices from audio_session: $e");
       }
-
-      // Final fallback if everything fails
-      return [
-        MediaDeviceInfo(
-          deviceId: 'speaker',
-          label: 'Hoparlör (Telefon)',
-          kind: 'audiooutput',
-          groupId: 'default',
-        ),
-        MediaDeviceInfo(
-          deviceId: 'earpiece',
-          label: 'Ahize / Kulaklık',
-          kind: 'audiooutput',
-          groupId: 'default',
-        ),
-      ];
+    } catch (e) {
+      print("Error getting devices from audio_session: $e");
     }
-    return devices;
+
+    if (uniqueDevices.isEmpty) {
+      // Final fallback if everything fails
+      if (devices.isEmpty) {
+        return [
+          MediaDeviceInfo(
+            deviceId: 'speaker',
+            label: 'Hoparlör (Telefon)',
+            kind: 'audiooutput',
+            groupId: 'default',
+          ),
+          MediaDeviceInfo(
+            deviceId: 'earpiece',
+            label: 'Ahize / Kulaklık',
+            kind: 'audiooutput',
+            groupId: 'default',
+          ),
+        ];
+      }
+      for (var d in devices) {
+        uniqueDevices[d.label] = d;
+      }
+    }
+
+    return uniqueDevices.values.toList();
   }
 
   @override

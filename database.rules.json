@@ -1,6 +1,30 @@
 {
     "rules": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        "rooms": {
+            "$roomId": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                "users": {
+                    "$userId": {
+                        ".write": "auth != null && auth.uid == $userId"
+                    }
+                },
+                "signal": {
+                    "$userId": {
+                        ".read": "auth != null && auth.uid == $userId",
+                        "$signalType": {
+                            "$senderId": {
+                                ".write": "auth != null && auth.uid == $senderId"
+                            }
+                        }
+                    }
+                },
+                "usersState": {
+                    "$userId": {
+                        ".write": "auth != null && auth.uid == $userId"
+                    }
+                }
+            }
+        }
     }
 }
