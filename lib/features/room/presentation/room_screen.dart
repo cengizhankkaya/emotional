@@ -250,7 +250,22 @@ class _RoomBodyState extends State<_RoomBody>
                           videoFile: cubit.state.localVideoFile!,
                           roomId: roomId,
                           userId: currentUserId,
+                          savedAudioTrack: roomState.selectedAudioTrack,
+                          savedSubtitleTrack: roomState.selectedSubtitleTrack,
                         );
+                      } else {
+                        // File is not available, show error and trigger recheck
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Video dosyası bulunamadı. Kontrol ediliyor...',
+                            ),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                        if (driveFileName != null) {
+                          cubit.checkFileExists(driveFileName);
+                        }
                       }
                     },
                   ),

@@ -62,14 +62,10 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     InitializePlayer event,
     Emitter<VideoPlayerState> emit,
   ) async {
+    // Always dispose any existing player before initializing a new one
+    // This ensures we don't try to reuse a disposed player
     if (state is VideoPlayerActive) {
-      final activeState = state as VideoPlayerActive;
-      if (activeState.videoFile.path == event.file.path) {
-        emit(activeState.copyWith(isMinimized: false));
-        return;
-      } else {
-        await _disposePlayer();
-      }
+      await _disposePlayer();
     }
 
     await _videoService.initialize();
@@ -110,6 +106,34 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         isBuffering: _videoService.isBuffering,
       ),
     );
+
+    // Apply saved track settings if provided
+    // Wait a bit for tracks to be loaded by the player
+    if (event.savedAudioTrack != null || event.savedSubtitleTrack != null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (event.savedAudioTrack != null) {
+        final availableTracks = _videoService.tracks.audio;
+        final savedTrack = availableTracks.firstWhere(
+          (track) => track.id == event.savedAudioTrack,
+          orElse: () => AudioTrack.auto(),
+        );
+        if (savedTrack.id == event.savedAudioTrack) {
+          await _videoService.setAudioTrack(savedTrack);
+        }
+      }
+
+      if (event.savedSubtitleTrack != null) {
+        final availableTracks = _videoService.tracks.subtitle;
+        final savedTrack = availableTracks.firstWhere(
+          (track) => track.id == event.savedSubtitleTrack,
+          orElse: () => SubtitleTrack.auto(),
+        );
+        if (savedTrack.id == event.savedSubtitleTrack) {
+          await _videoService.setSubtitleTrack(savedTrack);
+        }
+      }
+    }
   }
 
   Future<void> _onPlayerStateChanged(
@@ -191,16 +215,30 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     if (state is! VideoPlayerActive) return;
     var currentState = state as VideoPlayerActive;
 
+    // CRITICAL FIX: Check if this is a real videoState update or just a usersState update
+    // If the videoState timestamp hasn't changed, this is likely just a media state update
+    // (mic/camera toggle) and we should NOT sync video playback
+    final isVideoStateUpdate =
+        currentState.lastVideoStateTimestamp == null ||
+        event.lastUpdatedAt != currentState.lastVideoStateTimestamp;
+
     currentState = currentState.copyWith(
       roomId: event.roomId,
       hostId: event.hostId,
       currentUserId: event.currentUserId,
       lastRemoteUpdateTime: event.lastUpdatedAt,
+      lastVideoStateTimestamp: event.lastUpdatedAt,
     );
 
     if (_lastLocalActionTime != null &&
         DateTime.now().difference(_lastLocalActionTime!).inMilliseconds <
             2000) {
+      emit(currentState);
+      return;
+    }
+
+    // Skip video sync if only media state changed (not videoState)
+    if (!isVideoStateUpdate) {
       emit(currentState);
       return;
     }

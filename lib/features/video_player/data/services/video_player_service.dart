@@ -33,89 +33,103 @@ abstract class VideoPlayerService {
 }
 
 class MediaKitVideoPlayerService implements VideoPlayerService {
-  late final Player _player;
+  Player? _player;
 
   @override
-  Player get player => _player;
+  Player get player {
+    if (_player == null) {
+      throw StateError(
+        'Player has not been initialized. Call initialize() first.',
+      );
+    }
+    return _player!;
+  }
 
   @override
   Future<void> initialize() async {
+    // Dispose existing player if already initialized
+    if (_player != null) {
+      await _player!.dispose();
+    }
     _player = Player();
   }
 
   @override
   Future<void> dispose() async {
-    await _player.dispose();
+    if (_player != null) {
+      await _player!.dispose();
+      _player = null;
+    }
   }
 
   @override
   Future<void> open(String path) async {
-    await _player.open(Media(path), play: true);
+    await player.open(Media(path), play: true);
   }
 
   @override
   Future<void> play() async {
-    await _player.play();
+    await player.play();
   }
 
   @override
   Future<void> pause() async {
-    await _player.pause();
+    await player.pause();
   }
 
   @override
   Future<void> seek(Duration position) async {
-    await _player.seek(position);
+    await player.seek(position);
   }
 
   @override
   Future<void> setRate(double rate) async {
-    await _player.setRate(rate);
+    await player.setRate(rate);
   }
 
   @override
-  Stream<bool> get playingStream => _player.stream.playing;
+  Stream<bool> get playingStream => player.stream.playing;
 
   @override
-  Stream<Duration> get positionStream => _player.stream.position;
+  Stream<Duration> get positionStream => player.stream.position;
 
   @override
-  Stream<double> get rateStream => _player.stream.rate;
+  Stream<double> get rateStream => player.stream.rate;
 
   @override
-  bool get isPlaying => _player.state.playing;
+  bool get isPlaying => player.state.playing;
 
   @override
-  Duration get position => _player.state.position;
+  Duration get position => player.state.position;
 
   @override
-  double get rate => _player.state.rate;
+  double get rate => player.state.rate;
 
   @override
   Future<void> setAudioTrack(AudioTrack track) async {
-    await _player.setAudioTrack(track);
+    await player.setAudioTrack(track);
   }
 
   @override
   Future<void> setSubtitleTrack(SubtitleTrack track) async {
-    await _player.setSubtitleTrack(track);
+    await player.setSubtitleTrack(track);
   }
 
   @override
-  Stream<Track> get trackStream => _player.stream.track;
+  Stream<Track> get trackStream => player.stream.track;
 
   @override
-  Stream<Tracks> get tracksStream => _player.stream.tracks;
+  Stream<Tracks> get tracksStream => player.stream.tracks;
 
   @override
-  Track get track => _player.state.track;
+  Track get track => player.state.track;
 
   @override
-  Tracks get tracks => _player.state.tracks;
+  Tracks get tracks => player.state.tracks;
 
   @override
-  Stream<bool> get bufferingStream => _player.stream.buffering;
+  Stream<bool> get bufferingStream => player.stream.buffering;
 
   @override
-  bool get isBuffering => _player.state.buffering;
+  bool get isBuffering => player.state.buffering;
 }

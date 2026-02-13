@@ -43,7 +43,14 @@ mixin RoomMediaMixin<T extends StatefulWidget> on State<T> {
     required File videoFile,
     required String roomId,
     required String userId,
+    String? savedAudioTrack,
+    String? savedSubtitleTrack,
   }) {
+    // Notify that user is watching video
+    context.read<RoomBloc>().add(
+      UpdateWatchingStatus(roomId: roomId, userId: userId, isWatching: true),
+    );
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -51,6 +58,8 @@ mixin RoomMediaMixin<T extends StatefulWidget> on State<T> {
           videoFile: videoFile,
           roomId: roomId,
           userId: userId,
+          savedAudioTrack: savedAudioTrack,
+          savedSubtitleTrack: savedSubtitleTrack,
         ),
       ),
     );

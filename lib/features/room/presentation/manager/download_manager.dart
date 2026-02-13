@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:emotional/core/services/drive_service.dart';
@@ -39,6 +40,14 @@ class DownloadManager extends ChangeNotifier {
   List<drive.File> _downloadedVideos = [];
 
   Function(String)? _onError;
+
+  // Debouncing for file existence checks
+  Timer? _checkFileDebounceTimer;
+  String? _pendingFileNameToCheck;
+  final Map<String, File?> _fileExistenceCache = {};
+
+  // Track last completed task to prevent duplicate success notifications
+  String? _lastCompletedTaskId;
 
   // Getters
   double? get downloadProgress => _downloadProgress;
@@ -106,7 +115,15 @@ class DownloadManager extends ChangeNotifier {
     );
 
     if (task.status == TaskStatus.complete) {
-      _handleSuccess();
+      // Prevent duplicate success handling for the same task
+      if (_lastCompletedTaskId != task.taskId) {
+        _lastCompletedTaskId = task.taskId;
+        _handleSuccess();
+      } else {
+        debugPrint(
+          'DownloadManager: Ignoring duplicate completion event for task ${task.taskId}',
+        );
+      }
     } else if (task.status == TaskStatus.failed ||
         task.status == TaskStatus.canceled ||
         task.status == TaskStatus.notFound) {
@@ -144,7 +161,8 @@ class DownloadManager extends ChangeNotifier {
       if (!_downloadedVideos.any((f) => f.id == newFile.id)) {
         _downloadedVideos.add(newFile);
       }
-      checkFileExists(_currentDownloadingFileName!);
+      // Force recheck to update cache after download
+      checkFileExists(_currentDownloadingFileName!, forceRecheck: true);
     }
   }
 
@@ -250,20 +268,57 @@ class DownloadManager extends ChangeNotifier {
     _notifyStateChanged();
   }
 
-  Future<void> checkFileExists(String fileName) async {
-    final foundFile = await _fileHelper.checkFileExists(fileName);
-    debugPrint(
-      'DownloadManager: checkFileExists($fileName) -> found: ${foundFile?.path}',
-    );
-
-    if (foundFile != null) {
-      _isVideoDownloaded = true;
-      _localVideoFile = foundFile;
-    } else {
-      _isVideoDownloaded = false;
-      _localVideoFile = null;
+  Future<void> checkFileExists(
+    String fileName, {
+    bool forceRecheck = false,
+  }) async {
+    // If switching to a different file, clear the old cache
+    if (_localVideoFile != null &&
+        _localVideoFile!.path.split('/').last != fileName) {
+      debugPrint(
+        'DownloadManager: Switching from ${_localVideoFile!.path.split('/').last} to $fileName, clearing old cache',
+      );
+      final oldFileName = _localVideoFile!.path.split('/').last;
+      _fileExistenceCache.remove(oldFileName);
     }
-    _notifyStateChanged();
+
+    // Check cache first (unless force recheck)
+    if (!forceRecheck && _fileExistenceCache.containsKey(fileName)) {
+      final cachedFile = _fileExistenceCache[fileName];
+      debugPrint(
+        'DownloadManager: checkFileExists($fileName) -> using cached result: ${cachedFile?.path}',
+      );
+      _isVideoDownloaded = cachedFile != null;
+      _localVideoFile = cachedFile;
+      _notifyStateChanged();
+      return;
+    }
+
+    // Debounce: cancel any pending check and schedule a new one
+    _checkFileDebounceTimer?.cancel();
+    _pendingFileNameToCheck = fileName;
+
+    _checkFileDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      final fileToCheck = _pendingFileNameToCheck;
+      if (fileToCheck == null) return;
+
+      final foundFile = await _fileHelper.checkFileExists(fileToCheck);
+      debugPrint(
+        'DownloadManager: checkFileExists($fileToCheck) -> found: ${foundFile?.path}',
+      );
+
+      // Cache the result
+      _fileExistenceCache[fileToCheck] = foundFile;
+
+      if (foundFile != null) {
+        _isVideoDownloaded = true;
+        _localVideoFile = foundFile;
+      } else {
+        _isVideoDownloaded = false;
+        _localVideoFile = null;
+      }
+      _notifyStateChanged();
+    });
   }
 
   Future<void> downloadVideo(
@@ -324,6 +379,10 @@ class DownloadManager extends ChangeNotifier {
     _downloadedVideos.removeWhere((f) => f.name == fileName);
     _isVideoDownloaded = false;
     _localVideoFile = null;
+
+    // Clear cache for this file
+    _fileExistenceCache.remove(fileName);
+
     _notifyStateChanged();
   }
 }

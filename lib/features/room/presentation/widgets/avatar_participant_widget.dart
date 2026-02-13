@@ -17,6 +17,7 @@ class AvatarParticipantWidget extends StatelessWidget {
   final bool hideAvatar;
   final bool showVideo; // New flag to control video rendering
   final bool showControls; // New flag to control mic/cam toggles
+  final bool isWatchingVideo; // New flag to indicate if user is watching video
   final double? customWidth;
   final double? customHeight;
   final BoxShape shape;
@@ -33,6 +34,7 @@ class AvatarParticipantWidget extends StatelessWidget {
     this.hideAvatar = false,
     this.showVideo = true, // Default to true for backward compatibility
     this.showControls = true, // Default to true
+    this.isWatchingVideo = false,
     this.customWidth,
     this.customHeight,
     this.shape = BoxShape.circle,
@@ -195,6 +197,14 @@ class AvatarParticipantWidget extends StatelessWidget {
                       isSpeaking: true,
                       color: Colors.greenAccent,
                       barCount: 3,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (isWatchingVideo) ...[
+                    const Icon(
+                      Icons.visibility,
+                      color: Colors.blueAccent,
+                      size: 10,
                     ),
                     const SizedBox(width: 4),
                   ],

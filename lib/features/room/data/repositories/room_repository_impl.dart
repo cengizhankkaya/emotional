@@ -195,14 +195,21 @@ class RoomRepositoryImpl implements RoomRepository {
     required bool isVideoEnabled,
     required bool isAudioEnabled,
     required bool isScreenSharing,
+    bool? isWatchingVideo,
   }) async {
     final userStateRef = _database.ref('rooms/$roomId/usersState/$userId');
-    await userStateRef.update({
+    final Map<String, dynamic> updates = {
       'video': isVideoEnabled,
       'audio': isAudioEnabled,
       'screen': isScreenSharing,
       'updatedAt': ServerValue.timestamp,
-    });
+    };
+
+    if (isWatchingVideo != null) {
+      updates['watching'] = isWatchingVideo;
+    }
+
+    await userStateRef.update(updates);
   }
 
   @override
@@ -248,6 +255,7 @@ class RoomRepositoryImpl implements RoomRepository {
           isVideoEnabled: valMap['video'] as bool? ?? false,
           isAudioEnabled: valMap['audio'] as bool? ?? false,
           isScreenSharing: valMap['screen'] as bool? ?? false,
+          isWatchingVideo: valMap['watching'] as bool? ?? false,
           lastUpdatedAt: valMap['updatedAt'] as int? ?? 0,
         );
       });

@@ -1,4 +1,5 @@
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/room/domain/entities/room_entity.dart';
 import 'package:emotional/features/room/presentation/widgets/participant_video_row.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ class SplitMediaLayout extends StatelessWidget {
   final String sharingUserId;
   final String currentUserId;
   final Map<String, String> userNames;
+  final Map<String, UserMediaState> usersState;
 
   // Room props for bottom half
   final String roomId;
@@ -28,6 +30,7 @@ class SplitMediaLayout extends StatelessWidget {
     required this.sharingUserId,
     required this.currentUserId,
     required this.userNames,
+    required this.usersState,
     required this.roomId,
     required this.participants,
     required this.hostId,
@@ -118,6 +121,7 @@ class SplitMediaLayout extends StatelessWidget {
                 currentUserId: currentUserId,
                 roomId: roomId,
                 hostId: hostId,
+                usersState: usersState,
               ),
               const Spacer(),
               VideoControlSheet(

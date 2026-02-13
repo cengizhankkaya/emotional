@@ -28,6 +28,7 @@ class VideoPlayerActive extends VideoPlayerState {
   final String? hostId;
   final String? currentUserId;
   final int? lastRemoteUpdateTime;
+  final int? lastVideoStateTimestamp; // Track when videoState was last updated
 
   const VideoPlayerActive({
     required this.player,
@@ -41,6 +42,7 @@ class VideoPlayerActive extends VideoPlayerState {
     this.hostId,
     this.currentUserId,
     this.lastRemoteUpdateTime,
+    this.lastVideoStateTimestamp,
   });
 
   bool get isHost =>
@@ -58,6 +60,7 @@ class VideoPlayerActive extends VideoPlayerState {
     String? hostId,
     String? currentUserId,
     int? lastRemoteUpdateTime,
+    int? lastVideoStateTimestamp,
   }) {
     return VideoPlayerActive(
       player: player ?? this.player,
@@ -73,6 +76,8 @@ class VideoPlayerActive extends VideoPlayerState {
       hostId: hostId ?? this.hostId,
       currentUserId: currentUserId ?? this.currentUserId,
       lastRemoteUpdateTime: lastRemoteUpdateTime ?? this.lastRemoteUpdateTime,
+      lastVideoStateTimestamp:
+          lastVideoStateTimestamp ?? this.lastVideoStateTimestamp,
     );
   }
 
@@ -89,6 +94,7 @@ class VideoPlayerActive extends VideoPlayerState {
     hostId,
     currentUserId,
     lastRemoteUpdateTime,
+    lastVideoStateTimestamp,
   ];
 }
 

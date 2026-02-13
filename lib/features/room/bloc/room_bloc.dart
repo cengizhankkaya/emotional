@@ -9,6 +9,7 @@ import 'package:emotional/features/room/domain/usecases/stream_room_usecase.dart
 import 'package:emotional/features/room/domain/usecases/sync_settings_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/sync_video_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/update_room_video_usecase.dart';
+import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
   final SyncSettingsUseCase _syncSettings;
   final UpdateRoomVideoUseCase _updateRoomVideo;
   final ReassignHostUseCase _reassignHost;
+  final RoomRepository _repository;
 
   StreamSubscription<RoomEntity?>? _roomSubscription;
   String? _currentUserId;
@@ -41,6 +43,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     required SyncSettingsUseCase syncSettings,
     required UpdateRoomVideoUseCase updateRoomVideo,
     required ReassignHostUseCase reassignHost,
+    required RoomRepository repository,
   }) : _createRoom = createRoom,
        _joinRoom = joinRoom,
        _leaveRoom = leaveRoom,
@@ -49,6 +52,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
        _syncSettings = syncSettings,
        _updateRoomVideo = updateRoomVideo,
        _reassignHost = reassignHost,
+       _repository = repository,
        super(const RoomInitial()) {
     on<CreateRoomRequested>(_onCreateRoomRequested);
     on<JoinRoomRequested>(_onJoinRoomRequested);
@@ -59,6 +63,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     on<SyncSettingsAction>(_onSyncSettingsAction);
     on<TransferHostRequested>(_onTransferHostRequested);
     on<SetRoomAppBackgrounded>(_onSetRoomAppBackgrounded);
+    on<UpdateWatchingStatus>(_onUpdateWatchingStatus);
   }
 
   void _onSetRoomAppBackgrounded(
@@ -366,6 +371,36 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
       );
     } catch (e) {
       print('RoomBloc: Error syncing settings: $e');
+    }
+  }
+
+  Future<void> _onUpdateWatchingStatus(
+    UpdateWatchingStatus event,
+    Emitter<RoomState> emit,
+  ) async {
+    try {
+      if (state is RoomJoined) {
+        final currentState = state as RoomJoined;
+        final currentUserState = currentState.usersState[event.userId];
+
+        if (currentUserState != null) {
+          // Update Firebase via repository
+          await _repository.updateUserMediaState(
+            event.roomId,
+            event.userId,
+            isVideoEnabled: currentUserState.isVideoEnabled,
+            isAudioEnabled: currentUserState.isAudioEnabled,
+            isScreenSharing: currentUserState.isScreenSharing,
+            isWatchingVideo: event.isWatching,
+          );
+
+          debugPrint(
+            'RoomBloc: Updated watching status for ${event.userId}: ${event.isWatching}',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('RoomBloc: Error updating watching status: $e');
     }
   }
 }

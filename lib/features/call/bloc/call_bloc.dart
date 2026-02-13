@@ -231,11 +231,37 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
       for (var userId in _activeUsers.keys) {
         if (userId == _userId) continue;
+
+        // Skip if user is muted known by room state
+        if (_userAudioStates[userId] == false) continue;
+
         final level = await _callService.getRemoteAudioLevel(userId);
-        if (level > maxAudioLevel && level > 0.05) {
+        // Debug log
+        if (level > 0) {
+          debugPrint("[CallBloc] Audio level for $userId: $level");
+        }
+
+        if (level > maxAudioLevel && level > 0.01) {
+          // Lowered threshold to 0.01
           // Threshold
           maxAudioLevel = level;
           currentActiveSpeaker = userId;
+        }
+      }
+
+      // Check Local User
+      if (_userId != null && state is CallConnected) {
+        final s = state as CallConnected;
+        // Only check local audio level if NOT muted
+        if (!s.isMuted) {
+          final localLevel = await _callService.getLocalAudioLevel();
+          if (localLevel > 0) {
+            debugPrint("[CallBloc] Local Audio level: $localLevel");
+          }
+          if (localLevel > maxAudioLevel && localLevel > 0.01) {
+            maxAudioLevel = localLevel;
+            currentActiveSpeaker = _userId;
+          }
         }
       }
 
@@ -244,6 +270,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           : null;
 
       if (currentActiveSpeaker != currentActiveSpeakerId) {
+        debugPrint(
+          "[CallBloc] Active Speaker changed: $currentActiveSpeaker (Level: $maxAudioLevel)",
+        );
         add(InternalUpdateActiveSpeaker(currentActiveSpeaker));
       }
     });

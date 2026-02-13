@@ -4,12 +4,14 @@ class UserMediaState extends Equatable {
   final bool isVideoEnabled;
   final bool isAudioEnabled;
   final bool isScreenSharing; // New field
+  final bool isWatchingVideo; // New field for video watching status
   final int lastUpdatedAt;
 
   const UserMediaState({
     required this.isVideoEnabled,
     required this.isAudioEnabled,
     this.isScreenSharing = false, // Default to false
+    this.isWatchingVideo = false, // Default to false
     required this.lastUpdatedAt,
   });
 
@@ -18,6 +20,7 @@ class UserMediaState extends Equatable {
     isVideoEnabled,
     isAudioEnabled,
     isScreenSharing,
+    isWatchingVideo,
     lastUpdatedAt,
   ];
 }

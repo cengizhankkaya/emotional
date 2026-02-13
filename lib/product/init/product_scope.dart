@@ -94,6 +94,7 @@ class ProductScope extends StatelessWidget {
               syncSettings: context.read<SyncSettingsUseCase>(),
               updateRoomVideo: context.read<UpdateRoomVideoUseCase>(),
               reassignHost: context.read<ReassignHostUseCase>(),
+              repository: context.read<RoomRepository>(),
             ),
           ),
           BlocProvider<ChatBloc>(

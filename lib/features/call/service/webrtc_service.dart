@@ -20,6 +20,10 @@ class WebRTCService implements ICallService {
     ],
   };
 
+  // Audio Level Fallback (Energy Calculation)
+  final Map<String, double> _lastTotalAudioEnergy = {};
+  final Map<String, double> _lastTotalSamplesDuration = {};
+
   // Deprecated usage of public stream for external access if needed,
   // but strictly we should use onRemoteStream callback.
 
@@ -410,12 +414,99 @@ class WebRTCService implements ICallService {
           if (level != null) {
             return (level is num) ? level.toDouble() : 0.0;
           }
+
+          // Fallback Strategy: totalAudioEnergy
+          var totalAudioEnergy = report.values['totalAudioEnergy'];
+          var totalSamplesDuration = report.values['totalSamplesDuration'];
+
+          if (totalAudioEnergy != null && totalSamplesDuration != null) {
+            double currentEnergy = (totalAudioEnergy is num)
+                ? totalAudioEnergy.toDouble()
+                : 0.0;
+            double currentDuration = (totalSamplesDuration is num)
+                ? totalSamplesDuration.toDouble()
+                : 0.0;
+
+            double? lastEnergy = _lastTotalAudioEnergy[userId];
+            double? lastDuration = _lastTotalSamplesDuration[userId];
+
+            _lastTotalAudioEnergy[userId] = currentEnergy;
+            _lastTotalSamplesDuration[userId] = currentDuration;
+
+            if (lastEnergy != null && lastDuration != null) {
+              double energyDelta = currentEnergy - lastEnergy;
+              double durationDelta = currentDuration - lastDuration;
+
+              if (durationDelta > 0) {
+                // Average power = Energy / Time.
+                // Audio level is usually sqrt(power) or similar, but for VAD, energy/time is a good proxy.
+                // The WebRTC spec defines audioLevel as 0..1 linear.
+                // Energy is usually in specific units. We might need to normalize or just use threshold.
+                // Let's assume a raw activity level for now.
+                double averagePower = energyDelta / durationDelta;
+                // Empower heuristic: if power > small_value, return something > 0.01
+                // Standard normalization is tricky without knowing implementation specifics.
+                // But if it's > 0, it means there is audio.
+                // Let's return a clamped value.
+                return (averagePower * 10).clamp(0.0, 1.0);
+              }
+            }
+            return 0.0; // Wait for next sample for delta
+          } else {
+            print(
+              "[WebRTC] Found inbound-rtp audio but NO audioLevel OR energy. Keys: ${report.values.keys}",
+            );
+          }
         }
-        // Fallback or legacy (track) stats?
-        // Some implementations use 'track' stats with 'audioLevel'.
+
+        // Check for 'track' stats as fallback
+        if (report.type == 'track' && report.values['kind'] == 'audio') {
+          var level = report.values['audioLevel'];
+          if (level != null) {
+            return (level is num) ? level.toDouble() : 0.0;
+          }
+        }
+
+        // Check for 'media-source' stats as fallback
+        if (report.type == 'media-source' && report.values['kind'] == 'audio') {
+          var level = report.values['audioLevel'];
+          if (level != null) {
+            return (level is num) ? level.toDouble() : 0.0;
+          }
+        }
       }
     } catch (e) {
-      // ignore
+      print("[WebRTC] Error getting stats: $e");
+    }
+    return 0.0;
+  }
+
+  // Helper to get LOCAL audio level (0.0 to 1.0)
+  Future<double> getLocalAudioLevel() async {
+    if (_peerConnections.isEmpty) return 0.0;
+
+    // We can check stats on ANY active peer connection to get local source stats
+    try {
+      final pc = _peerConnections.values.first;
+      final stats = await pc.getStats();
+      for (var report in stats) {
+        // Look for 'media-source' which represents the local audio source
+        if (report.type == 'media-source' && report.values['kind'] == 'audio') {
+          var level = report.values['audioLevel'];
+          if (level != null) {
+            return (level is num) ? level.toDouble() : 0.0;
+          }
+        }
+
+        // Fallback: 'outbound-rtp' might also have audio level
+        if (report.type == 'outbound-rtp' &&
+            report.values['mediaType'] == 'audio') {
+          // Some browsers/implementations put input level here? rarely.
+          // Usually it's 'media-source'.
+        }
+      }
+    } catch (e) {
+      print("[WebRTC] Error getting local stats: $e");
     }
     return 0.0;
   }

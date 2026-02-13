@@ -41,6 +41,7 @@ abstract class RoomRepository {
     required bool isVideoEnabled,
     required bool isAudioEnabled,
     required bool isScreenSharing, // New parameter
+    bool? isWatchingVideo, // Optional parameter for watching status
   });
 
   Future<void> updateArmchairStyle(String roomId, String styleName);

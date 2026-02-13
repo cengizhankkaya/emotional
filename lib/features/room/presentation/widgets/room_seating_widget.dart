@@ -1,5 +1,6 @@
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/room/domain/entities/room_entity.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
 import 'package:emotional/features/room/presentation/widgets/avatar_participant_widget.dart';
 import 'package:emotional/features/room/presentation/widgets/furniture_theme_data.dart';
@@ -13,6 +14,7 @@ class RoomSeatingWidget extends StatelessWidget {
   final String currentUserId;
   final String roomId;
   final String hostId;
+  final Map<String, UserMediaState> usersState;
 
   const RoomSeatingWidget({
     super.key,
@@ -22,6 +24,7 @@ class RoomSeatingWidget extends StatelessWidget {
     required this.currentUserId,
     required this.roomId,
     required this.hostId,
+    required this.usersState,
   });
 
   @override
@@ -106,6 +109,9 @@ class RoomSeatingWidget extends StatelessWidget {
                           hideAvatar: false,
                           showVideo: false, // Video moved to top bar
                           showControls: false, // Controls moved to top bar
+                          isWatchingVideo:
+                              usersState[participantId]?.isWatchingVideo ??
+                              false,
                         ),
                       );
                     }),

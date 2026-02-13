@@ -12,6 +12,7 @@ class DraggableCameraOverlay extends StatefulWidget {
   final String currentUserId;
   final BoxConstraints constraints;
   final Function(Offset) onPositionChanged;
+  final String? activeSpeakerId;
 
   const DraggableCameraOverlay({
     super.key,
@@ -24,6 +25,7 @@ class DraggableCameraOverlay extends StatefulWidget {
     required this.currentUserId,
     required this.constraints,
     required this.onPositionChanged,
+    this.activeSpeakerId,
   });
 
   @override
@@ -69,7 +71,8 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
         widget.activeUsers.length +
         (widget.isVideoEnabled && widget.localRenderer != null ? 1 : 0);
 
-    if (oldActiveCount != newActiveCount) {
+    if (oldActiveCount != newActiveCount ||
+        oldWidget.activeSpeakerId != widget.activeSpeakerId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _validatePosition();
       });
@@ -130,18 +133,19 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
     RTCVideoRenderer? renderer,
     bool isLocal,
     bool hasVideo,
-  ) {
+    bool isActiveSpeaker, {
+    Key? key,
+  }) {
     return Container(
+      key: key,
       width: _isExpanded ? 120 : 80,
       height: _isExpanded ? 90 : 80, // Square in compact mode
       decoration: BoxDecoration(
         color: Colors.black45,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasVideo
-              ? Colors.greenAccent.withValues(alpha: 0.5)
-              : Colors.white24,
-          width: hasVideo ? 2 : 1,
+          color: isActiveSpeaker ? Colors.greenAccent : Colors.white24,
+          width: isActiveSpeaker ? 3 : 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -222,7 +226,14 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
     // Local
     if (widget.isVideoEnabled && widget.localRenderer != null) {
       activeCameras.add(
-        _buildCameraItem("Ben", widget.localRenderer, true, true),
+        _buildCameraItem(
+          "Ben",
+          widget.localRenderer,
+          true,
+          true,
+          widget.activeSpeakerId == widget.currentUserId,
+          key: ValueKey("local_${widget.currentUserId}"),
+        ),
       );
     }
 
@@ -236,6 +247,8 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
           widget.remoteRenderers[entry.key],
           false,
           hasVideo,
+          widget.activeSpeakerId == entry.key,
+          key: ValueKey("remote_${entry.key}"),
         ),
       );
     }
@@ -284,12 +297,12 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(4), // Reduced padding slightly
           constraints: BoxConstraints(
-            maxWidth:
-                widget.constraints.maxWidth - 40, // Max width with padding
+            maxWidth: widget.constraints.maxWidth - 40,
             maxHeight: widget.constraints.maxHeight,
           ),
+          /* Removed decoration to hide background structure
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(20),
@@ -302,23 +315,26 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
               ),
             ],
           ),
+          */
+          decoration: BoxDecoration(
+            color: Colors.transparent, // Make it transparent
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: displayCameras
-                      .map(
-                        (w) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: w,
-                        ),
-                      )
-                      .toList(),
-                ),
+            child: SingleChildScrollView(
+              // Removed BackdropFilter as well
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: displayCameras
+                    .map(
+                      (w) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: w,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),

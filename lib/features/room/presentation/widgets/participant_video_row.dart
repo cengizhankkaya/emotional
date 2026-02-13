@@ -1,5 +1,6 @@
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/room/domain/entities/room_entity.dart';
 import 'package:emotional/features/room/presentation/widgets/avatar_participant_widget.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ class ParticipantVideoRow extends StatelessWidget {
   final String currentUserId;
   final String roomId;
   final String hostId;
+  final Map<String, UserMediaState> usersState;
 
   const ParticipantVideoRow({
     super.key,
@@ -19,6 +21,7 @@ class ParticipantVideoRow extends StatelessWidget {
     required this.currentUserId,
     required this.roomId,
     required this.hostId,
+    required this.usersState,
   });
 
   @override
@@ -43,6 +46,8 @@ class ParticipantVideoRow extends StatelessWidget {
                 currentUserId: currentUserId,
                 roomId: roomId,
                 isHost: participantId == hostId,
+                isWatchingVideo:
+                    usersState[participantId]?.isWatchingVideo ?? false,
               );
             },
           ),
@@ -76,6 +81,7 @@ class _ParticipantItem extends StatelessWidget {
   final String currentUserId;
   final String roomId;
   final bool isHost;
+  final bool isWatchingVideo;
 
   const _ParticipantItem({
     required this.participantId,
@@ -84,6 +90,7 @@ class _ParticipantItem extends StatelessWidget {
     required this.currentUserId,
     required this.roomId,
     required this.isHost,
+    required this.isWatchingVideo,
   });
 
   @override
@@ -101,6 +108,7 @@ class _ParticipantItem extends StatelessWidget {
         customWidth: context.dynamicValue(90),
         customHeight: context.dynamicValue(130),
         shape: BoxShape.rectangle,
+        isWatchingVideo: isWatchingVideo,
       ),
     );
   }

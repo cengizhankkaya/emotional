@@ -174,3 +174,18 @@ class SetRoomAppBackgrounded extends RoomEvent {
   @override
   List<Object> get props => [isBackgrounded];
 }
+
+class UpdateWatchingStatus extends RoomEvent {
+  final String roomId;
+  final String userId;
+  final bool isWatching;
+
+  const UpdateWatchingStatus({
+    required this.roomId,
+    required this.userId,
+    required this.isWatching,
+  });
+
+  @override
+  List<Object> get props => [roomId, userId, isWatching];
+}

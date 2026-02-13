@@ -20,12 +20,16 @@ class VideoPlayerScreen extends StatefulWidget {
   final File videoFile;
   final String roomId;
   final String userId;
+  final String? savedAudioTrack;
+  final String? savedSubtitleTrack;
 
   const VideoPlayerScreen({
     super.key,
     required this.videoFile,
     required this.roomId,
     required this.userId,
+    this.savedAudioTrack,
+    this.savedSubtitleTrack,
   });
 
   @override
@@ -39,7 +43,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<VideoPlayerBloc>().add(InitializePlayer(widget.videoFile));
+    context.read<VideoPlayerBloc>().add(
+      InitializePlayer(
+        widget.videoFile,
+        savedAudioTrack: widget.savedAudioTrack,
+        savedSubtitleTrack: widget.savedSubtitleTrack,
+      ),
+    );
 
     // Initial sync with room state if already joined
     final roomState = context.read<RoomBloc>().state;
@@ -176,6 +186,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
             context.read<VideoPlayerBloc>().add(ClosePlayer());
+            context.read<RoomBloc>().add(
+              UpdateWatchingStatus(
+                roomId: widget.roomId,
+                userId: widget.userId,
+                isWatching: false,
+              ),
+            );
           }
         },
         child: Scaffold(
@@ -222,12 +239,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       },
                     ),
                     BlocBuilder<CallBloc, CallState>(
+                      buildWhen: (previous, current) {
+                        return (current is CallConnected &&
+                                previous is CallConnected) &&
+                            (current.activeUsers != previous.activeUsers ||
+                                current.userVideoStates !=
+                                    previous.userVideoStates ||
+                                current.activeSpeakerId !=
+                                    previous.activeSpeakerId ||
+                                current.isVideoEnabled !=
+                                    previous.isVideoEnabled ||
+                                current.localRenderer !=
+                                    previous.localRenderer ||
+                                current.remoteRenderers !=
+                                    previous.remoteRenderers);
+                      },
                       builder: (context, callState) {
                         if (callState is! CallConnected) {
                           return const SizedBox.shrink();
                         }
 
                         return DraggableCameraOverlay(
+                          key: const ValueKey('draggable_camera_overlay'),
                           constraints: constraints,
                           initialOffset: _camerasOffset,
                           isVideoEnabled: callState.isVideoEnabled,
@@ -241,6 +274,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             // but we keep track of it if we need to persist or handle orientation changes.
                             _camerasOffset = newOffset;
                           },
+                          activeSpeakerId: callState.activeSpeakerId,
                         );
                       },
                     ),

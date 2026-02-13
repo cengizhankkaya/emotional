@@ -170,6 +170,7 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                       participants: widget.participants,
                       hostId: widget.hostId,
                       isHost: widget.isHost,
+                      usersState: state.usersState,
                       driveFileName: widget.driveFileName,
                       driveFileId: widget.driveFileId,
                       onPickVideo: widget.onPickVideo,
@@ -220,6 +221,7 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                   currentUserId: widget.currentUserId,
                   roomId: widget.roomId,
                   hostId: widget.hostId,
+                  usersState: state.usersState,
                 ),
               ),
               SafeArea(
@@ -236,6 +238,7 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                       currentUserId: widget.currentUserId,
                       roomId: widget.roomId,
                       hostId: widget.hostId,
+                      usersState: (state as RoomJoined).usersState,
                     ),
                     const Spacer(),
                     VideoControlSheet(

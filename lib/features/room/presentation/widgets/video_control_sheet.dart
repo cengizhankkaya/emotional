@@ -699,7 +699,26 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
                       ? null
                       : () {
                           if (state.isVideoDownloaded) {
-                            widget.onPlay();
+                            // Safety check: ensure localVideoFile is actually available
+                            if (state.localVideoFile != null) {
+                              widget.onPlay();
+                            } else {
+                              // State is inconsistent, trigger a fresh check
+                              debugPrint(
+                                'VideoControlSheet: isVideoDownloaded=true but localVideoFile=null, rechecking...',
+                              );
+                              context.read<DownloadCubit>().checkFileExists(
+                                widget.fileName!,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Video dosyası kontrol ediliyor...',
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
                           } else {
                             // Only try to download if it's NOT a local-only file
                             context.read<DownloadCubit>().downloadVideo(

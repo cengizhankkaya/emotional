@@ -13,6 +13,7 @@ class CinemaLayout extends StatelessWidget {
   final String currentUserId;
   final String roomId;
   final String hostId;
+  final Map<String, UserMediaState> usersState;
 
   const CinemaLayout({
     super.key,
@@ -21,6 +22,7 @@ class CinemaLayout extends StatelessWidget {
     required this.currentUserId,
     required this.roomId,
     required this.hostId,
+    required this.usersState,
   });
 
   @override
@@ -75,6 +77,7 @@ class CinemaLayout extends StatelessWidget {
               currentUserId: currentUserId,
               roomId: roomId,
               hostId: hostId,
+              usersState: usersState,
             ),
           ),
         ),
