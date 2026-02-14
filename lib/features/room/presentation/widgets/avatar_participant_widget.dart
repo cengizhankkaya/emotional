@@ -1,7 +1,6 @@
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
-import 'package:emotional/features/room/presentation/widgets/audio_visualizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -86,10 +85,6 @@ class AvatarParticipantWidget extends StatelessWidget {
       }
     }
 
-    final bool isActiveSpeaker =
-        (callState is CallConnected) &&
-        (callState as CallConnected).activeSpeakerId == participantId;
-
     final avatarContent = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -109,27 +104,17 @@ class AvatarParticipantWidget extends StatelessWidget {
                       ? BorderRadius.circular(12)
                       : null,
                   border: Border.all(
-                    color: isActiveSpeaker
-                        ? Colors
-                              .greenAccent // Active Speaker Highlight
-                        : (isParticipantHost
-                              ? Colors.white54
-                              : Colors.grey[700]!),
-                    width: isActiveSpeaker ? 3 : (isParticipantHost ? 2 : 1),
+                    color: isParticipantHost
+                        ? Colors.white54
+                        : Colors.grey[700]!,
+                    width: isParticipantHost ? 2 : 1,
                   ),
-                  boxShadow: [
-                    if (isActiveSpeaker)
-                      BoxShadow(
-                        color: Colors.greenAccent.withValues(alpha: 0.6),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                      )
-                    else
-                      const BoxShadow(
-                        color: Colors.black45,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black45,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
                   ],
                 ),
                 child: ClipRRect(
@@ -192,14 +177,6 @@ class AvatarParticipantWidget extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isActiveSpeaker) ...[
-                    const AudioVisualizer(
-                      isSpeaking: true,
-                      color: Colors.greenAccent,
-                      barCount: 3,
-                    ),
-                    const SizedBox(width: 4),
-                  ],
                   if (isWatchingVideo) ...[
                     const Icon(
                       Icons.visibility,
