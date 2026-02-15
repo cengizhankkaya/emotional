@@ -63,10 +63,13 @@ class AvatarParticipantWidget extends StatelessWidget {
     final isLocal = participantId == currentUserId;
     bool hasVideo = false;
     bool isMuted = false;
+    bool isActiveSpeaker = false;
     RTCVideoRenderer? renderer;
+    String? activeSpeakerId;
 
     if (callState is CallConnected) {
       final connectedState = callState as CallConnected;
+      activeSpeakerId = connectedState.activeSpeakerId;
       if (isLocal) {
         final isSharing = connectedState.isScreenSharing;
         // Don't show video in this tile if screen sharing is active
@@ -83,6 +86,10 @@ class AvatarParticipantWidget extends StatelessWidget {
         isMuted = !(connectedState.userAudioStates[participantId] ?? true);
         renderer = connectedState.remoteRenderers[participantId];
       }
+
+      if (participantId != null && participantId == activeSpeakerId) {
+        isActiveSpeaker = true;
+      }
     }
 
     final avatarContent = Column(
@@ -92,54 +99,208 @@ class AvatarParticipantWidget extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: isParticipantHost
-                      ? Colors.grey[850] // Dark Gray for Host
-                      : Colors.grey[900], // Slightly darker for others
-                  shape: shape,
-                  borderRadius: shape == BoxShape.rectangle
-                      ? BorderRadius.circular(12)
-                      : null,
-                  border: Border.all(
+              GestureDetector(
+                onTap: () {
+                  if (hasVideo && renderer != null) {
+                    // Extract local renderer for PIP
+                    RTCVideoRenderer? localRenderer;
+                    if (callState is CallConnected) {
+                      localRenderer =
+                          (callState as CallConnected).localRenderer;
+                    }
+
+                    showDialog(
+                      context: context,
+                      builder: (context) => Dialog(
+                        backgroundColor: Colors.black,
+                        insetPadding: EdgeInsets.zero, // Full screen
+                        child: Stack(
+                          children: [
+                            // 1. Main Video (Full Screen)
+                            Positioned.fill(
+                              child: RTCVideoView(
+                                renderer!,
+                                objectFit: RTCVideoViewObjectFit
+                                    .RTCVideoViewObjectFitCover,
+                                mirror: isLocal,
+                              ),
+                            ),
+
+                            // 2. Close Button (Top Right)
+                            Positioned(
+                              top: 40,
+                              right: 20,
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.black54,
+                                ),
+                              ),
+                            ),
+
+                            // 3. Name Tag (Top Center)
+                            Positioned(
+                              top: 50,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    name ?? "",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // 4. PIP (Local User) - Bottom Right
+                            // Only show if we are viewing a remote user and have local video
+                            if (!isLocal && localRenderer != null)
+                              Positioned(
+                                bottom: 40,
+                                right: 20,
+                                child: Container(
+                                  width: 100,
+                                  height: 150,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white38,
+                                      width: 1,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black54,
+                                        blurRadius: 8,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(11),
+                                    child: RTCVideoView(
+                                      localRenderer,
+                                      objectFit: RTCVideoViewObjectFit
+                                          .RTCVideoViewObjectFitCover,
+                                      mirror: true, // Local is always mirrored
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
                     color: isParticipantHost
-                        ? Colors.white54
-                        : Colors.grey[700]!,
-                    width: isParticipantHost ? 2 : 1,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black45,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
+                        ? Colors.grey[850] // Dark Gray for Host
+                        : Colors.grey[900], // Slightly darker for others
+                    shape: shape,
+                    borderRadius: shape == BoxShape.rectangle
+                        ? BorderRadius.circular(12)
+                        : null,
+                    border: Border.all(
+                      color: isActiveSpeaker
+                          ? Colors.greenAccent
+                          : (isParticipantHost
+                                ? Colors.white54
+                                : Colors.grey[700]!),
+                      width: isActiveSpeaker ? 3 : (isParticipantHost ? 2 : 1),
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: shape == BoxShape.rectangle
-                      ? BorderRadius.circular(
-                          10,
-                        ) // Slightly less than container border radius
-                      : BorderRadius.circular(width / 2),
-                  child: hasVideo && renderer != null
-                      ? RTCVideoView(
-                          renderer,
-                          objectFit:
-                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                          mirror: isLocal,
-                        )
-                      : Center(
-                          child: Text(
-                            name!.isNotEmpty ? name![0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isActiveSpeaker
+                            ? Colors.greenAccent.withValues(alpha: 0.3)
+                            : Colors.black45,
+                        blurRadius: isActiveSpeaker ? 12 : 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: shape == BoxShape.rectangle
+                        ? BorderRadius.circular(
+                            10,
+                          ) // Slightly less than container border radius
+                        : BorderRadius.circular(width / 2),
+                    child: hasVideo && renderer != null
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                  begin: 1.0,
+                                  end: isActiveSpeaker ? 1.3 : 1.0,
+                                ),
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                                builder: (context, scale, child) {
+                                  return Transform.scale(
+                                    scale: scale,
+                                    child: child,
+                                  );
+                                },
+                                child: RTCVideoView(
+                                  renderer,
+                                  objectFit: RTCVideoViewObjectFit
+                                      .RTCVideoViewObjectFitCover,
+                                  mirror: isLocal,
+                                ),
+                              ),
+                              // Maximize Icon Overlay
+                              Positioned(
+                                bottom: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: const Icon(
+                                    Icons.open_in_full,
+                                    color: Colors.white,
+                                    size: 10,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Center(
+                            child: Text(
+                              name!.isNotEmpty ? name![0].toUpperCase() : '?',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
               ),
               if (isParticipantHost)

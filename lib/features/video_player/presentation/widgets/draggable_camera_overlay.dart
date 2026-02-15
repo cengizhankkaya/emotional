@@ -136,83 +136,266 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
     bool isActiveSpeaker, {
     Key? key,
   }) {
-    return Container(
-      key: key,
-      width: _isExpanded ? 120 : 80,
-      height: _isExpanded ? 90 : 80, // Square in compact mode
-      decoration: BoxDecoration(
-        color: Colors.black45,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isActiveSpeaker ? Colors.greenAccent : Colors.white24,
-          width: isActiveSpeaker ? 3 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (hasVideo && renderer != null)
-              RTCVideoView(
-                renderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                mirror: isLocal,
-              )
-            else
-              Container(
-                color: Colors.grey[900],
-                child: const Icon(Icons.person, color: Colors.white54),
-              ),
-
-            // Name Tag & Mute Status
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.8),
-                      Colors.transparent,
-                    ],
+    return GestureDetector(
+      onTap: () {
+        if (renderer != null && hasVideo) {
+          showDialog(
+            context: context,
+            builder: (context) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(12),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9, // Or calculate based on stream size
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: RTCVideoView(
+                          renderer,
+                          objectFit: RTCVideoViewObjectFit
+                              .RTCVideoViewObjectFitContain,
+                          mirror: isLocal,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 20,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Text(
                         isLocal ? "Ben" : name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (!hasVideo)
-                      const Icon(
-                        Icons.videocam_off,
-                        color: Colors.redAccent,
-                        size: 10,
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          );
+        }
+      },
+      child: Container(
+        key: key,
+        width: _isExpanded ? 120 : 80,
+        height: _isExpanded ? 90 : 80, // Square in compact mode
+        decoration: BoxDecoration(
+          color: Colors.black45,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActiveSpeaker ? Colors.greenAccent : Colors.white24,
+            width: isActiveSpeaker ? 3 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasVideo && renderer != null)
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                    begin: 1.0,
+                    end: isActiveSpeaker ? 1.3 : 1.0,
+                  ),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  builder: (context, scale, child) {
+                    return Transform.scale(scale: scale, child: child);
+                  },
+                  child: RTCVideoView(
+                    renderer,
+                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    mirror: isLocal,
+                  ),
+                )
+              else
+                Container(
+                  color: Colors.grey[900],
+                  child: const Icon(Icons.person, color: Colors.white54),
+                ),
+
+              // Name Tag & Mute Status
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.8),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isLocal ? "Ben" : name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (!hasVideo)
+                        const Icon(
+                          Icons.videocam_off,
+                          color: Colors.redAccent,
+                          size: 10,
+                        )
+                      else ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            if (renderer != null) {
+                              showDialog(
+                                barrierColor: Colors.black87,
+                                context: context,
+                                builder: (context) => Dialog(
+                                  backgroundColor: Colors.transparent,
+                                  insetPadding: const EdgeInsets.all(12),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      AspectRatio(
+                                        aspectRatio:
+                                            16 /
+                                            9, // Or calculate based on stream size
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white24,
+                                            ),
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            child: RTCVideoView(
+                                              renderer,
+                                              objectFit: RTCVideoViewObjectFit
+                                                  .RTCVideoViewObjectFitContain,
+                                              mirror: isLocal,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 10,
+                                        right: 10,
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(),
+                                          style: IconButton.styleFrom(
+                                            backgroundColor: Colors.black54,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 20,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isLocal ? "Ben" : name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: const Icon(
+                              Icons.open_in_full,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
