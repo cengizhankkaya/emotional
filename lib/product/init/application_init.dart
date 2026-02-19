@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:connectivity_watcher/connectivity_watcher.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,9 @@ final class ApplicationInit {
   Future<void> start() async {
     // 1. Bind Flutter Engine
     WidgetsFlutterBinding.ensureInitialized();
+
+    // 1.5 Initialize Connectivity Watcher
+    ZoConnectivityWatcher().setUp();
 
     // 2. Initialize Localization
     await EasyLocalization.ensureInitialized();

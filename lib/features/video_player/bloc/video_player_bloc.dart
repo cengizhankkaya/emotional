@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:emotional/core/services/youtube_service.dart';
 import 'package:emotional/features/video_player/bloc/video_player_event.dart';
 import 'package:emotional/features/video_player/bloc/video_player_state.dart';
 import 'package:emotional/features/video_player/data/services/video_player_service.dart';
@@ -11,6 +12,7 @@ const int _kSyncToleranceMs = 1500;
 
 class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
   final VideoPlayerService _videoService;
+  final YouTubeService _youtubeService = YouTubeService();
 
   StreamSubscription<bool>? _playingSubscription;
   StreamSubscription<Duration>? _positionSubscription;
@@ -70,7 +72,30 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
 
     await _videoService.initialize();
     final controller = VideoController(_videoService.player);
-    await _videoService.open(event.file.path);
+
+    String? openPath;
+    if (event.url != null) {
+      // Resolve YouTube URL
+      emit(
+        VideoPlayerActive(
+          player: _videoService.player,
+          controller: controller,
+          youtubeUrl: event.url,
+          isBuffering: true,
+        ),
+      );
+      openPath = await _youtubeService.getStreamUrl(event.url!);
+      if (openPath == null) {
+        // Handle error
+        return;
+      }
+    } else if (event.file != null) {
+      openPath = event.file!.path;
+    }
+
+    if (openPath != null) {
+      await _videoService.open(openPath);
+    }
 
     _playingSubscription = _videoService.playingStream.listen((playing) {
       add(OnPlayerStateChanged(isPlaying: playing));
@@ -102,6 +127,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         player: _videoService.player,
         controller: controller,
         videoFile: event.file,
+        youtubeUrl: event.url,
         isMinimized: false,
         isBuffering: _videoService.isBuffering,
       ),
@@ -328,5 +354,6 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     _rateSubscription?.cancel();
     _bufferingSubscription?.cancel();
     await _videoService.dispose();
+    _youtubeService.dispose();
   }
 }

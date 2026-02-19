@@ -66,6 +66,28 @@ class MainActivity: FlutterActivity() {
                     }
                     result.success(null)
                 }
+                "startVoiceService" -> {
+                    val intent = Intent(this, VoiceCallService::class.java).apply {
+                        action = "START"
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(null)
+                }
+                "stopVoiceService" -> {
+                    val intent = Intent(this, VoiceCallService::class.java).apply {
+                        action = "STOP"
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(null)
+                }
                 "enterPiP" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                         val params = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

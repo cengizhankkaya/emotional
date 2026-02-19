@@ -10,6 +10,7 @@ import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:emotional/core/services/youtube_service.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 class VideoControlSheet extends StatefulWidget {
@@ -38,6 +39,16 @@ class VideoControlSheet extends StatefulWidget {
 
 class _VideoControlSheetState extends State<VideoControlSheet> {
   bool _isExpanded = true;
+  final _youtubeUrlController = TextEditingController();
+  final _youtubeService = YouTubeService();
+  bool _isYoutubeValid = false;
+
+  @override
+  void dispose() {
+    _youtubeUrlController.dispose();
+    _youtubeService.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -150,6 +161,8 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
                   SizedBox(height: context.dynamicHeight(0.012)),
                 ],
                 _buildActionButtons(context, state),
+                SizedBox(height: context.dynamicHeight(0.012)),
+                if (widget.isHost) _buildYouTubeInput(context),
                 SizedBox(height: context.dynamicHeight(0.012)),
                 const Divider(color: Colors.white10),
                 SizedBox(height: context.dynamicHeight(0.012)),
@@ -691,16 +704,20 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
             child: Builder(
               builder: (context) {
                 final isLocalFile = widget.fileId!.startsWith('local://');
+                final isYouTube = _youtubeService.isValidYouTubeUrl(
+                  widget.fileId!,
+                );
                 final isMissingLocalFile =
                     isLocalFile && !state.isVideoDownloaded;
 
+                final isReadyToPlay = state.isVideoDownloaded || isYouTube;
+
                 return ElevatedButton.icon(
-                  onPressed: isDownloading || isMissingLocalFile
+                  onPressed: (isDownloading || isMissingLocalFile) && !isYouTube
                       ? null
                       : () {
-                          if (state.isVideoDownloaded) {
-                            // Safety check: ensure localVideoFile is actually available
-                            if (state.localVideoFile != null) {
+                          if (isReadyToPlay) {
+                            if (isYouTube || state.localVideoFile != null) {
                               widget.onPlay();
                             } else {
                               // State is inconsistent, trigger a fresh check
@@ -727,7 +744,7 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
                             );
                           }
                         },
-                  icon: isDownloading
+                  icon: isDownloading && !isYouTube
                       ? SizedBox(
                           width: context.dynamicValue(16),
                           height: context.dynamicValue(16),
@@ -739,14 +756,14 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
                           ),
                         )
                       : Icon(
-                          state.isVideoDownloaded
+                          isReadyToPlay
                               ? Icons.play_arrow
                               : isMissingLocalFile
                               ? Icons.error_outline
                               : Icons.download,
                         ),
                   label: Text(
-                    state.isVideoDownloaded
+                    isReadyToPlay
                         ? 'Oynat'
                         : isDownloading
                         ? 'İndiriliyor %${(state.downloadProgress! * 100).toInt()}'
@@ -755,7 +772,7 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
                         : 'İndir',
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: state.isVideoDownloaded
+                    backgroundColor: isReadyToPlay
                         ? ColorsCustom.cream
                         : isDownloading || isMissingLocalFile
                         ? ColorsCustom.skyBlue.withValues(alpha: 0.5)
@@ -775,6 +792,84 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
               },
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildYouTubeInput(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'YouTube Linki',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _youtubeUrlController,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'https://youtube.com/watch?v=...',
+                  hintStyle: const TextStyle(
+                    color: Colors.white30,
+                    fontSize: 14,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: ProjectRadius.medium(),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _isYoutubeValid = _youtubeService.isValidYouTubeUrl(value);
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _isYoutubeValid
+                  ? () {
+                      widget.onSelectVideo(
+                        drive.File(
+                          id: _youtubeUrlController.text.trim(),
+                          name: 'YouTube Video',
+                        ),
+                      );
+                      _youtubeUrlController.clear();
+                      setState(() => _isYoutubeValid = false);
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ColorsCustom.skyBlue,
+                disabledBackgroundColor: ColorsCustom.skyBlue.withValues(
+                  alpha: 0.3,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: ProjectRadius.medium(),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text('İzle'),
+            ),
+          ],
+        ),
       ],
     );
   }

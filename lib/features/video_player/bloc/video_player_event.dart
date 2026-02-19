@@ -9,18 +9,20 @@ abstract class VideoPlayerEvent extends Equatable {
 }
 
 class InitializePlayer extends VideoPlayerEvent {
-  final File file;
+  final File? file;
+  final String? url;
   final String? savedAudioTrack;
   final String? savedSubtitleTrack;
 
-  const InitializePlayer(
-    this.file, {
+  const InitializePlayer({
+    this.file,
+    this.url,
     this.savedAudioTrack,
     this.savedSubtitleTrack,
   });
 
   @override
-  List<Object?> get props => [file, savedAudioTrack, savedSubtitleTrack];
+  List<Object?> get props => [file, url, savedAudioTrack, savedSubtitleTrack];
 }
 
 class ToggleMinimize extends VideoPlayerEvent {

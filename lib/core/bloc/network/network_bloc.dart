@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:connectivity_watcher/connectivity_watcher.dart';
 import 'package:flutter/foundation.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
 // --- Events ---
 abstract class NetworkEvent extends Equatable {
@@ -13,99 +13,92 @@ abstract class NetworkEvent extends Equatable {
 }
 
 class NetworkStatusChanged extends NetworkEvent {
-  final List<ConnectivityResult> results;
   final bool hasInternet;
   final NetworkQuality quality;
+  final int latencyMs;
 
-  const NetworkStatusChanged(this.results, this.hasInternet, this.quality);
+  const NetworkStatusChanged(this.hasInternet, this.quality, this.latencyMs);
 
   @override
-  List<Object?> get props => [results, hasInternet, quality];
+  List<Object?> get props => [hasInternet, quality, latencyMs];
 }
 
-class _NetworkQualityPingRequested extends NetworkEvent {}
+class _NetworkCheckRequested extends NetworkEvent {}
 
 // --- States ---
 enum NetworkQuality { excellent, good, poor, disconnected }
 
 class NetworkState extends Equatable {
-  final List<ConnectivityResult> connectivityResults;
   final bool hasInternet;
   final NetworkQuality quality;
+  final int latencyMs;
+  final DateTime? lastCheckedAt;
 
   const NetworkState({
-    this.connectivityResults = const [],
     this.hasInternet = true,
     this.quality = NetworkQuality.excellent,
+    this.latencyMs = 0,
+    this.lastCheckedAt,
   });
 
   @override
-  List<Object?> get props => [connectivityResults, hasInternet, quality];
+  List<Object?> get props => [hasInternet, quality, latencyMs, lastCheckedAt];
 
   NetworkState copyWith({
-    List<ConnectivityResult>? connectivityResults,
     bool? hasInternet,
     NetworkQuality? quality,
+    int? latencyMs,
+    DateTime? lastCheckedAt,
   }) {
     return NetworkState(
-      connectivityResults: connectivityResults ?? this.connectivityResults,
       hasInternet: hasInternet ?? this.hasInternet,
       quality: quality ?? this.quality,
+      latencyMs: latencyMs ?? this.latencyMs,
+      lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
     );
   }
 }
 
 // --- Bloc ---
 class NetworkBloc extends Bloc<NetworkEvent, NetworkState> {
-  final Connectivity _connectivity = Connectivity();
-  final InternetConnection _internetChecker = InternetConnection();
-  StreamSubscription? _connectivitySubscription;
+  final ZoConnectivityWatcher _watcher = ZoConnectivityWatcher();
   Timer? _qualityCheckTimer;
 
   NetworkBloc() : super(const NetworkState()) {
     on<NetworkStatusChanged>((event, emit) {
       debugPrint(
-        'NetworkBloc: State update - hasInternet: ${event.hasInternet}, Quality: ${event.quality}',
+        'NetworkBloc: State update - hasInternet: ${event.hasInternet}, '
+        'Quality: ${event.quality}, Latency: ${event.latencyMs}ms',
       );
       emit(
         state.copyWith(
-          connectivityResults: event.results,
           hasInternet: event.hasInternet,
           quality: event.quality,
+          latencyMs: event.latencyMs,
+          lastCheckedAt: DateTime.now(),
         ),
       );
     });
 
-    on<_NetworkQualityPingRequested>((event, emit) async {
-      // Fetch results if they are still 'none' (initial state)
-      List<ConnectivityResult> results = state.connectivityResults;
-      if (results.isEmpty) {
-        results = await _connectivity.checkConnectivity();
-      }
-
-      debugPrint('NetworkBloc: Connectivity results: $results');
-
-      if (results.contains(ConnectivityResult.none)) {
-        add(NetworkStatusChanged(results, false, NetworkQuality.disconnected));
-        return;
-      }
-
+    on<_NetworkCheckRequested>((event, emit) async {
       try {
-        final hasInternet = await _internetChecker.hasInternetAccess;
-        debugPrint('NetworkBloc: hasInternetAccess check: $hasInternet');
+        // First check via connectivity_watcher (fast, synchronous)
+        final hasInternet = _watcher.isInternetAvailable;
 
         if (!hasInternet) {
           add(
-            NetworkStatusChanged(results, false, NetworkQuality.disconnected),
+            const NetworkStatusChanged(false, NetworkQuality.disconnected, 0),
           );
           return;
         }
 
-        final quality = await _determineQuality();
-        add(NetworkStatusChanged(results, true, quality));
+        // Measure actual latency with an HTTP HEAD request
+        final latencyMs = await _measureLatency();
+        final quality = _qualityFromLatency(latencyMs);
+        add(NetworkStatusChanged(true, quality, latencyMs));
       } catch (e) {
-        debugPrint('NetworkBloc: Ping check error: $e');
-        add(NetworkStatusChanged(results, false, NetworkQuality.disconnected));
+        debugPrint('NetworkBloc: Check error: $e');
+        add(const NetworkStatusChanged(false, NetworkQuality.disconnected, 0));
       }
     });
 
@@ -116,45 +109,46 @@ class NetworkBloc extends Bloc<NetworkEvent, NetworkState> {
     debugPrint('NetworkBloc: Initializing connection monitors...');
 
     // Immediate initial check
-    add(_NetworkQualityPingRequested());
-
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
-      results,
-    ) {
-      debugPrint('NetworkBloc: Connectivity changed event: $results');
-      add(_NetworkQualityPingRequested());
-    });
+    add(_NetworkCheckRequested());
 
     // Periodically check quality
     _qualityCheckTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      add(_NetworkQualityPingRequested());
+      add(_NetworkCheckRequested());
     });
   }
 
-  Future<NetworkQuality> _determineQuality() async {
+  /// Measure real network latency by pinging Google's generate_204 endpoint
+  Future<int> _measureLatency() async {
     try {
       final stopwatch = Stopwatch()..start();
-      // Using a simple head request for more accurate latency measurement
-      final hasAccess = await _internetChecker.hasInternetAccess;
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      final request = await client.headUrl(
+        Uri.parse('https://www.google.com/generate_204'),
+      );
+      final response = await request.close();
+      await response.drain();
+      client.close(force: true);
       stopwatch.stop();
 
       final ms = stopwatch.elapsedMilliseconds;
-      debugPrint('NetworkBloc: Latency check took ${ms}ms');
-
-      if (!hasAccess) return NetworkQuality.disconnected;
-
-      if (ms < 250) return NetworkQuality.excellent;
-      if (ms < 600) return NetworkQuality.good;
-      return NetworkQuality.poor;
+      debugPrint('NetworkBloc: Latency ping took ${ms}ms');
+      return ms;
     } catch (e) {
-      debugPrint('NetworkBloc: _determineQuality error: $e');
-      return NetworkQuality.disconnected;
+      debugPrint('NetworkBloc: Latency measurement error: $e');
+      return -1; // Indicates failure
     }
+  }
+
+  NetworkQuality _qualityFromLatency(int ms) {
+    if (ms < 0) return NetworkQuality.disconnected;
+    if (ms < 250) return NetworkQuality.excellent;
+    if (ms < 600) return NetworkQuality.good;
+    return NetworkQuality.poor;
   }
 
   @override
   Future<void> close() {
-    _connectivitySubscription?.cancel();
     _qualityCheckTimer?.cancel();
     return super.close();
   }

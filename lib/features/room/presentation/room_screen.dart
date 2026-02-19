@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:emotional/core/services/drive_service.dart';
+import 'package:emotional/core/services/youtube_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
@@ -79,22 +81,12 @@ class _RoomBodyState extends State<_RoomBody>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      // If we are in PiP mode, DO NOT suspend media
-      if (_isInPiPMode) return;
+    // Removed SuspendMedia() logic to allow background audio.
+    // The OS (especially iOS) will automatically handle camera suspension.
+    // We keep the audio session active.
 
-      // Suspend camera and mic when app goes to background or task switcher
-      context.read<CallBloc>().add(SuspendMedia());
-      // Notify RoomBloc to stop aggressive re-joins
-      context.read<RoomBloc>().add(const SetRoomAppBackgrounded(true));
-    } else if (state == AppLifecycleState.resumed) {
-      // Resume camera and mic when app comes back
-      context.read<CallBloc>().add(ResumeMedia());
-      // Notify RoomBloc that app is active again
-      context.read<RoomBloc>().add(const SetRoomAppBackgrounded(false));
-
-      // Refresh downloads
+    if (state == AppLifecycleState.resumed) {
+      // Refresh downloads when coming back to foreground
       context.read<DownloadCubit>().loadDownloadedVideos();
     }
   }
@@ -245,6 +237,20 @@ class _RoomBodyState extends State<_RoomBody>
                     onSelectVideo: (video) => selectVideo(roomId, video),
                     onPlayVideo: () {
                       final cubit = context.read<DownloadCubit>();
+                      // YouTube Link Check
+                      if (driveFileId != null &&
+                          YouTubeService().isValidYouTubeUrl(driveFileId)) {
+                        playVideo(
+                          videoFile: File(''),
+                          youtubeUrl: driveFileId,
+                          roomId: roomId,
+                          userId: currentUserId,
+                          savedAudioTrack: roomState.selectedAudioTrack,
+                          savedSubtitleTrack: roomState.selectedSubtitleTrack,
+                        );
+                        return;
+                      }
+
                       if (cubit.state.localVideoFile != null) {
                         playVideo(
                           videoFile: cubit.state.localVideoFile!,

@@ -18,6 +18,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final File videoFile;
+  final String? youtubeUrl;
   final String roomId;
   final String userId;
   final String? savedAudioTrack;
@@ -26,6 +27,7 @@ class VideoPlayerScreen extends StatefulWidget {
   const VideoPlayerScreen({
     super.key,
     required this.videoFile,
+    this.youtubeUrl,
     required this.roomId,
     required this.userId,
     this.savedAudioTrack,
@@ -45,7 +47,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.initState();
     context.read<VideoPlayerBloc>().add(
       InitializePlayer(
-        widget.videoFile,
+        file: widget.videoFile,
+        url: widget.youtubeUrl,
         savedAudioTrack: widget.savedAudioTrack,
         savedSubtitleTrack: widget.savedSubtitleTrack,
       ),

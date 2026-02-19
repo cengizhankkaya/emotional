@@ -104,6 +104,13 @@
             android:foregroundServiceType="mediaProjection|microphone"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- Voice Call Service for background microphone usage -->
+        <service
+            android:name=".VoiceCallService"
+            android:foregroundServiceType="microphone"
+            android:enabled="true"
+            android:exported="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

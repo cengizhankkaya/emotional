@@ -15,7 +15,8 @@ class VideoPlayerInitial extends VideoPlayerState {}
 class VideoPlayerActive extends VideoPlayerState {
   final Player player;
   final VideoController controller;
-  final File videoFile;
+  final File? videoFile;
+  final String? youtubeUrl;
   final bool isMinimized;
   final bool isBuffering;
 
@@ -33,7 +34,8 @@ class VideoPlayerActive extends VideoPlayerState {
   const VideoPlayerActive({
     required this.player,
     required this.controller,
-    required this.videoFile,
+    this.videoFile,
+    this.youtubeUrl,
     this.isMinimized = false,
     this.isBuffering = false,
     this.isSyncing = false,
@@ -52,6 +54,7 @@ class VideoPlayerActive extends VideoPlayerState {
     Player? player,
     VideoController? controller,
     File? videoFile,
+    String? youtubeUrl,
     bool? isMinimized,
     bool? isBuffering,
     bool? isSyncing,
@@ -66,6 +69,7 @@ class VideoPlayerActive extends VideoPlayerState {
       player: player ?? this.player,
       controller: controller ?? this.controller,
       videoFile: videoFile ?? this.videoFile,
+      youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       isMinimized: isMinimized ?? this.isMinimized,
       isBuffering: isBuffering ?? this.isBuffering,
       isSyncing: isSyncing ?? this.isSyncing,
@@ -86,6 +90,7 @@ class VideoPlayerActive extends VideoPlayerState {
     player,
     controller,
     videoFile,
+    youtubeUrl,
     isMinimized,
     isBuffering,
     isSyncing,

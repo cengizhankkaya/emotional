@@ -176,6 +176,15 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       // 5. Join Room (Signaling)
       await _callService.joinRoom(_roomId!, _userId!);
 
+      // Start Android Foreground Service for Voice
+      if (Platform.isAndroid) {
+        try {
+          await channel.invokeMethod('startVoiceService');
+        } catch (e) {
+          debugPrint('CallBloc: Failed to start startVoiceService: $e');
+        }
+      }
+
       // 6. Setup Room Listeners (User Discovery)
       _setupRoomListeners();
 
@@ -402,6 +411,15 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   }
 
   Future<void> _cleanup() async {
+    // Stop Android Foreground Service
+    if (Platform.isAndroid) {
+      try {
+        await channel.invokeMethod('stopVoiceService');
+      } catch (e) {
+        debugPrint('CallBloc: Failed to stop stopVoiceService: $e');
+      }
+    }
+
     _isCallActive = false;
     _audioMonitorTimer?.cancel();
     _roomSubscription?.cancel();

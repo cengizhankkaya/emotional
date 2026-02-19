@@ -41,6 +41,7 @@ mixin RoomMediaMixin<T extends StatefulWidget> on State<T> {
 
   void playVideo({
     required File videoFile,
+    String? youtubeUrl,
     required String roomId,
     required String userId,
     String? savedAudioTrack,
@@ -56,6 +57,7 @@ mixin RoomMediaMixin<T extends StatefulWidget> on State<T> {
       MaterialPageRoute(
         builder: (_) => VideoPlayerScreen(
           videoFile: videoFile,
+          youtubeUrl: youtubeUrl,
           roomId: roomId,
           userId: userId,
           savedAudioTrack: savedAudioTrack,

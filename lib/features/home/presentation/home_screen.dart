@@ -1,14 +1,18 @@
 import 'package:app_links/app_links.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_permission_helper.dart';
 import 'package:emotional/core/services/permission_service.dart';
+import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/home/presentation/helpers/user_helper.dart';
 import 'package:emotional/features/home/presentation/widgets/create_room_card.dart';
 import 'package:emotional/features/home/presentation/widgets/home_app_bar.dart';
+import 'package:emotional/features/home/presentation/widgets/home_download_card.dart';
 import 'package:emotional/features/home/presentation/widgets/join_room_card.dart';
 import 'package:emotional/features/home/presentation/widgets/permission_sheet.dart';
 import 'package:emotional/features/home/presentation/widgets/room_divider.dart';
+import 'package:emotional/features/room/bloc/download_cubit.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
+import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/features/room/presentation/room_screen.dart';
 import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
@@ -194,99 +198,108 @@ class _HomeScreenState extends State<HomeScreen> {
         ? UserHelper.getUserDisplayName(authState.user)
         : 'Kullanıcı';
 
-    return Scaffold(
-      backgroundColor: ColorsCustom.darkBlue,
-      appBar: const HomeAppBar(),
-      body: BlocConsumer<RoomBloc, RoomState>(
-        listenWhen: (previous, current) {
-          // Listen for errors, creation success, or joining success
-          return current is RoomError ||
-              current is RoomCreated ||
-              (previous is! RoomJoined && current is RoomJoined);
-        },
-        listener: (context, state) {
-          if (state is RoomError) {
-            _isJoiningRoom = false;
-            String errorMessage = state.message;
-            if (errorMessage.contains('Room not found')) {
-              errorMessage = 'Oda bulunamadı.';
-              _cacheManager
-                  .clearLastRoomId(); // Clear invalid room ID from cache
-            }
+    return BlocProvider<DownloadCubit>(
+      create: (context) => DownloadCubit(
+        downloadManager: DownloadManager(),
+        driveService: context.read<DriveService>(),
+      ),
+      child: Scaffold(
+        backgroundColor: ColorsCustom.darkBlue,
+        appBar: const HomeAppBar(),
+        body: BlocConsumer<RoomBloc, RoomState>(
+          listenWhen: (previous, current) {
+            // Listen for errors, creation success, or joining success
+            return current is RoomError ||
+                current is RoomCreated ||
+                (previous is! RoomJoined && current is RoomJoined);
+          },
+          listener: (context, state) {
+            if (state is RoomError) {
+              _isJoiningRoom = false;
+              String errorMessage = state.message;
+              if (errorMessage.contains('Room not found')) {
+                errorMessage = 'Oda bulunamadı.';
+                _cacheManager
+                    .clearLastRoomId(); // Clear invalid room ID from cache
+              }
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                backgroundColor: ColorsCustom.imperilRead,
-              ),
-            );
-          } else if (state is RoomCreated) {
-            _isJoiningRoom = false;
-            _cacheManager.saveLastRoomId(state.roomId);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Oda Oluşturuldu: ${state.roomId}'),
-                backgroundColor: ColorsCustom.darkABlue,
-              ),
-            );
-          } else if (state is RoomJoined) {
-            _isJoiningRoom = false;
-            _cacheManager.saveLastRoomId(state.roomId);
-            if (state.notificationMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(state.notificationMessage!),
-                  backgroundColor: ColorsCustom.darkABlue,
-                  duration: const Duration(seconds: 2),
+                  content: Text(errorMessage),
+                  backgroundColor: ColorsCustom.imperilRead,
                 ),
               );
-            } else if (state.participants.isEmpty) {
+            } else if (state is RoomCreated) {
+              _isJoiningRoom = false;
+              _cacheManager.saveLastRoomId(state.roomId);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Odaya Katılındı: ${state.roomId}'),
+                  content: Text('Oda Oluşturuldu: ${state.roomId}'),
                   backgroundColor: ColorsCustom.darkABlue,
                 ),
+              );
+            } else if (state is RoomJoined) {
+              _isJoiningRoom = false;
+              _cacheManager.saveLastRoomId(state.roomId);
+              if (state.notificationMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.notificationMessage!),
+                    backgroundColor: ColorsCustom.darkABlue,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              } else if (state.participants.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Odaya Katılındı: ${state.roomId}'),
+                    backgroundColor: ColorsCustom.darkABlue,
+                  ),
+                );
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RoomScreen()),
               );
             }
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const RoomScreen()),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is RoomLoading || state is RoomCreated) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return Center(
-            child: SingleChildScrollView(
-              padding: const ProjectPadding.allLarge(),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Merhaba, $userName!',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontSize: context.dynamicValue(24),
+          },
+          builder: (context, state) {
+            if (state is RoomLoading || state is RoomCreated) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return Center(
+              child: SingleChildScrollView(
+                padding: const ProjectPadding.allLarge(),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Merhaba, $userName!',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontSize: context.dynamicValue(24),
+                          ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: context.dynamicHeight(0.05)),
-                  CreateRoomCard(onCreateRoom: () => _createRoom(context)),
-                  SizedBox(height: context.dynamicHeight(0.03)),
-                  const RoomDivider(),
-                  SizedBox(height: context.dynamicHeight(0.03)),
-                  JoinRoomCard(
-                    roomIdController: _roomIdController,
-                    onJoinRoom: () => _joinRoom(context),
-                  ),
-                ],
+                    SizedBox(height: context.dynamicHeight(0.05)),
+                    CreateRoomCard(onCreateRoom: () => _createRoom(context)),
+                    SizedBox(height: context.dynamicHeight(0.03)),
+                    const RoomDivider(),
+                    SizedBox(height: context.dynamicHeight(0.03)),
+                    JoinRoomCard(
+                      roomIdController: _roomIdController,
+                      onJoinRoom: () => _joinRoom(context),
+                    ),
+                    SizedBox(height: context.dynamicHeight(0.03)),
+                    const HomeDownloadCard(),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
