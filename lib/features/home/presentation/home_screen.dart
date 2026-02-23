@@ -14,7 +14,6 @@ import 'package:emotional/features/room/bloc/download_cubit.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/features/room/presentation/room_screen.dart';
-import 'package:emotional/features/room/domain/repositories/room_repository.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -39,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Clean up unused rooms when app starts/home loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RoomRepository>().cleanupEmptyRooms();
       _checkAndRequestPermissions();
       _initDeepLinkListener();
       _loadLastRoomId();

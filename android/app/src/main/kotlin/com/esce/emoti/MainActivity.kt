@@ -27,6 +27,8 @@ class MainActivity: FlutterActivity() {
     }
 
     private var isScreenSharingActive = false
+    private var isVoiceCallActive = false
+
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -59,14 +61,14 @@ class MainActivity: FlutterActivity() {
                     isScreenSharingActive = false
                     val intent = Intent(this, ScreenCaptureService::class.java)
                     intent.action = "STOP"
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
-                    }
+                    // Use startService (NOT startForegroundService) for STOP action
+                    // to avoid creating a new FGS obligation that crashes on Android 8+
+                    startService(intent)
                     result.success(null)
                 }
+
                 "startVoiceService" -> {
+                    isVoiceCallActive = true
                     val intent = Intent(this, VoiceCallService::class.java).apply {
                         action = "START"
                     }
@@ -78,14 +80,11 @@ class MainActivity: FlutterActivity() {
                     result.success(null)
                 }
                 "stopVoiceService" -> {
+                    isVoiceCallActive = false
                     val intent = Intent(this, VoiceCallService::class.java).apply {
                         action = "STOP"
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
-                    }
+                    startService(intent)
                     result.success(null)
                 }
                 "enterPiP" -> {
@@ -126,9 +125,35 @@ class MainActivity: FlutterActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (isScreenSharingActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val params = android.app.PictureInPictureParams.Builder().build()
-            enterPictureInPictureMode(params)
+        val shouldEnterPiP = isScreenSharingActive || isVoiceCallActive
+        
+        if (shouldEnterPiP && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Check if device actually supports PiP before attempting
+            if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+                return
+            }
+            try {
+                val builder = android.app.PictureInPictureParams.Builder()
+                // Set a default aspect ratio if needed (e.g., 16:9 for screen share, 1:1 for headshot)
+                // For now, use current window bounds or standard 16:9
+                val aspectRatio = if (isScreenSharingActive) {
+                    android.util.Rational(16, 9)
+                } else {
+                    android.util.Rational(1, 1) // Voice/Video call typically more square
+                }
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAspectRatio(aspectRatio)
+                    builder.setAutoEnterEnabled(true)
+                } else {
+                    builder.setAspectRatio(aspectRatio)
+                }
+                
+                enterPictureInPictureMode(builder.build())
+                android.util.Log.d("MainActivity", "Entered PiP mode successfully. ScreenShare=$isScreenSharingActive, Voice=$isVoiceCallActive")
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Failed to enter PiP mode: $e")
+            }
         }
     }
 

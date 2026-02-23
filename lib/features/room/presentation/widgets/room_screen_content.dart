@@ -312,10 +312,13 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 2),
                             child: RichText(
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               text: TextSpan(
-                                style: const TextStyle(fontSize: 10),
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  height: 1.2,
+                                ),
                                 children: [
                                   TextSpan(
                                     text: "${msg.senderName}: ",

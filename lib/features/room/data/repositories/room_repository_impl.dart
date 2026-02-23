@@ -281,44 +281,6 @@ class RoomRepositoryImpl implements RoomRepository {
     });
   }
 
-  @override
-  @override
-  Future<void> cleanupEmptyRooms() async {
-    final roomsRef = _database.ref('rooms');
-    try {
-      final snapshot = await roomsRef.get();
-      if (!snapshot.exists) return;
-
-      int deletedCount = 0;
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      for (final child in snapshot.children) {
-        final roomData = child.value as Map<dynamic, dynamic>?;
-        if (roomData == null) continue;
-
-        final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
-        final createdAt = roomData['createdAt'] as int? ?? 0;
-
-        // Delete only if:
-        // 1. Room is empty (no users)
-        // 2. AND the room is older than 1 hour (safety buffer)
-        final isEmpty = users.isEmpty;
-        final isStale = (now - createdAt) > (60 * 60 * 1000); // 1 hour buffer
-
-        if (isEmpty && isStale) {
-          await child.ref.remove();
-          deletedCount++;
-        }
-      }
-
-      if (deletedCount > 0) {
-        print('RoomRepository: Cleaned up $deletedCount unused/stale rooms.');
-      }
-    } catch (e) {
-      print('RoomRepository: Error cleaning up rooms: $e');
-    }
-  }
-
   String _generateRoomId() {
     // Generate a 6-digit random number string
     var rng = Random();

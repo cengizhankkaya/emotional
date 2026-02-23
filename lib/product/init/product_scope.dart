@@ -6,7 +6,6 @@ import 'package:emotional/features/chat/repository/chat_repository.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/data/repositories/room_repository_impl.dart';
 import 'package:emotional/features/room/domain/repositories/room_repository.dart';
-import 'package:emotional/features/room/domain/usecases/cleanup_rooms_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/create_room_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/join_room_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/leave_room_usecase.dart';
@@ -72,10 +71,6 @@ class ProductScope extends StatelessWidget {
         RepositoryProvider(
           create: (context) =>
               ReassignHostUseCase(context.read<RoomRepository>()),
-        ),
-        RepositoryProvider(
-          create: (context) =>
-              CleanupRoomsUseCase(context.read<RoomRepository>()),
         ),
       ],
       child: MultiBlocProvider(

@@ -33,8 +33,6 @@ abstract class RoomRepository {
 
   Future<void> reassignHost(String roomId, String newHostId);
 
-  Future<void> cleanupEmptyRooms();
-
   Future<void> updateUserMediaState(
     String roomId,
     String userId, {

@@ -438,6 +438,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     _activeUsers.clear();
     _userVideoStates.clear();
     _userAudioStates.clear();
+    _userScreenSharingStates.clear();
 
     await _callService.dispose();
     await _mediaDeviceService.dispose();
@@ -447,19 +448,24 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   }
 
   void _onToggleMute(ToggleMute event, Emitter<CallState> emit) {
-    if (state is CallConnected) {
-      final s = state as CallConnected;
-      _mediaDeviceService.toggleMute(!s.isMuted);
-      emit(s.copyWith(isMuted: !s.isMuted));
+    if (state is! CallConnected || _isRequestingScreenShare) return;
+    final s = state as CallConnected;
+    final newMuted = !s.isMuted;
+
+    try {
+      _mediaDeviceService.toggleMute(newMuted);
+      emit(s.copyWith(isMuted: newMuted));
       if (_roomId != null && userId != null) {
         _syncState(
           _roomId!,
           userId!,
           video: s.isVideoEnabled,
-          audio: !s.isMuted,
+          audio: !newMuted,
           screen: s.isScreenSharing,
         );
       }
+    } catch (e) {
+      debugPrint("[CallBloc] Error toggling mute: $e");
     }
   }
 
@@ -592,13 +598,15 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       }
 
       emit(s.copyWith(isVideoEnabled: newVideoState));
-      _syncState(
-        _roomId!,
-        userId!,
-        video: newVideoState,
-        audio: !s.isMuted,
-        screen: s.isScreenSharing,
-      );
+      if (_roomId != null && userId != null) {
+        _syncState(
+          _roomId!,
+          userId!,
+          video: newVideoState,
+          audio: !s.isMuted,
+          screen: s.isScreenSharing,
+        );
+      }
     }
   }
 
@@ -608,6 +616,13 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   ) async {
     if (state is CallConnected) {
       final s = state as CallConnected;
+
+      // Guard against rapid double-toggle
+      if (_isRequestingScreenShare) {
+        debugPrint('[CallBloc] ToggleScreenShare ignored: already processing.');
+        return;
+      }
+
       debugPrint(
         '[CallBloc] ToggleScreenShare event processing. Current state: isScreenSharing=${s.isScreenSharing}',
       );
@@ -816,12 +831,17 @@ class CallBloc extends Bloc<CallEvent, CallState> {
               debugPrint("[CallBloc] Failed to revert to camera: $re");
             }
 
-            emit(s.copyWith(isScreenSharing: false, isVideoEnabled: true));
+            emit(
+              s.copyWith(
+                isScreenSharing: false,
+                isVideoEnabled: _isVideoEnabledBeforeScreenShare,
+              ),
+            );
             if (_roomId != null && userId != null) {
               _syncState(
                 _roomId!,
                 userId!,
-                video: true,
+                video: _isVideoEnabledBeforeScreenShare,
                 audio: !s.isMuted,
                 screen: false,
               );
@@ -991,12 +1011,16 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     required bool audio,
     required bool screen,
   }) async {
-    await roomRepository.updateUserMediaState(
-      roomId,
-      userId,
-      isVideoEnabled: video,
-      isAudioEnabled: audio,
-      isScreenSharing: screen,
-    );
+    try {
+      await roomRepository.updateUserMediaState(
+        roomId,
+        userId,
+        isVideoEnabled: video,
+        isAudioEnabled: audio,
+        isScreenSharing: screen,
+      );
+    } catch (e) {
+      print("[CallBloc] Failed to sync media state: $e");
+    }
   }
 }

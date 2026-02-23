@@ -1,5 +1,9 @@
 package com.esce.emoti
 
+import com.esce.emoti.R
+import com.esce.emoti.MainActivity
+
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -34,6 +38,18 @@ class ScreenCaptureService : Service() {
 
         if (action == "STOP") {
             android.util.Log.e("ScreenCaptureService", "Actual STOP requested from app. Cleaning up.")
+            // Safety: call startForeground before stopping to satisfy Android 8+ FGS requirement
+            try {
+                createNotificationChannel()
+                val stopNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Ekran Paylaşımı Durduruluyor")
+                    .setSmallIcon(R.mipmap.launcher_icon)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+                startForeground(NOTIFICATION_ID, stopNotification)
+            } catch (e: Exception) {
+                android.util.Log.e("ScreenCaptureService", "Safety startForeground failed: $e")
+            }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -49,12 +65,20 @@ class ScreenCaptureService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT else PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val mainIntent = Intent(this, MainActivity::class.java)
+        val mainPendingIntent = PendingIntent.getActivity(
+            this, 0, mainIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Ekran Paylaşımı")
-            .setContentText("Ekranınız şu anda paylaşılıyor.")
+            .setContentTitle("Ekran Paylaşımı Aktif")
+            .setContentText("Ekranınız şu anda oda katılımcılarıyla paylaşılıyor.")
             .setSmallIcon(R.mipmap.launcher_icon) 
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_MAX) // Max priority for media projection
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
+            .setContentIntent(mainPendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Paylaşımı Durdur", stopPendingIntent)
             .build()
 
@@ -88,6 +112,20 @@ class ScreenCaptureService : Service() {
 
         return START_NOT_STICKY
     }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        android.util.Log.e("ScreenCaptureService", "App removed from recents. Stopping service.")
+        // Safety: ensure notification is removed
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
+
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

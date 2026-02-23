@@ -1,5 +1,8 @@
 package com.esce.emoti
 
+import com.esce.emoti.R
+
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -25,6 +28,19 @@ class VoiceCallService : Service() {
 
         if (action == "STOP") {
             android.util.Log.d("VoiceCallService", "Stopping VoiceCallService foreground.")
+            // Safety: If started via startForegroundService, we MUST call startForeground
+            // before stopping, otherwise Android 8+ crashes with RemoteServiceException.
+            try {
+                createNotificationChannel()
+                val stopNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Görüşme Durduruluyor")
+                    .setSmallIcon(R.mipmap.launcher_icon)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+                startForeground(NOTIFICATION_ID, stopNotification)
+            } catch (e: Exception) {
+                android.util.Log.e("VoiceCallService", "Safety startForeground failed: $e")
+            }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -65,6 +81,19 @@ class VoiceCallService : Service() {
 
         return START_STICKY
     }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        android.util.Log.d("VoiceCallService", "App removed from recents. Stopping voice service.")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
+
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

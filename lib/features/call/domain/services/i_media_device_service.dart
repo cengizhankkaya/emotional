@@ -12,6 +12,9 @@ abstract class IMediaDeviceService {
   /// Get the current local media stream
   MediaStream? get localStream;
 
+  /// Get the current screen share stream
+  MediaStream? get screenStream;
+
   /// List available video input devices (Cameras)
   Future<List<MediaDeviceInfo>> getVideoInputs();
 

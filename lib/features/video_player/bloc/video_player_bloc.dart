@@ -354,6 +354,11 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     _rateSubscription?.cancel();
     _bufferingSubscription?.cancel();
     await _videoService.dispose();
+  }
+
+  @override
+  Future<void> close() {
     _youtubeService.dispose();
+    return super.close();
   }
 }

@@ -1,7 +1,14 @@
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 class YouTubeService {
-  final YoutubeExplode _yt = YoutubeExplode();
+  YoutubeExplode? _ytInstance;
+
+  YoutubeExplode get _yt {
+    if (_ytInstance == null) {
+      _ytInstance = YoutubeExplode();
+    }
+    return _ytInstance!;
+  }
 
   /// Validates if the given string is a valid YouTube URL.
   bool isValidYouTubeUrl(String url) {
@@ -53,6 +60,7 @@ class YouTubeService {
   }
 
   void dispose() {
-    _yt.close();
+    _ytInstance?.close();
+    _ytInstance = null;
   }
 }
