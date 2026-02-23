@@ -80,6 +80,27 @@ class ScreenCaptureService : Service() {
             .setOngoing(true)
             .setContentIntent(mainPendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Paylaşımı Durdur", stopPendingIntent)
+            .apply {
+                // Add "Bağlantıyı Kes" button
+                val leaveIntent = Intent("com.esce.emoti.LEAVE_ROOM").apply {
+                    setPackage(packageName)
+                }
+                val leavePendingIntent = PendingIntent.getBroadcast(
+                    this@ScreenCaptureService, 2001, leaveIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                addAction(R.mipmap.launcher_icon, "Bağlantıyı Kes", leavePendingIntent)
+
+                // Add "Mikrofonu Kapat" button
+                val muteIntent = Intent("com.esce.emoti.TOGGLE_MUTE").apply {
+                    setPackage(packageName)
+                }
+                val mutePendingIntent = PendingIntent.getBroadcast(
+                    this@ScreenCaptureService, 2002, muteIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                addAction(R.mipmap.launcher_icon, "Mikrofonu Kapat", mutePendingIntent)
+            }
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

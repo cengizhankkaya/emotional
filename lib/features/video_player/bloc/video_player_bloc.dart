@@ -18,6 +18,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<double>? _rateSubscription;
   StreamSubscription<bool>? _bufferingSubscription;
+  StreamSubscription<Track>? _trackSubscription;
 
   DateTime? _lastLocalActionTime;
 
@@ -73,30 +74,6 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     await _videoService.initialize();
     final controller = VideoController(_videoService.player);
 
-    String? openPath;
-    if (event.url != null) {
-      // Resolve YouTube URL
-      emit(
-        VideoPlayerActive(
-          player: _videoService.player,
-          controller: controller,
-          youtubeUrl: event.url,
-          isBuffering: true,
-        ),
-      );
-      openPath = await _youtubeService.getStreamUrl(event.url!);
-      if (openPath == null) {
-        // Handle error
-        return;
-      }
-    } else if (event.file != null) {
-      openPath = event.file!.path;
-    }
-
-    if (openPath != null) {
-      await _videoService.open(openPath);
-    }
-
     _playingSubscription = _videoService.playingStream.listen((playing) {
       add(OnPlayerStateChanged(isPlaying: playing));
     });
@@ -113,7 +90,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
       add(OnPlayerStateChanged(isBuffering: buffering));
     });
 
-    _videoService.trackStream.listen((track) {
+    _trackSubscription = _videoService.trackStream.listen((track) {
       add(
         OnPlayerStateChanged(
           audioTrack: _videoService.player.state.track.audio.id,
@@ -121,6 +98,40 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         ),
       );
     });
+
+    String? openPath;
+    if (event.url != null) {
+      // Resolve YouTube URL
+      emit(
+        VideoPlayerActive(
+          player: _videoService.player,
+          controller: controller,
+          youtubeUrl: event.url,
+          isBuffering: true,
+        ),
+      );
+      openPath = await _youtubeService.getStreamUrl(event.url!);
+      if (openPath == null) {
+        // Handle error and stop buffering state
+        emit(
+          VideoPlayerActive(
+            player: _videoService.player,
+            controller: controller,
+            youtubeUrl: event.url,
+            isBuffering: false,
+          ),
+        );
+        return;
+      }
+    } else if (event.file != null) {
+      openPath = event.file!.path;
+    }
+
+    if (openPath != null) {
+      await _videoService.open(openPath);
+    }
+
+    // Subscriptions are now setup before opening video
 
     emit(
       VideoPlayerActive(
@@ -353,6 +364,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     _positionSubscription?.cancel();
     _rateSubscription?.cancel();
     _bufferingSubscription?.cancel();
+    _trackSubscription?.cancel();
     await _videoService.dispose();
   }
 

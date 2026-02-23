@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/core/services/youtube_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
@@ -47,7 +48,6 @@ class _RoomBodyState extends State<_RoomBody>
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final FloatingMessageManager _floatingMessageManager;
   static const _channel = MethodChannel('com.example.emotional/screen_share');
-  bool _isInPiPMode = false;
 
   @override
   void initState() {
@@ -67,12 +67,26 @@ class _RoomBodyState extends State<_RoomBody>
       }
     });
 
-    // PiP Listener
+    // PiP and Notification Actions Listener
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'onPiPModeChanged') {
-        setState(() {
-          _isInPiPMode = call.arguments as bool;
-        });
+      debugPrint(
+        '[RoomScreen] Native MethodChannel call received: ${call.method}',
+      );
+      if (call.method == 'onStopPressed') {
+        final callState = context.read<CallBloc>().state;
+        if (callState is CallConnected && callState.isScreenSharing) {
+          context.read<CallBloc>().add(
+            const ToggleScreenShare(fromNotification: true),
+          );
+        }
+      } else if (call.method == 'onLeaveRoomPressed') {
+        if (mounted) {
+          performPopCleanup(context);
+        }
+      } else if (call.method == 'onToggleMutePressed') {
+        if (mounted) {
+          context.read<CallBloc>().add(ToggleMute());
+        }
       }
     });
 
@@ -88,6 +102,14 @@ class _RoomBodyState extends State<_RoomBody>
     if (state == AppLifecycleState.resumed) {
       // Refresh downloads when coming back to foreground
       context.read<DownloadCubit>().loadDownloadedVideos();
+    } else if (state == AppLifecycleState.detached) {
+      // App is being killed from the recent apps list or force closed.
+      // Force an immediate 'goOffline' to trigger onDisconnect events gracefully on the server.
+      try {
+        FirebaseDatabase.instance.goOffline();
+      } catch (e) {
+        debugPrint('RoomScreen: Error going offline on detach: $e');
+      }
     }
   }
 
@@ -222,7 +244,6 @@ class _RoomBodyState extends State<_RoomBody>
                     driveFileName: driveFileName,
                     driveFileId: driveFileId,
                     scaffoldKey: _scaffoldKey,
-                    isInPiPMode: _isInPiPMode,
                     onLeave: () async {
                       if (context.mounted) {
                         final shouldLeave = await showExitConfirmationDialog(

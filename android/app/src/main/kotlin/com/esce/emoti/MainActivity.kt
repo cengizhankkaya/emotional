@@ -9,19 +9,32 @@ import io.flutter.plugin.common.MethodChannel
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
+import cl.puntito.simple_pip_mode.PipCallbackHelperActivityWrapper
 
-class MainActivity: FlutterActivity() {
+class MainActivity: PipCallbackHelperActivityWrapper() {
     private val CHANNEL = "com.example.emotional/screen_share"
     private var methodChannel: MethodChannel? = null
 
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            android.util.Log.e("MainActivity", "Received STOP_SCREEN_SHARE broadcast action: ${intent?.action}")
+            android.util.Log.e("MainActivity", "Received broadcast action: ${intent?.action}")
             if (methodChannel == null) {
                 android.util.Log.e("MainActivity", "ERROR: methodChannel is NULL, cannot notify Flutter")
             } else {
-                android.util.Log.e("MainActivity", "Invoking onStopPressed on MethodChannel")
-                methodChannel?.invokeMethod("onStopPressed", null)
+                when (intent?.action) {
+                    "com.esce.emoti.STOP_SCREEN_SHARE" -> {
+                        android.util.Log.e("MainActivity", "Invoking onStopPressed on MethodChannel")
+                        methodChannel?.invokeMethod("onStopPressed", null)
+                    }
+                    "com.esce.emoti.LEAVE_ROOM" -> {
+                        android.util.Log.e("MainActivity", "Invoking onLeaveRoomPressed on MethodChannel")
+                        methodChannel?.invokeMethod("onLeaveRoomPressed", null)
+                    }
+                    "com.esce.emoti.TOGGLE_MUTE" -> {
+                        android.util.Log.e("MainActivity", "Invoking onToggleMutePressed on MethodChannel")
+                        methodChannel?.invokeMethod("onToggleMutePressed", null)
+                    }
+                }
             }
         }
     }
@@ -34,10 +47,16 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         
+        val filter = IntentFilter().apply {
+            addAction("com.esce.emoti.STOP_SCREEN_SHARE")
+            addAction("com.esce.emoti.LEAVE_ROOM")
+            addAction("com.esce.emoti.TOGGLE_MUTE")
+        }
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(stopReceiver, IntentFilter("com.esce.emoti.STOP_SCREEN_SHARE"), Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(stopReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            registerReceiver(stopReceiver, IntentFilter("com.esce.emoti.STOP_SCREEN_SHARE"))
+            registerReceiver(stopReceiver, filter)
         }
 
         methodChannel?.setMethodCallHandler { call, result ->
@@ -87,28 +106,6 @@ class MainActivity: FlutterActivity() {
                     startService(intent)
                     result.success(null)
                 }
-                "enterPiP" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        val params = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            android.app.PictureInPictureParams.Builder().build()
-                        } else {
-                            null
-                        }
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                enterPictureInPictureMode(params!!)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                enterPictureInPictureMode()
-                            }
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.error("PIP_ERROR", e.message, null)
-                        }
-                    } else {
-                        result.error("NOT_SUPPORTED", "PiP is not supported on this device", null)
-                    }
-                }
                 "isInPiPMode" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                         result.success(isInPictureInPictureMode)
@@ -122,44 +119,4 @@ class MainActivity: FlutterActivity() {
             }
         }
     }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        val shouldEnterPiP = isScreenSharingActive || isVoiceCallActive
-        
-        if (shouldEnterPiP && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Check if device actually supports PiP before attempting
-            if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
-                return
-            }
-            try {
-                val builder = android.app.PictureInPictureParams.Builder()
-                // Set a default aspect ratio if needed (e.g., 16:9 for screen share, 1:1 for headshot)
-                // For now, use current window bounds or standard 16:9
-                val aspectRatio = if (isScreenSharingActive) {
-                    android.util.Rational(16, 9)
-                } else {
-                    android.util.Rational(1, 1) // Voice/Video call typically more square
-                }
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    builder.setAspectRatio(aspectRatio)
-                    builder.setAutoEnterEnabled(true)
-                } else {
-                    builder.setAspectRatio(aspectRatio)
-                }
-                
-                enterPictureInPictureMode(builder.build())
-                android.util.Log.d("MainActivity", "Entered PiP mode successfully. ScreenShare=$isScreenSharingActive, Voice=$isVoiceCallActive")
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Failed to enter PiP mode: $e")
-            }
-        }
-    }
-
-    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        methodChannel?.invokeMethod("onPiPModeChanged", isInPictureInPictureMode)
-    }
-
 }

@@ -55,13 +55,34 @@ class VoiceCallService : Service() {
         )
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Sesli Görüşme Aktif")
-            .setContentText("Görüşme arka planda devam ediyor.")
+            .setContentTitle("Oda bağlantısı aktif")
+            .setContentText("Konuşma devam ediyor.")
             .setSmallIcon(R.mipmap.launcher_icon) 
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_CALL)
             .setContentIntent(pendingIntentLaunch)
+            .apply {
+                // Add "Bağlantıyı Kes" button
+                val leaveIntent = Intent("com.esce.emoti.LEAVE_ROOM").apply {
+                    setPackage(packageName)
+                }
+                val leavePendingIntent = PendingIntent.getBroadcast(
+                    this@VoiceCallService, 1001, leaveIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                addAction(R.mipmap.launcher_icon, "Bağlantıyı Kes", leavePendingIntent)
+
+                // Add "Mikrofonu Kapat" button
+                val muteIntent = Intent("com.esce.emoti.TOGGLE_MUTE").apply {
+                    setPackage(packageName)
+                }
+                val mutePendingIntent = PendingIntent.getBroadcast(
+                    this@VoiceCallService, 1002, muteIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                addAction(R.mipmap.launcher_icon, "Mikrofonu Kapat", mutePendingIntent)
+            }
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -100,7 +121,7 @@ class VoiceCallService : Service() {
             val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
                 "Voice Call Service Channel",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
@@ -108,7 +129,7 @@ class VoiceCallService : Service() {
     }
 
     companion object {
-        const val CHANNEL_ID = "VoiceCallChannel"
+        const val CHANNEL_ID = "VoiceCallChannel_v2"
         const val NOTIFICATION_ID = 54321
     }
 }

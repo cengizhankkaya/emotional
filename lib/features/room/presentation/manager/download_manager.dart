@@ -139,7 +139,24 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
-  void _handleSuccess() {
+  Future<void> _handleSuccess() async {
+    final fileName = _currentDownloadingFileName;
+    if (fileName != null) {
+      debugPrint('DownloadManager: Verifying downloaded file: $fileName');
+      // Direct file check, skipping debounce queue
+      final foundFile = await _fileHelper.checkFileExists(fileName);
+      if (foundFile != null) {
+        _isVideoDownloaded = true;
+        _localVideoFile = foundFile;
+        // Update cache
+        _fileExistenceCache[fileName] = foundFile;
+      } else {
+        debugPrint(
+          'DownloadManager: Warning! Download finished but file not found on disk immediately.',
+        );
+      }
+    }
+
     _downloadProgress = 1.0;
     _downloadStatus = 'İndirme tamamlandı.';
     debugPrint('DownloadManager: Download COMPLETED successfully.');
@@ -152,17 +169,14 @@ class DownloadManager extends ChangeNotifier {
       _notifyStateChanged();
     });
 
-    if (_currentDownloadingFileName != null &&
-        _currentDownloadingFileId != null) {
+    if (fileName != null && _currentDownloadingFileId != null) {
       final newFile = drive.File()
         ..id = _currentDownloadingFileId
-        ..name = _currentDownloadingFileName;
+        ..name = fileName;
 
       if (!_downloadedVideos.any((f) => f.id == newFile.id)) {
         _downloadedVideos.add(newFile);
       }
-      // Force recheck to update cache after download
-      checkFileExists(_currentDownloadingFileName!, forceRecheck: true);
     }
   }
 
@@ -189,7 +203,7 @@ class DownloadManager extends ChangeNotifier {
       debugPrint('DownloadManager: Recovery SUCCESS.');
       _localVideoFile = recoveredFile;
       _isVideoDownloaded = true;
-      _handleSuccess();
+      await _handleSuccess();
       return;
     }
 

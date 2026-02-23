@@ -57,8 +57,19 @@ class MediaKitVideoPlayerService implements VideoPlayerService {
   @override
   Future<void> dispose() async {
     if (_player != null) {
-      await _player!.dispose();
+      final p = _player;
       _player = null;
+      try {
+        await p?.pause();
+      } catch (_) {}
+      // Delay disposal by 500ms to allow Flutter's unmount and surface resize to finish safely
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        try {
+          await p?.dispose();
+        } catch (e) {
+          // Ignore async disposal errors
+        }
+      });
     }
   }
 

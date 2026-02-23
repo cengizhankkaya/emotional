@@ -63,13 +63,10 @@ class AvatarParticipantWidget extends StatelessWidget {
     final isLocal = participantId == currentUserId;
     bool hasVideo = false;
     bool isMuted = false;
-    bool isActiveSpeaker = false;
     RTCVideoRenderer? renderer;
-    String? activeSpeakerId;
 
     if (callState is CallConnected) {
       final connectedState = callState as CallConnected;
-      activeSpeakerId = connectedState.activeSpeakerId;
       if (isLocal) {
         final isSharing = connectedState.isScreenSharing;
         // Don't show video in this tile if screen sharing is active
@@ -85,10 +82,6 @@ class AvatarParticipantWidget extends StatelessWidget {
             !isSharing;
         isMuted = !(connectedState.userAudioStates[participantId] ?? true);
         renderer = connectedState.remoteRenderers[participantId];
-      }
-
-      if (participantId != null && participantId == activeSpeakerId) {
-        isActiveSpeaker = true;
       }
     }
 
@@ -223,20 +216,16 @@ class AvatarParticipantWidget extends StatelessWidget {
                         ? BorderRadius.circular(12)
                         : null,
                     border: Border.all(
-                      color: isActiveSpeaker
-                          ? Colors.greenAccent
-                          : (isParticipantHost
-                                ? Colors.white54
-                                : Colors.grey[700]!),
-                      width: isActiveSpeaker ? 3 : (isParticipantHost ? 2 : 1),
+                      color: isParticipantHost
+                          ? Colors.white54
+                          : Colors.grey[700]!,
+                      width: isParticipantHost ? 2 : 1,
                     ),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: isActiveSpeaker
-                            ? Colors.greenAccent.withValues(alpha: 0.3)
-                            : Colors.black45,
-                        blurRadius: isActiveSpeaker ? 12 : 4,
-                        offset: const Offset(0, 2),
+                        color: Colors.black45,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
                       ),
                     ],
                   ),
@@ -250,25 +239,11 @@ class AvatarParticipantWidget extends StatelessWidget {
                         ? Stack(
                             fit: StackFit.expand,
                             children: [
-                              TweenAnimationBuilder<double>(
-                                tween: Tween<double>(
-                                  begin: 1.0,
-                                  end: isActiveSpeaker ? 1.3 : 1.0,
-                                ),
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                                builder: (context, scale, child) {
-                                  return Transform.scale(
-                                    scale: scale,
-                                    child: child,
-                                  );
-                                },
-                                child: RTCVideoView(
-                                  renderer,
-                                  objectFit: RTCVideoViewObjectFit
-                                      .RTCVideoViewObjectFitCover,
-                                  mirror: isLocal,
-                                ),
+                              RTCVideoView(
+                                renderer,
+                                objectFit: RTCVideoViewObjectFit
+                                    .RTCVideoViewObjectFitCover,
+                                mirror: isLocal,
                               ),
                               // Maximize Icon Overlay
                               Positioned(

@@ -268,7 +268,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
         if (current is VideoPlayerActive && previous is VideoPlayerActive) {
           return current.isBuffering != previous.isBuffering;
         }
-        return false;
+        return true;
       },
       builder: (context, state) {
         if (state is! VideoPlayerActive) return const SizedBox.shrink();

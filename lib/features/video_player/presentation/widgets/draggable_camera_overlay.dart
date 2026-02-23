@@ -211,10 +211,7 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
         decoration: BoxDecoration(
           color: Colors.black45,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isActiveSpeaker ? Colors.greenAccent : Colors.white24,
-            width: isActiveSpeaker ? 3 : 1,
-          ),
+          border: Border.all(color: Colors.white24, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
@@ -229,21 +226,10 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
             fit: StackFit.expand,
             children: [
               if (hasVideo && renderer != null)
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(
-                    begin: 1.0,
-                    end: isActiveSpeaker ? 1.3 : 1.0,
-                  ),
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  builder: (context, scale, child) {
-                    return Transform.scale(scale: scale, child: child);
-                  },
-                  child: RTCVideoView(
-                    renderer,
-                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                    mirror: isLocal,
-                  ),
+                RTCVideoView(
+                  renderer,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  mirror: isLocal,
                 )
               else
                 Container(

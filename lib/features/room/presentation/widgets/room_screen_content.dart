@@ -17,7 +17,9 @@ import 'package:emotional/product/utility/responsiveness/responsive_extension.da
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:simple_pip_mode/pip_widget.dart';
 
 class RoomScreenContent extends StatefulWidget {
   final String roomId;
@@ -33,7 +35,6 @@ class RoomScreenContent extends StatefulWidget {
   final VoidCallback onPickVideo;
   final void Function(drive.File) onSelectVideo;
   final VoidCallback onPlayVideo;
-  final bool isInPiPMode;
 
   const RoomScreenContent({
     super.key,
@@ -50,7 +51,6 @@ class RoomScreenContent extends StatefulWidget {
     required this.onPickVideo,
     required this.onSelectVideo,
     required this.onPlayVideo,
-    this.isInPiPMode = false,
   });
 
   @override
@@ -82,10 +82,6 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isInPiPMode) {
-      return _buildPiPView();
-    }
-
     return Scaffold(
       key: widget.scaffoldKey,
       endDrawer: Drawer(
@@ -100,160 +96,159 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
       backgroundColor: const Color(0xFF1A1D21),
       body: BlocBuilder<RoomBloc, RoomState>(
         builder: (context, state) {
-          if (state is! RoomJoined) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (state is! RoomJoined) return const SizedBox.shrink();
 
-          // Check if ANYONE is sharing screen
+          // 1. Check if anyone is screen sharing
           final sharingUserEntry = state.usersState.entries
-              .where((e) => e.value.isScreenSharing)
+              .where((entry) => entry.value.isScreenSharing)
               .firstOrNull;
-
           final isAnyoneSharing = sharingUserEntry != null;
 
-          // Auto-switch mode based on sharing status
-          if (isAnyoneSharing) {
-            if (_lastSharingUserId != sharingUserEntry.key) {
-              // Someone NEW started sharing -> Default to immersive for them
-              _lastSharingUserId = sharingUserEntry.key;
-              _currentLayoutMode = RoomLayoutMode.immersive;
-            }
-          } else {
-            // No one sharing -> Back to normal
-            if (_lastSharingUserId != null) {
-              // Just stopped sharing -> Reset orientation to portrait
-              SystemChrome.setPreferredOrientations([
-                DeviceOrientation.portraitUp,
-              ]);
-            }
-            _lastSharingUserId = null;
-            _currentLayoutMode = RoomLayoutMode.normal;
+          // Auto-switch layouts when screen share starts/stops
+          if (isAnyoneSharing && _currentLayoutMode == RoomLayoutMode.normal) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _currentLayoutMode = RoomLayoutMode.split;
+                });
+              }
+            });
           }
 
-          // 1. IMMERSIVE MODE (Fullscreen Share)
-          if (isAnyoneSharing &&
-              _currentLayoutMode == RoomLayoutMode.immersive) {
-            return BlocBuilder<CallBloc, CallState>(
-              builder: (context, callState) {
-                if (callState is! CallConnected) return const SizedBox.shrink();
+          return PipWidget(
+            child: Builder(
+              builder: (context) {
+                // 2. IMMERSIVE MODE (Fullscreen Share)
+                if (isAnyoneSharing &&
+                    _currentLayoutMode == RoomLayoutMode.immersive) {
+                  return BlocBuilder<CallBloc, CallState>(
+                    builder: (context, callState) {
+                      if (callState is! CallConnected)
+                        return const SizedBox.shrink();
 
-                return ScreenShareFullscreenView(
-                  callState: callState,
-                  sharingUserId: sharingUserEntry.key,
-                  currentUserId: widget.currentUserId,
-                  userNames: widget.userNames,
-                  onToggleSplit: () {
-                    setState(() {
-                      _currentLayoutMode = RoomLayoutMode.split;
-                    });
-                  },
-                  onToggleOrientation: _toggleOrientation,
-                );
-              },
-            );
-          }
-
-          // 2. SPLIT MODE (Share top, Room controls bottom)
-          if (isAnyoneSharing && _currentLayoutMode == RoomLayoutMode.split) {
-            return BlocBuilder<CallBloc, CallState>(
-              builder: (context, callState) {
-                if (callState is! CallConnected) return const SizedBox.shrink();
-
-                return Stack(
-                  children: [
-                    SplitMediaLayout(
-                      callState: callState,
-                      sharingUserId: sharingUserEntry.key,
-                      currentUserId: widget.currentUserId,
-                      userNames: widget.userNames,
-                      roomId: widget.roomId,
-                      participants: widget.participants,
-                      hostId: widget.hostId,
-                      isHost: widget.isHost,
-                      usersState: state.usersState,
-                      driveFileName: widget.driveFileName,
-                      driveFileId: widget.driveFileId,
-                      onPickVideo: widget.onPickVideo,
-                      onSelectVideo: widget.onSelectVideo,
-                      onPlayVideo: widget.onPlayVideo,
-                    ),
-                    SafeArea(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: RoomTopBar(
-                          roomId: widget.roomId,
-                          scaffoldKey: widget.scaffoldKey,
-                          onLeave: widget.onLeave,
-                        ),
-                      ),
-                    ),
-                    // Layout switcher button overlay (back to immersive)
-                    Positioned(
-                      top: 100, // Below TopBar
-                      right: 16,
-                      child: FloatingActionButton.small(
-                        backgroundColor: Colors.black54,
-                        child: const Icon(
-                          Icons.fullscreen,
-                          color: Colors.white,
-                        ),
-                        onPressed: () {
+                      return ScreenShareFullscreenView(
+                        callState: callState,
+                        sharingUserId: sharingUserEntry.key,
+                        currentUserId: widget.currentUserId,
+                        userNames: widget.userNames,
+                        onToggleSplit: () {
                           setState(() {
-                            _currentLayoutMode = RoomLayoutMode.immersive;
+                            _currentLayoutMode = RoomLayoutMode.split;
                           });
                         },
+                        onToggleOrientation: _toggleOrientation,
+                      );
+                    },
+                  );
+                }
+
+                // 2. SPLIT MODE (Share top, Room controls bottom)
+                if (isAnyoneSharing &&
+                    _currentLayoutMode == RoomLayoutMode.split) {
+                  return BlocBuilder<CallBloc, CallState>(
+                    builder: (context, callState) {
+                      if (callState is! CallConnected)
+                        return const SizedBox.shrink();
+
+                      return Stack(
+                        children: [
+                          SplitMediaLayout(
+                            callState: callState,
+                            sharingUserId: sharingUserEntry.key,
+                            currentUserId: widget.currentUserId,
+                            userNames: widget.userNames,
+                            roomId: widget.roomId,
+                            participants: widget.participants,
+                            hostId: widget.hostId,
+                            isHost: widget.isHost,
+                            usersState: state.usersState,
+                            driveFileName: widget.driveFileName,
+                            driveFileId: widget.driveFileId,
+                            onPickVideo: widget.onPickVideo,
+                            onSelectVideo: widget.onSelectVideo,
+                            onPlayVideo: widget.onPlayVideo,
+                          ),
+                          SafeArea(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: RoomTopBar(
+                                roomId: widget.roomId,
+                                scaffoldKey: widget.scaffoldKey,
+                                onLeave: widget.onLeave,
+                              ),
+                            ),
+                          ),
+                          // Layout switcher button overlay (back to immersive)
+                          Positioned(
+                            top: 100, // Below TopBar
+                            right: 16,
+                            child: FloatingActionButton.small(
+                              backgroundColor: Colors.black54,
+                              child: const Icon(
+                                Icons.fullscreen,
+                                color: Colors.white,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _currentLayoutMode = RoomLayoutMode.immersive;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+
+                // 3. NORMAL MODE (Seating Layout)
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: RoomSeatingWidget(
+                        participants: widget.participants,
+                        userNames: widget.userNames,
+                        isHost: widget.isHost,
+                        currentUserId: widget.currentUserId,
+                        roomId: widget.roomId,
+                        hostId: widget.hostId,
+                        usersState: state.usersState,
+                      ),
+                    ),
+                    SafeArea(
+                      child: Column(
+                        children: [
+                          RoomTopBar(
+                            roomId: widget.roomId,
+                            scaffoldKey: widget.scaffoldKey,
+                            onLeave: widget.onLeave,
+                          ),
+                          ParticipantVideoRow(
+                            participants: widget.participants,
+                            userNames: widget.userNames,
+                            currentUserId: widget.currentUserId,
+                            roomId: widget.roomId,
+                            hostId: widget.hostId,
+                            usersState: (state as RoomJoined).usersState,
+                          ),
+                          const Spacer(),
+                          VideoControlSheet(
+                            isHost: widget.isHost,
+                            roomId: widget.roomId,
+                            fileName: widget.driveFileName,
+                            fileId: widget.driveFileId,
+                            onPickVideo: widget.onPickVideo,
+                            onSelectVideo: widget.onSelectVideo,
+                            onPlay: widget.onPlayVideo,
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 );
               },
-            );
-          }
-
-          // 3. NORMAL MODE (Seating Layout)
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: RoomSeatingWidget(
-                  participants: widget.participants,
-                  userNames: widget.userNames,
-                  isHost: widget.isHost,
-                  currentUserId: widget.currentUserId,
-                  roomId: widget.roomId,
-                  hostId: widget.hostId,
-                  usersState: state.usersState,
-                ),
-              ),
-              SafeArea(
-                child: Column(
-                  children: [
-                    RoomTopBar(
-                      roomId: widget.roomId,
-                      scaffoldKey: widget.scaffoldKey,
-                      onLeave: widget.onLeave,
-                    ),
-                    ParticipantVideoRow(
-                      participants: widget.participants,
-                      userNames: widget.userNames,
-                      currentUserId: widget.currentUserId,
-                      roomId: widget.roomId,
-                      hostId: widget.hostId,
-                      usersState: (state as RoomJoined).usersState,
-                    ),
-                    const Spacer(),
-                    VideoControlSheet(
-                      isHost: widget.isHost,
-                      roomId: widget.roomId,
-                      fileName: widget.driveFileName,
-                      fileId: widget.driveFileId,
-                      onPickVideo: widget.onPickVideo,
-                      onSelectVideo: widget.onSelectVideo,
-                      onPlay: widget.onPlayVideo,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
+            pipChild: Builder(builder: (context) => _buildPiPView()),
           );
         },
       ),
@@ -284,7 +279,10 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
               backgroundColor: const Color(0xFF1A1D21),
               body: Stack(
                 children: [
-                  // Message Layer (Top)
+                  // 1. Video Layer (Background)
+                  Positioned.fill(child: _buildPiPVideoLayer(state)),
+
+                  // 2. Message Layer (Top)
                   Positioned(
                     top: 0,
                     left: 0,
@@ -413,6 +411,84 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildPiPVideoLayer(CallConnected state) {
+    // Collect active renderers (max 3 for PiP layout to prevent crowding)
+    final List<RTCVideoRenderer> activeRenderers = [];
+
+    // Add local renderer if camera is on and NOT screen sharing.
+    // (If sharing screen, we don't want to show the recursive screen in PiP).
+    if (state.isVideoEnabled && !state.isScreenSharing) {
+      activeRenderers.add(state.localRenderer);
+    }
+
+    // Add remote renderers
+    for (final uid in state.activeUsers.keys) {
+      if (activeRenderers.length >= 4) break; // Increased to 4 for grid
+      final renderer = state.remoteRenderers[uid];
+      final isVideoOn = state.userVideoStates[uid] ?? false;
+      final isScreenSharing = state.userScreenSharingStates[uid] ?? false;
+
+      // If the remote user has their camera OR screen share on
+      if (renderer != null && (isVideoOn || isScreenSharing)) {
+        activeRenderers.add(renderer);
+      }
+    }
+
+    if (activeRenderers.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_off, color: Colors.white24, size: 30),
+            SizedBox(height: 4),
+            Text(
+              "Kamera Yok",
+              style: TextStyle(color: Colors.white24, fontSize: 8),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      padding: const EdgeInsets.all(2.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1D21),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: activeRenderers.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: activeRenderers.length > 1 ? 2 : 1,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+          childAspectRatio: 1.0,
+        ),
+        itemBuilder: (context, index) {
+          final renderer = activeRenderers[index];
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white24, width: 0.5),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: RTCVideoView(
+                renderer,
+                key: ValueKey('pip_renderer_${renderer.hashCode}_$index'),
+                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

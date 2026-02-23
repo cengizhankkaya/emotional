@@ -69,29 +69,6 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     on<InternalUpdateActiveSpeaker>(_onInternalUpdateActiveSpeaker);
     on<SuspendMedia>(_onSuspendMedia);
     on<ResumeMedia>(_onResumeMedia);
-
-    // Listen to native calls
-    channel.setMethodCallHandler((call) async {
-      debugPrint(
-        '[CallBloc] !!! Native MethodChannel call received: ${call.method} !!!',
-      );
-      if (call.method == 'onStopPressed') {
-        debugPrint(
-          '[CallBloc] onStopPressed received. Current Bloc State: $state',
-        );
-        final currentState = state;
-        if (currentState is CallConnected && currentState.isScreenSharing) {
-          debugPrint(
-            '[CallBloc] Triggering ToggleScreenShare(fromNotification: true)',
-          );
-          add(const ToggleScreenShare(fromNotification: true));
-        } else {
-          debugPrint(
-            '[CallBloc] isScreenSharing is FALSE or state not connected. Ignoring stop request.',
-          );
-        }
-      }
-    });
   }
 
   bool _isVideoEnabledBeforeSuspend = false;
@@ -132,6 +109,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
       // 1. Check Permissions
       final permissionService = PermissionService();
+      // Also request notification permission so the foreground service shows up
+      await permissionService.requestNotificationPermission();
+
       final permissions = await permissionService
           .requestCameraAndMicrophonePermissions();
 
@@ -653,6 +633,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
               debugPrint('[CallBloc] Waiting 500ms for safety...');
               await Future.delayed(const Duration(milliseconds: 500));
               await channel.invokeMethod('stopService');
+              await channel.invokeMethod('startVoiceService');
             } catch (e) {
               print("Failed to stop Android foreground service: $e");
             }
@@ -734,12 +715,16 @@ class CallBloc extends Bloc<CallEvent, CallState> {
                 debugPrint(
                   "[CallBloc] Permission granted. Starting Foreground Service with PROJECTION_READY...",
                 );
+                await channel.invokeMethod('stopVoiceService');
                 await channel.invokeMethod('startService', {
                   'action': 'PROJECTION_READY',
                 });
                 await Future.delayed(const Duration(milliseconds: 500));
               } catch (e) {
                 debugPrint("Failed to start Android foreground service: $e");
+                await channel.invokeMethod(
+                  'startVoiceService',
+                ); // fallback if start fails
                 rethrow; // Re-throw to trigger cleanup below
               }
             }
@@ -806,6 +791,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
                   "[CallBloc] Fatal error during start. Stopping service...",
                 );
                 await channel.invokeMethod('stopService');
+                await channel.invokeMethod('startVoiceService');
               } catch (se) {
                 // ignore
               }

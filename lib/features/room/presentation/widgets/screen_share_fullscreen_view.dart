@@ -159,12 +159,6 @@ class _FloatingControlBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _ControlButton(
-                  icon: Icons.keyboard_arrow_down_rounded,
-                  color: Colors.white54,
-                  onPressed: onHide,
-                ),
-                const SizedBox(width: 4),
                 if (isMe) ...[
                   _ControlButton(
                     icon: Icons.stop_screen_share,
