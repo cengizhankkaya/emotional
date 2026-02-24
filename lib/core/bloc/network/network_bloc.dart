@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:connectivity_watcher/connectivity_watcher.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -60,11 +61,13 @@ class NetworkState extends Equatable {
 }
 
 // --- Bloc ---
-class NetworkBloc extends Bloc<NetworkEvent, NetworkState> {
+class NetworkBloc extends Bloc<NetworkEvent, NetworkState>
+    with WidgetsBindingObserver {
   final ZoConnectivityWatcher _watcher = ZoConnectivityWatcher();
   Timer? _qualityCheckTimer;
 
   NetworkBloc() : super(const NetworkState()) {
+    WidgetsBinding.instance.addObserver(this);
     on<NetworkStatusChanged>((event, emit) {
       debugPrint(
         'NetworkBloc: State update - hasInternet: ${event.hasInternet}, '
@@ -117,6 +120,16 @@ class NetworkBloc extends Bloc<NetworkEvent, NetworkState> {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint(
+        'NetworkBloc: App resumed, triggering immediate network check',
+      );
+      add(_NetworkCheckRequested());
+    }
+  }
+
   /// Measure real network latency by pinging Google's generate_204 endpoint
   Future<int> _measureLatency() async {
     try {
@@ -149,6 +162,7 @@ class NetworkBloc extends Bloc<NetworkEvent, NetworkState> {
 
   @override
   Future<void> close() {
+    WidgetsBinding.instance.removeObserver(this);
     _qualityCheckTimer?.cancel();
     return super.close();
   }

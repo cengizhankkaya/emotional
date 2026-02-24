@@ -1,5 +1,6 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/auth/presentation/widgets/logout_dialog.dart';
+import 'package:emotional/features/home/presentation/widgets/profile_dialog.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -49,11 +50,25 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       actions: [
         const Center(child: NetworkStatusHeader(isIconOnly: true)),
-        const SizedBox(width: 8),
-        Padding(
-          padding: const ProjectPadding.allSmall(),
-          child: ClipOval(child: Assets.logo.logo.image(fit: BoxFit.cover)),
+        const SizedBox(width: 4),
+        InkResponse(
+          onTap: () {
+            ProfileDialog.show(context);
+          },
+          highlightColor: Colors.transparent,
+          radius: 24,
+          child: Padding(
+            padding: const ProjectPadding.allSmall(),
+            child: ClipOval(
+              child: Assets.logo.logo.image(
+                fit: BoxFit.cover,
+                width: 38,
+                height: 38,
+              ),
+            ),
+          ),
         ),
+        const SizedBox(width: 8),
       ],
     );
   }
