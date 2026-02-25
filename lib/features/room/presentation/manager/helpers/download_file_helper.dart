@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-
 import 'package:path_provider/path_provider.dart';
 
 class DownloadFileHelper {
@@ -98,42 +97,47 @@ class DownloadFileHelper {
   }
 
   Future<List<File>> getLocalFiles(Set<String> incompleteTaskPaths) async {
-    final Map<String, File> uniqueFiles = {};
-
     // Scan directories as fallback/secondary
     final paths = await _getPossibleSecondaryPaths(''); // Base dirs
     debugPrint('DownloadManager: Scanning base directories: $paths');
 
+    // Move file I/O to background isolate
+    final localFilePaths = await compute(_scanLocalFilesSync, {
+      'paths': paths,
+      'incompleteTasks': incompleteTaskPaths.toList(),
+    });
+
+    return localFilePaths.map((p) => File(p)).toList();
+  }
+
+  // Top-level function for Isolate
+  static List<String> _scanLocalFilesSync(Map<String, dynamic> params) {
+    final paths = params['paths'] as List<String>;
+    final incompletePaths = Set<String>.from(
+      params['incompleteTasks'] as List<String>,
+    );
+    final uniqueFiles = <String, File>{};
+
     for (var dirPath in paths) {
       final dir = Directory(dirPath);
-      if (await dir.exists()) {
+      if (dir.existsSync()) {
         try {
-          final list = (await dir.list().toList()).whereType<File>();
-          debugPrint(
-            'DownloadManager: Listing $dirPath found ${list.length} files.',
-          );
+          final list = dir.listSync().whereType<File>();
           for (var f in list) {
-            // VALIDATION:
-            // 1. Not in incomplete tasks
-            // 2. Size > 0
-            if (!incompleteTaskPaths.contains(f.path)) {
-              if (await f.exists() && await f.length() > 0) {
-                uniqueFiles[f.path] = f;
-              }
-            } else {
-              debugPrint(
-                'DownloadManager: Ignoring incomplete/failed task file: ${f.path}',
-              );
+            if (!incompletePaths.contains(f.path)) {
+              try {
+                if (f.existsSync() && f.lengthSync() > 0) {
+                  uniqueFiles[f.path] = f;
+                }
+              } catch (_) {}
             }
           }
         } catch (e) {
-          debugPrint(
-            'DownloadManager: Listing $dirPath failed (Normal for Scoped Storage): $e',
-          );
+          // Ignore
         }
       }
     }
-    return uniqueFiles.values.toList();
+    return uniqueFiles.keys.toList();
   }
 
   Future<void> deleteDownloadedVideo(String fileName) async {
@@ -153,44 +157,47 @@ class DownloadFileHelper {
   }
 
   Future<List<File>> listGalleryVideos() async {
-    final videoExtensions = {'.mp4', '.mkv', '.avi', '.mov', '.webm'};
-    final List<File> videoFiles = [];
-    final Set<String> processedPaths = {};
-
     final appDir = await getApplicationDocumentsDirectory();
     final extDir = await getExternalStorageDirectory();
 
-    // Directories to scan
-    final List<Directory> dirsToScan = [];
-
-    // 1. App Docs (Downloaded by app)
-    dirsToScan.add(appDir);
-
-    // 2. External Storage directories (Only Download folder as requested)
+    final dirsToScan = <String>[];
+    dirsToScan.add(appDir.path);
     if (Platform.isAndroid) {
-      dirsToScan.add(Directory('/storage/emulated/0/Download'));
+      dirsToScan.add('/storage/emulated/0/Download');
     }
-
     if (extDir != null) {
-      dirsToScan.add(extDir);
+      dirsToScan.add(extDir.path);
     }
 
-    for (var dir in dirsToScan) {
-      if (await dir.exists()) {
+    // Run the heavy scanning process in a separate isolate to avoid UI freezing
+    final filePaths = await compute(_scanDirectoriesForVideos, dirsToScan);
+    return filePaths.map((path) => File(path)).toList();
+  }
+
+  // Top-level function for Isolate (must not use capturing closures)
+  static Future<List<String>> _scanDirectoriesForVideos(
+    List<String> dirPaths,
+  ) async {
+    final videoExtensions = {'.mp4', '.mkv', '.avi', '.mov', '.webm'};
+    final videoFiles = <File>[];
+    final processedPaths = <String>{};
+
+    for (var dirPath in dirPaths) {
+      final dir = Directory(dirPath);
+      if (dir.existsSync()) {
         try {
-          await _scanDirectoryRecursive(
+          _scanDirectoryRecursiveSync(
             dir,
             videoFiles,
             processedPaths,
             videoExtensions,
           );
         } catch (e) {
-          debugPrint('Error scanning dir ${dir.path}: $e');
+          // Ignore
         }
       }
     }
 
-    // Sort by modification time (newest first)
     // Sort by modification time (newest first)
     videoFiles.sort((a, b) {
       try {
@@ -200,21 +207,22 @@ class DownloadFileHelper {
       }
     });
 
-    return videoFiles;
+    return videoFiles.map((f) => f.path).toList();
   }
 
-  Future<void> _scanDirectoryRecursive(
+  static void _scanDirectoryRecursiveSync(
     Directory dir,
     List<File> videoFiles,
     Set<String> processedPaths,
     Set<String> videoExtensions, {
     int depth = 0,
-  }) async {
+  }) {
     // Limit recursion depth to avoid infinite loops and performance issues
     if (depth > 3) return;
 
     try {
       final entities = dir.listSync(recursive: false, followLinks: false);
+
       for (var entity in entities) {
         if (entity is File) {
           if (processedPaths.contains(entity.path)) continue;
@@ -241,7 +249,7 @@ class DownloadFileHelper {
           // Skip hidden folders
           if (entity.path.split('/').last.startsWith('.')) continue;
 
-          await _scanDirectoryRecursive(
+          _scanDirectoryRecursiveSync(
             entity,
             videoFiles,
             processedPaths,
@@ -251,8 +259,7 @@ class DownloadFileHelper {
         }
       }
     } catch (e) {
-      // Ignore directory access errors (Permission denied etc.)
-      // debugPrint('Skipping dir ${dir.path}: $e');
+      // Ignore
     }
   }
 }

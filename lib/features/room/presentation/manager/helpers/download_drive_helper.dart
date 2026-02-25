@@ -16,7 +16,13 @@ class DownloadDriveHelper {
       List<drive.File> driveMetadata = [];
       try {
         // Only try silent sign-in for background checks
-        driveMetadata = await driveService.listVideoFiles(silentOnly: true);
+        final fileList = await driveService.listVideoFiles(
+          silentOnly: true,
+          pageSize: 100,
+        );
+        if (fileList != null && fileList.files != null) {
+          driveMetadata = fileList.files!;
+        }
       } catch (e) {
         debugPrint(
           'DownloadManager: Could not fetch Drive metadata (silent), using local-only info: $e',

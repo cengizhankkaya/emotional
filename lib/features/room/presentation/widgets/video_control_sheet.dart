@@ -55,6 +55,11 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
   void initState() {
     super.initState();
     _checkFile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DownloadCubit>().prefetchDriveFiles();
+      }
+    });
   }
 
   @override

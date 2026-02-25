@@ -42,19 +42,26 @@ class DriveService {
     return drive.DriveApi(httpClient);
   }
 
-  Future<List<drive.File>> listVideoFiles({bool silentOnly = false}) async {
+  Future<drive.FileList?> listVideoFiles({
+    String? pageToken,
+    int pageSize = 10,
+    bool silentOnly = false,
+  }) async {
     final driveApi = await _getDriveApi(silentOnly: silentOnly);
-    if (driveApi == null) return [];
+    if (driveApi == null) return null;
 
     try {
       final response = await driveApi.files.list(
         q: "mimeType contains 'video/' and trashed = false",
-        $fields: 'files(id, name, mimeType, size, thumbnailLink)',
+        $fields:
+            'nextPageToken, files(id, name, mimeType, size, thumbnailLink)',
+        pageSize: pageSize,
+        pageToken: pageToken,
       );
-      return response.files ?? [];
+      return response;
     } catch (e) {
       debugPrint('DriveService: Error listing files: $e');
-      return [];
+      return null;
     }
   }
 

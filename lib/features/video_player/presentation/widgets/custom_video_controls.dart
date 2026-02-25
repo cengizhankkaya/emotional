@@ -89,7 +89,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
     if (state is VideoPlayerActive) {
       final currentPos = state.player.state.position;
       final newPos = forward
-          ? currentPos + const Duration(seconds: 10)
+          ? currentPos + const Duration(seconds: 30)
           : currentPos - const Duration(seconds: 10);
 
       // Bloc will handle the seek via service call or we can dispatch event?
@@ -330,7 +330,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
                   SizedBox(width: gap),
                   IconButton(
                     iconSize: sideIconSize,
-                    icon: const Icon(Icons.forward_10, color: Colors.white),
+                    icon: const Icon(Icons.forward_30, color: Colors.white),
                     onPressed: () {
                       _onDoubleTapSeek(true);
                       _resetHideTimer();

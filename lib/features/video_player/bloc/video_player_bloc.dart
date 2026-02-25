@@ -72,7 +72,12 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
     }
 
     await _videoService.initialize();
-    final controller = VideoController(_videoService.player);
+    final controller = VideoController(
+      _videoService.player,
+      configuration: const VideoControllerConfiguration(
+        enableHardwareAcceleration: false,
+      ),
+    );
 
     _playingSubscription = _videoService.playingStream.listen((playing) {
       add(OnPlayerStateChanged(isPlaying: playing));

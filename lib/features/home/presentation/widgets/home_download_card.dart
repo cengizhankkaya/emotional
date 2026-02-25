@@ -22,6 +22,16 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
   bool _isExpanded = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DownloadCubit>().prefetchDriveFiles();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocConsumer<DownloadCubit, DownloadState>(
       listener: (context, state) {
@@ -275,21 +285,26 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
   }
 
   Future<void> _openDriveFilePicker(BuildContext context) async {
+    final downloadCubit = context
+        .read<DownloadCubit>(); // Capture before async gap
     final file = await Navigator.push<drive.File>(
       context,
-      MaterialPageRoute(builder: (_) => const DriveFilePickerScreen()),
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: downloadCubit,
+          child: const DriveFilePickerScreen(),
+        ),
+      ),
     );
 
     if (file != null && mounted) {
       // Download the selected file
       if (file.id != null && file.name != null) {
-        context.read<DownloadCubit>().downloadVideo(file.id!, file.name!);
+        downloadCubit.downloadVideo(file.id!, file.name!);
       }
-    }
 
-    // Refresh downloaded videos list
-    if (mounted) {
-      context.read<DownloadCubit>().loadDownloadedVideos();
+      // Refresh downloaded videos list
+      downloadCubit.loadDownloadedVideos();
     }
   }
 }

@@ -39,6 +39,7 @@ class DownloadManager extends ChangeNotifier {
   String? _currentDownloadingFileName;
   String? _currentDownloadingFileId;
   List<drive.File> _downloadedVideos = [];
+  bool _hasPreScanned = false;
 
   Function(String)? _onError;
 
@@ -57,6 +58,7 @@ class DownloadManager extends ChangeNotifier {
   File? get localVideoFile => _localVideoFile;
   String? get currentDownloadingFileName => _currentDownloadingFileName;
   List<drive.File> get downloadedVideos => _downloadedVideos;
+  bool get hasPreScanned => _hasPreScanned;
 
   void setOnError(Function(String) callback) {
     _onError = callback;
@@ -283,12 +285,21 @@ class DownloadManager extends ChangeNotifier {
     return await _fileHelper.getLocalFiles(incompleteTaskPaths);
   }
 
-  Future<void> loadDownloadedVideos(DriveService driveService) async {
+  Future<void> loadDownloadedVideos(
+    DriveService driveService, {
+    bool force = false,
+  }) async {
+    if (_hasPreScanned && !force && _downloadedVideos.isNotEmpty) {
+      debugPrint('DownloadManager: Skipping scan, already pre-scanned.');
+      return;
+    }
+
     final localFiles = await _getLocalFiles();
     _downloadedVideos = await _driveHelper.loadDownloadedVideos(
       driveService: driveService,
       localFiles: localFiles,
     );
+    _hasPreScanned = true;
     _notifyStateChanged();
   }
 
