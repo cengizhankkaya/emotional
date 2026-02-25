@@ -30,6 +30,7 @@ class DownloadManager extends ChangeNotifier {
   final DownloadDriveHelper _driveHelper = DownloadDriveHelper();
 
   bool _isInitialized = false;
+  Completer<void>? _initCompleter;
 
   double? _downloadProgress;
   String? _downloadStatus;
@@ -67,45 +68,54 @@ class DownloadManager extends ChangeNotifier {
       return;
     }
 
-    _recoveryHelper = DownloadRecoveryHelper(
-      taskHelper: _taskHelper,
-      fileHelper: _fileHelper,
-    );
+    if (_initCompleter != null) {
+      await _initCompleter!.future;
+      return;
+    }
 
-    await _permissionHelper.requestInitialPermissions();
+    _initCompleter = Completer<void>();
 
-    await _permissionHelper.requestInitialPermissions();
-
-    // Migrated to DownloadService for professional background handling
-    // _isolateHelper.bindBackgroundIsolate(_onDownloadProgress);
-
-    // Listen to DownloadService instead
-    DownloadService().taskStream.listen((task) {
-      _onDownloadProgress(task);
-    });
-
-    _isInitialized = true;
-
-    // Task Recovery
-    final tasks = await _taskHelper.loadTasks();
-    if (tasks != null && tasks.isNotEmpty) {
-      final task = tasks.last;
-      debugPrint(
-        'DownloadManager: Found existing task: ${task.taskId} - Status: ${task.status}',
+    try {
+      _recoveryHelper = DownloadRecoveryHelper(
+        taskHelper: _taskHelper,
+        fileHelper: _fileHelper,
       );
 
-      if (task.status == TaskStatus.running ||
-          task.status == TaskStatus.enqueued) {
-        _currentDownloadingFileId = null;
-        _currentDownloadingFileName = task.filename;
-        _downloadProgress = task.progress;
-        _downloadStatus = 'İndiriliyor...';
-        notifyListeners();
-      } else if (task.status == TaskStatus.complete) {
-        if (task.filename != null) {
-          await checkFileExists(task.filename!);
+      await _permissionHelper.requestInitialPermissions();
+
+      // Listen to DownloadService instead
+      DownloadService().taskStream.listen((task) {
+        _onDownloadProgress(task);
+      });
+
+      _isInitialized = true;
+
+      // Task Recovery
+      final tasks = await _taskHelper.loadTasks();
+      if (tasks != null && tasks.isNotEmpty) {
+        final task = tasks.last;
+        debugPrint(
+          'DownloadManager: Found existing task: ${task.taskId} - Status: ${task.status}',
+        );
+
+        if (task.status == TaskStatus.running ||
+            task.status == TaskStatus.enqueued) {
+          _currentDownloadingFileId = null;
+          _currentDownloadingFileName = task.filename;
+          _downloadProgress = task.progress;
+          _downloadStatus = 'İndiriliyor...';
+          notifyListeners();
+        } else if (task.status == TaskStatus.complete) {
+          if (task.filename != null) {
+            await checkFileExists(task.filename!);
+          }
         }
       }
+      _initCompleter!.complete();
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
     }
   }
 

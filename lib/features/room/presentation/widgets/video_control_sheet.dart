@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:emotional/core/services/youtube_service.dart';
+import 'package:emotional/features/room/presentation/widgets/youtube_search_sheet.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 class VideoControlSheet extends StatefulWidget {
@@ -800,13 +801,29 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'YouTube Linki',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'YouTube Video',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            IconButton(
+              onPressed: () => _showYouTubeSearch(context),
+              icon: const Icon(
+                Icons.search,
+                size: 20,
+                color: ColorsCustom.skyBlue,
+              ),
+              tooltip: 'YouTube\'da Ara',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Row(
@@ -871,6 +888,19 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
           ],
         ),
       ],
+    );
+  }
+
+  void _showYouTubeSearch(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => YouTubeSearchSheet(
+        onVideoSelected: (url, title) {
+          widget.onSelectVideo(drive.File(id: url, name: title));
+        },
+      ),
     );
   }
 

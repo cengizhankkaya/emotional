@@ -17,16 +17,8 @@ class DownloadPermissionHelper {
       // Storage permissions
       if (await _isAndroid13OrHigher()) {
         // Android 13+ treat Photos and Videos separately
-
-        final videoStatus = await ph.Permission.videos.status;
-        if (videoStatus.isDenied || videoStatus.isLimited) {
-          await ph.Permission.videos.request();
-        }
-
-        final photosStatus = await ph.Permission.photos.status;
-        if (photosStatus.isDenied || photosStatus.isLimited) {
-          await ph.Permission.photos.request();
-        }
+        await _permissionService.requestVideoPermission();
+        await _permissionService.requestPhotoPermission();
       } else {
         await _permissionService.requestStoragePermission();
       }

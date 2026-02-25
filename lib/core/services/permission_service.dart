@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
@@ -12,23 +13,56 @@ class PermissionService {
 
   PermissionService._internal();
 
+  // Lock to prevent concurrent permission requests
+  bool _isRequesting = false;
+  Completer<void>? _currentRequest;
+
+  Future<void> _waitForLock() async {
+    while (_isRequesting) {
+      _currentRequest ??= Completer<void>();
+      await _currentRequest!.future;
+    }
+    _isRequesting = true;
+  }
+
+  void _releaseLock() {
+    _isRequesting = false;
+    _currentRequest?.complete();
+    _currentRequest = null;
+  }
+
   /// Requests camera permission
   Future<bool> requestCameraPermission() async {
-    final status = await ph.Permission.camera.request();
-    return _handlePermissionStatus(status);
+    await _waitForLock();
+    try {
+      final status = await ph.Permission.camera.request();
+      return _handlePermissionStatus(status);
+    } finally {
+      _releaseLock();
+    }
   }
 
   /// Requests microphone permission
   Future<bool> requestMicrophonePermission() async {
-    final status = await ph.Permission.microphone.request();
-    return _handlePermissionStatus(status);
+    await _waitForLock();
+    try {
+      final status = await ph.Permission.microphone.request();
+      return _handlePermissionStatus(status);
+    } finally {
+      _releaseLock();
+    }
   }
 
   /// Requests notification permission (Android 13+)
   Future<bool> requestNotificationPermission() async {
     if (Platform.isAndroid) {
-      final status = await ph.Permission.notification.request();
-      return _handlePermissionStatus(status);
+      await _waitForLock();
+      try {
+        final status = await ph.Permission.notification.request();
+        return _handlePermissionStatus(status);
+      } finally {
+        _releaseLock();
+      }
     }
     // Notifications are typically handled differently on iOS (via APNS),
     // but permission_handler supports basic request.
@@ -40,15 +74,17 @@ class PermissionService {
   Future<bool> requestStoragePermission() async {
     if (Platform.isAndroid) {
       final deviceInfo = await DeviceInfoPlugin().androidInfo;
-      // On Android 13 (SDK 33) and above, permission_group.storage is deprecated.
-      // Returning true because we don't need to ask for it.
       if (deviceInfo.version.sdkInt >= 33) {
         return true;
       }
 
-      // But for downloads on old devices, it's key.
-      final status = await ph.Permission.storage.request();
-      return _handlePermissionStatus(status);
+      await _waitForLock();
+      try {
+        final status = await ph.Permission.storage.request();
+        return _handlePermissionStatus(status);
+      } finally {
+        _releaseLock();
+      }
     }
     return true;
   }
@@ -82,8 +118,41 @@ class PermissionService {
   /// Requests ignore battery optimizations (critical for long background downloads)
   Future<bool> requestIgnoreBatteryOptimizations() async {
     if (Platform.isAndroid) {
-      final status = await ph.Permission.ignoreBatteryOptimizations.request();
-      return _handlePermissionStatus(status);
+      await _waitForLock();
+      try {
+        final status = await ph.Permission.ignoreBatteryOptimizations.request();
+        return _handlePermissionStatus(status);
+      } finally {
+        _releaseLock();
+      }
+    }
+    return true;
+  }
+
+  /// Requests video permission (Android 13+)
+  Future<bool> requestVideoPermission() async {
+    if (Platform.isAndroid) {
+      await _waitForLock();
+      try {
+        final status = await ph.Permission.videos.request();
+        return _handlePermissionStatus(status);
+      } finally {
+        _releaseLock();
+      }
+    }
+    return true;
+  }
+
+  /// Requests photo permission (Android 13+)
+  Future<bool> requestPhotoPermission() async {
+    if (Platform.isAndroid) {
+      await _waitForLock();
+      try {
+        final status = await ph.Permission.photos.request();
+        return _handlePermissionStatus(status);
+      } finally {
+        _releaseLock();
+      }
     }
     return true;
   }

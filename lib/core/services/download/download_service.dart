@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
+import 'package:emotional/core/services/permission_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'download_model.dart';
 
 class DownloadService {
@@ -17,72 +17,80 @@ class DownloadService {
   Stream<DownloadTaskOption> get taskStream => _taskController.stream;
 
   bool _isInitialized = false;
+  Completer<void>? _initCompleter;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    // Configure notifications for a professional experience
-    await FileDownloader().configureNotificationForGroup(
-      FileDownloader.defaultGroup,
-      // For running tasks:
-      running: const TaskNotification(
-        '{displayName}',
-        '⬇️ {networkSpeed}   ⏱️ {timeRemaining}   💾 {progress}',
-      ),
-      // For complete tasks:
-      complete: const TaskNotification(
-        'İndirme Tamamlandı',
-        '{displayName} başarıyla indirildi.',
-      ),
-      // For failed tasks:
-      error: const TaskNotification(
-        'İndirme Başarısız',
-        '{displayName} indirilemedi.',
-      ),
-      // For paused tasks:
-      paused: const TaskNotification(
-        'İndirme Duraklatıldı',
-        '{displayName} bekliyor.',
-      ),
-      progressBar: true,
-      tapOpensFile: true,
-    );
+    if (_initCompleter != null) {
+      await _initCompleter!.future;
+      return;
+    }
 
-    // Listen to updates
-    FileDownloader().updates.listen((update) {
-      if (update is TaskStatusUpdate) {
-        _taskController.add(DownloadTaskOption.fromUpdate(update));
-      } else if (update is TaskProgressUpdate) {
-        _taskController.add(DownloadTaskOption.fromProgress(update));
-      }
-    });
+    _initCompleter = Completer<void>();
 
-    // Request necessary permissions immediately
-    await requestPermissions();
+    try {
+      // Configure notifications for a professional experience
+      await FileDownloader().configureNotificationForGroup(
+        FileDownloader.defaultGroup,
+        // For running tasks:
+        running: const TaskNotification(
+          '{displayName}',
+          '⬇️ {networkSpeed}   ⏱️ {timeRemaining}   💾 {progress}',
+        ),
+        // For complete tasks:
+        complete: const TaskNotification(
+          'İndirme Tamamlandı',
+          '{displayName} başarıyla indirildi.',
+        ),
+        // For failed tasks:
+        error: const TaskNotification(
+          'İndirme Başarısız',
+          '{displayName} indirilemedi.',
+        ),
+        // For paused tasks:
+        paused: const TaskNotification(
+          'İndirme Duraklatıldı',
+          '{displayName} bekliyor.',
+        ),
+        progressBar: true,
+        tapOpensFile: true,
+      );
 
-    _isInitialized = true;
+      // Listen to updates
+      FileDownloader().updates.listen((update) {
+        if (update is TaskStatusUpdate) {
+          _taskController.add(DownloadTaskOption.fromUpdate(update));
+        } else if (update is TaskProgressUpdate) {
+          _taskController.add(DownloadTaskOption.fromProgress(update));
+        }
+      });
+
+      // Request necessary permissions immediately
+      await requestPermissions();
+
+      _isInitialized = true;
+      _initCompleter!.complete();
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
+    }
   }
 
   /// Requests necessary permissions for a "professional" background download experience.
   Future<void> requestPermissions() async {
     if (Platform.isAndroid) {
-      // 1. Notifications (required for background_downloader foreground service)
-      final notificationStatus = await Permission.notification.status;
-      if (notificationStatus.isDenied) {
-        await Permission.notification.request();
-      }
+      final permissionService = PermissionService();
 
-      // 2. Storage (optional for internal storage, but good to have)
-      final storageStatus = await Permission.storage.status;
-      if (storageStatus.isDenied) {
-        await Permission.storage.request();
-      }
+      // 1. Notifications
+      await permissionService.requestNotificationPermission();
+
+      // 2. Storage
+      await permissionService.requestStoragePermission();
 
       // 3. Battery Optimization
-      final batteryStatus = await Permission.ignoreBatteryOptimizations.status;
-      if (batteryStatus.isDenied) {
-        await Permission.ignoreBatteryOptimizations.request();
-      }
+      await permissionService.requestIgnoreBatteryOptimizations();
     }
   }
 

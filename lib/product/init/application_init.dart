@@ -27,22 +27,26 @@ final class ApplicationInit {
     // 2. Initialize Localization
     await EasyLocalization.ensureInitialized();
 
-    // 3. Initialize MediaKit
-    MediaKit.ensureInitialized();
-
-    // 4. Initialize Download Service (Professional Background)
-    // Note: DownloadManager is kept for backward compatibility for now,
-    // but DownloadService handles the core initialization.
-    await DownloadService().initialize();
-    await DownloadManager().initialize();
-
     // 5. Initialize Firebase
     await _initializeFirebase();
 
-    // 6. Initialize Remote Config
+    // 6. Initialize Remote Config with timeout
     await _initializeRemoteConfig();
 
-    // 7. Set Orientation (Optional, keeping it simple or flexible for now, but generally good practice to define)
+    // 7. Initialize Background Services (Non-blocking for UI)
+    unawaited(backgroundStart());
+  }
+
+  /// Initializations that don't need to block the initial UI render
+  Future<void> backgroundStart() async {
+    // MediaKit initialization
+    MediaKit.ensureInitialized();
+
+    // Download services
+    await DownloadService().initialize();
+    await DownloadManager().initialize();
+
+    // Orientation
     await _setRotation();
   }
 
@@ -70,13 +74,24 @@ final class ApplicationInit {
   }
 
   Future<void> _initializeRemoteConfig() async {
-    final remoteConfig = FirebaseRemoteConfig.instance;
-    await remoteConfig.setConfigSettings(
-      RemoteConfigSettings(
-        fetchTimeout: const Duration(minutes: 1),
-        minimumFetchInterval: const Duration(hours: 1),
-      ),
-    );
-    await remoteConfig.fetchAndActivate();
+    try {
+      final remoteConfig = FirebaseRemoteConfig.instance;
+      await remoteConfig.setConfigSettings(
+        RemoteConfigSettings(
+          fetchTimeout: const Duration(seconds: 10), // Reduced from 1 min
+          minimumFetchInterval: const Duration(hours: 1),
+        ),
+      );
+      // Wait at most 5 seconds for the fetch to complete
+      await remoteConfig.fetchAndActivate().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('ApplicationInit: Remote Config fetch timed out');
+          return false;
+        },
+      );
+    } catch (e) {
+      debugPrint('ApplicationInit: Remote Config error: $e');
+    }
   }
 }

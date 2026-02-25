@@ -59,6 +59,20 @@ class YouTubeService {
     }
   }
 
+  /// Searches for videos based on the given query.
+  Future<List<Video>> searchVideos(String query) async {
+    try {
+      if (query.isEmpty) return [];
+      final searchList = await _yt.search.search(query);
+
+      // We only return the videos (ignoring playlists/channels for now)
+      return searchList.whereType<Video>().toList();
+    } catch (e) {
+      print('Error searching YouTube videos: $e');
+      return [];
+    }
+  }
+
   void dispose() {
     _ytInstance?.close();
     _ytInstance = null;
