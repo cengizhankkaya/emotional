@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'package:emotional/core/services/permission_service.dart';
-import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:device_info_plus/device_info_plus.dart';
 
 class DownloadPermissionHelper {
@@ -24,15 +22,8 @@ class DownloadPermissionHelper {
       }
 
       // Critical for Android 14+: Battery optimizations must be disabled for long background tasks
-      bool isOptimizing =
-          await ph.Permission.ignoreBatteryOptimizations.isDenied;
-      debugPrint(
-        'DownloadManager: Battery optimization is ${isOptimizing ? "ENABLED (Bad for background)" : "DISABLED (Good)"}',
-      );
-
-      if (isOptimizing) {
-        await _permissionService.requestIgnoreBatteryOptimizations();
-      }
+      // PermissionService internally handles checking if already granted or previously denied.
+      await _permissionService.requestIgnoreBatteryOptimizations();
     }
   }
 

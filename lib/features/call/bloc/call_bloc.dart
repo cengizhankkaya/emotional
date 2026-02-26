@@ -11,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:emotional/core/services/permission_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -123,10 +124,22 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         return;
       }
 
+      // Request battery exemption on Android
+      if (Platform.isAndroid) {
+        await permissionService.requestIgnoreBatteryOptimizations();
+      }
+
       await _cleanup();
 
       // Initiate Audio Session (Focus & Routing)
       await _audioSessionService.activate();
+
+      // Enable Wakelock to keep screen/CPU alive
+      try {
+        await WakelockPlus.enable();
+      } catch (e) {
+        debugPrint('CallBloc: Failed to enable wakelock: $e');
+      }
 
       // 2. Initialize Media Devices (Tracks ready and ENABLED by default)
       await _mediaDeviceService.initialize();
@@ -409,6 +422,14 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       _localRenderer!.dispose();
       _localRenderer = null;
     }
+
+    // Disable Wakelock
+    try {
+      await WakelockPlus.disable();
+    } catch (e) {
+      debugPrint('CallBloc: Failed to disable wakelock: $e');
+    }
+
     for (var r in _remoteRenderers.values) {
       r.srcObject = null;
       r.dispose();

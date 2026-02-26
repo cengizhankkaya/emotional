@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _roomIdController = TextEditingController();
   final _cacheManager = CacheManager();
   bool _isJoiningRoom = false;
+  String? _pendingDeepLinkRoomId; // Pending room ID if blocked by permissions
 
   @override
   void initState() {
@@ -45,8 +46,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadLastRoomId() async {
+    // Only load from cache if the field is empty (to avoid overwriting deep link)
+    if (_roomIdController.text.isNotEmpty) return;
+
     final lastRoomId = await _cacheManager.getLastRoomId();
-    if (lastRoomId != null && mounted) {
+    if (lastRoomId != null && mounted && _roomIdController.text.isEmpty) {
       _roomIdController.text = lastRoomId;
     }
   }
@@ -73,24 +77,41 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleDeepLink(Uri uri) {
     String? roomId;
 
-    // 1. Custom Scheme: emotional://join/123
-    if (uri.scheme == 'emotional' && uri.pathSegments.isNotEmpty) {
-      if (uri.pathSegments[0] == 'join' && uri.pathSegments.length > 1) {
-        roomId = uri.pathSegments[1];
+    // 1. Custom Scheme: emotional://join/123 or emotional://room/123
+    if (uri.scheme == 'emotional') {
+      if (uri.pathSegments.contains('join') ||
+          uri.pathSegments.contains('room')) {
+        // Find segment after 'join' or 'room'
+        final index = uri.pathSegments.indexWhere(
+          (s) => s == 'join' || s == 'room',
+        );
+        if (index != -1 && uri.pathSegments.length > index + 1) {
+          roomId = uri.pathSegments[index + 1];
+        }
+      } else if (uri.host == 'join' || uri.host == 'room') {
+        // emotional://join?id=123 or emotional://join/123 (where join is host)
+        if (uri.pathSegments.isNotEmpty) {
+          roomId = uri.pathSegments.first;
+        } else {
+          roomId = uri.queryParameters['id'];
+        }
       }
     }
     // 2. Universal Link: https://emotional-app-b42af.web.app/join/123
     else if ((uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host == 'emotional-app-b42af.web.app' &&
-        uri.pathSegments.isNotEmpty) {
-      if (uri.pathSegments[0] == 'join' && uri.pathSegments.length > 1) {
-        roomId = uri.pathSegments[1];
+        uri.host == 'emotional-app-b42af.web.app') {
+      if (uri.pathSegments.contains('join')) {
+        final index = uri.pathSegments.indexOf('join');
+        if (uri.pathSegments.length > index + 1) {
+          roomId = uri.pathSegments[index + 1];
+        }
       }
     }
 
-    if (roomId != null && roomId.isNotEmpty) {
-      debugPrint('Auto-joining room: $roomId');
-      _roomIdController.text = roomId;
+    if (roomId != null && roomId.trim().isNotEmpty) {
+      final cleanRoomId = roomId.trim();
+      debugPrint('Deep link detected for room: $cleanRoomId');
+      _roomIdController.text = cleanRoomId;
       _joinRoom(context);
     }
   }
@@ -132,6 +153,14 @@ class _HomeScreenState extends State<HomeScreen> {
           await permissionService.requestCameraAndMicrophonePermissions();
           // Use helper for advanced storage/gallery permissions
           await DownloadPermissionHelper().requestInitialPermissions();
+
+          // After granting, check if we had a pending deep link
+          if (_pendingDeepLinkRoomId != null && mounted) {
+            debugPrint(
+              'Processing pending deep link after permissions granted: $_pendingDeepLinkRoomId',
+            );
+            _joinRoom(context);
+          }
         },
       ),
     );
@@ -172,9 +201,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (roomState is RoomLoading || roomState is RoomJoined) return;
 
     if (!await _hasRequiredPermissions()) {
+      _pendingDeepLinkRoomId = _roomIdController.text.trim();
       _checkAndRequestPermissions();
       return;
     }
+
+    // Clear pending ID as we are proceeding with join
+    _pendingDeepLinkRoomId = null;
 
     final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
     final userName = UserHelper.getUserDisplayName(user);
@@ -214,6 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
           listener: (context, state) {
             if (state is RoomError) {
               _isJoiningRoom = false;
+              _pendingDeepLinkRoomId = null; // Clear on error
               String errorMessage = state.message;
               if (errorMessage.contains('Room not found')) {
                 errorMessage = 'Oda bulunamadı.';

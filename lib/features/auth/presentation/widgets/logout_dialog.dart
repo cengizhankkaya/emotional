@@ -40,10 +40,12 @@ class LogoutDialog extends StatelessWidget {
                 color: ColorsCustom.imperilRead.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.logout_rounded,
-                color: ColorsCustom.imperilRead,
-                size: 32,
+              child: Transform.rotate(
+                angle: 3.14159, // 180 degrees in radians (pi)
+                child: const Icon(
+                  Icons.exit_to_app_outlined,
+                  color: ColorsCustom.imperilRead,
+                ),
               ),
             ),
             const SizedBox(height: 16),

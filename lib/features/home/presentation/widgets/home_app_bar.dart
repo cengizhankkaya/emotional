@@ -1,7 +1,9 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/auth/presentation/widgets/logout_dialog.dart';
 import 'package:emotional/features/home/presentation/widgets/profile_dialog.dart';
+import 'package:emotional/features/home/presentation/widgets/settings_dialog.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
+import 'package:emotional/product/utility/constants/app_icons.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -22,20 +24,28 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       centerTitle: true,
-      leading: IconButton(
-        icon: Transform.rotate(
-          angle: 3.14159, // 180 degrees in radians (pi)
-          child: const Icon(
-            Icons.exit_to_app_outlined,
-            color: ColorsCustom.darkGray,
+      leadingWidth: 100,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Transform.rotate(
+              angle: 3.14159, // 180 degrees in radians (pi)
+              child: const Icon(
+                Icons.exit_to_app_outlined,
+                color: ColorsCustom.darkGray,
+              ),
+            ),
+            onPressed: () async {
+              final confirm = await LogoutDialog.show(context);
+              if (confirm == true && context.mounted) {
+                context.read<AuthBloc>().add(LogoutRequested());
+              }
+            },
           ),
-        ),
-        onPressed: () async {
-          final confirm = await LogoutDialog.show(context);
-          if (confirm == true && context.mounted) {
-            context.read<AuthBloc>().add(LogoutRequested());
-          }
-        },
+          const Center(child: NetworkStatusHeader(isIconOnly: true)),
+        ],
       ),
       title: Text(
         'Emoti',
@@ -49,8 +59,10 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       actions: [
-        const Center(child: NetworkStatusHeader(isIconOnly: true)),
-        const SizedBox(width: 4),
+        IconButton(
+          onPressed: () => SettingsDialog.show(context),
+          icon: const Icon(AppIcons.settings, color: ColorsCustom.darkGray),
+        ),
         InkResponse(
           onTap: () {
             ProfileDialog.show(context);

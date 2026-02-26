@@ -38,7 +38,12 @@ class RoomRepositoryImpl implements RoomRepository {
       });
 
       // Set up onDisconnect to remove the user if the app crashes/disconnects
+      // Set up onDisconnect to remove the user if the app crashes/disconnects
       await roomRef.child('users/$userId').onDisconnect().remove();
+
+      // Cleanup signaling paths on disconnect
+      final signalRef = _database.ref('rooms/$roomId/signal/$userId');
+      await signalRef.onDisconnect().remove();
 
       print('RoomRepository: Data written to DB successfully.');
     } catch (e) {
@@ -88,6 +93,11 @@ class RoomRepositoryImpl implements RoomRepository {
 
     // Set up onDisconnect ONLY after successful transaction
     await roomRef.child('users/$userId').onDisconnect().remove();
+
+    // Cleanup signaling paths on disconnect
+    final signalRef = _database.ref('rooms/$roomId/signal/$userId');
+    await signalRef.onDisconnect().remove();
+
     print(
       'RoomRepository: User $userId successfully joined via transaction and onDisconnect setup.',
     );
@@ -100,6 +110,9 @@ class RoomRepositoryImpl implements RoomRepository {
     print('RoomRepository: User $userId is leaving room $roomId manually.');
     // Cancel the onDisconnect listener since we are leaving manually
     await roomRef.child('users/$userId').onDisconnect().cancel();
+
+    final signalRef = _database.ref('rooms/$roomId/signal/$userId');
+    await signalRef.onDisconnect().cancel();
 
     // Use a transaction to ensure atomic update and cleanup
     final result = await roomRef.runTransaction((Object? post) {

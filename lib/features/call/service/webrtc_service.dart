@@ -189,25 +189,29 @@ class WebRTCService implements ICallService {
 
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
-        _handleRemoteBye(targetUserId);
+        print(
+          "[WebRTC] Connection failed with $targetUserId. Attempting full reconnect...",
+        );
+        await connect(targetUserId); // Full reconnect
       } else if (state ==
           RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        // Give it a chance to recover (Ice Restart or simple network glitch)
+        // Soft recovery (Ice Restart)
         print(
-          "[WebRTC] Disconnected from $targetUserId. Waiting for recovery...",
+          "[WebRTC] Disconnected from $targetUserId. Initiating ICE Restart...",
         );
-        await Future.delayed(const Duration(seconds: 5));
 
-        // Check if still disconnected (and peer connection still exists)
+        // Wait a bit to see if it recovers naturally
+        await Future.delayed(const Duration(seconds: 3));
+
         var currentPc = _peerConnections[targetUserId];
         if (currentPc == pc) {
-          // Ensure pc hasn't been replaced
-          var newState = await pc.getConnectionState();
-          print("[WebRTC] State after wait for $targetUserId: $newState");
-          if (newState ==
-                  RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
-              newState == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-            _handleRemoteBye(targetUserId);
+          var currentState = await pc.getConnectionState();
+          if (currentState ==
+              RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+            print(
+              "[WebRTC] Still disconnected from $targetUserId. Sending offer with iceRestart: true",
+            );
+            await _triggerIceRestart(targetUserId);
           }
         }
       }
@@ -235,12 +239,33 @@ class WebRTCService implements ICallService {
     final pc = await createPeerConnection(targetUserId);
 
     // Yeni teklif göndermeden önce o kullanıcıya giden tüm ESKİ sinyalleri (candidates vb.) temizle.
-    // Bu, re-entry sırasında eski ICE adaylarının yeni session'ı bozmasını önler.
     await _signalingService?.clearOutgoingToUser(targetUserId);
 
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await sendOffer(targetUserId, offer);
+  }
+
+  /// ICE Restart tetikleyici
+  Future<void> _triggerIceRestart(String targetUserId) async {
+    final pc = _peerConnections[targetUserId];
+    if (pc == null) return;
+
+    try {
+      // createOffer with iceRestart: true
+      final offer = await pc.createOffer({
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': true,
+        'iceRestart': true,
+      });
+      await pc.setLocalDescription(offer);
+      await sendOffer(targetUserId, offer);
+      print("[WebRTC] ICE Restart offer sent to $targetUserId");
+    } catch (e) {
+      print("[WebRTC] Error during ICE Restart for $targetUserId: $e");
+      // If ICE Restart fails, try full reconnect
+      await connect(targetUserId);
+    }
   }
 
   final Map<String, List<RTCIceCandidate>> _remoteCandidateQueues = {};

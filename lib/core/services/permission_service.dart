@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
+import 'package:emotional/core/manager/cache_manager.dart';
 
 class PermissionService {
   // Singleton pattern
@@ -55,19 +57,13 @@ class PermissionService {
 
   /// Requests notification permission (Android 13+)
   Future<bool> requestNotificationPermission() async {
-    if (Platform.isAndroid) {
-      await _waitForLock();
-      try {
-        final status = await ph.Permission.notification.request();
-        return _handlePermissionStatus(status);
-      } finally {
-        _releaseLock();
-      }
+    await _waitForLock();
+    try {
+      final status = await ph.Permission.notification.request();
+      return _handlePermissionStatus(status);
+    } finally {
+      _releaseLock();
     }
-    // Notifications are typically handled differently on iOS (via APNS),
-    // but permission_handler supports basic request.
-    // For now assuming true or handling implicitly for iOS if not strict.
-    return true;
   }
 
   /// Requests storage permission (for Android < 10)
@@ -92,19 +88,24 @@ class PermissionService {
   /// Requests both camera and microphone permissions (useful for calls)
   Future<Map<ph.Permission, bool>>
   requestCameraAndMicrophonePermissions() async {
-    Map<ph.Permission, ph.PermissionStatus> statuses = await [
-      ph.Permission.camera,
-      ph.Permission.microphone,
-    ].request();
+    await _waitForLock();
+    try {
+      Map<ph.Permission, ph.PermissionStatus> statuses = await [
+        ph.Permission.camera,
+        ph.Permission.microphone,
+      ].request();
 
-    return {
-      ph.Permission.camera: _handlePermissionStatus(
-        statuses[ph.Permission.camera]!,
-      ),
-      ph.Permission.microphone: _handlePermissionStatus(
-        statuses[ph.Permission.microphone]!,
-      ),
-    };
+      return {
+        ph.Permission.camera: _handlePermissionStatus(
+          statuses[ph.Permission.camera]!,
+        ),
+        ph.Permission.microphone: _handlePermissionStatus(
+          statuses[ph.Permission.microphone]!,
+        ),
+      };
+    } finally {
+      _releaseLock();
+    }
   }
 
   /// Check if camera permission is granted
@@ -115,13 +116,40 @@ class PermissionService {
   Future<bool> get isMicrophoneGranted async =>
       await ph.Permission.microphone.isGranted;
 
+  final _cacheManager = CacheManager();
+
   /// Requests ignore battery optimizations (critical for long background downloads)
   Future<bool> requestIgnoreBatteryOptimizations() async {
     if (Platform.isAndroid) {
+      // 1. Check if already granted
+      if (await ph.Permission.ignoreBatteryOptimizations.isGranted) {
+        return true;
+      }
+
+      // 2. Check if user already denied it to avoid infinite loops/nagging
+      if (await _cacheManager.hasDeniedBatteryOptimization()) {
+        debugPrint(
+          'PermissionService: Skipping battery optimization request (User already denied).',
+        );
+        return false;
+      }
+
       await _waitForLock();
       try {
         final status = await ph.Permission.ignoreBatteryOptimizations.request();
-        return _handlePermissionStatus(status);
+        final success = _handlePermissionStatus(status);
+
+        if (!success) {
+          // Store denial preference
+          await _cacheManager.setHasDeniedBatteryOptimization(true);
+        }
+
+        return success;
+      } catch (e) {
+        debugPrint(
+          'PermissionService: Error requesting battery optimization: $e',
+        );
+        return false;
       } finally {
         _releaseLock();
       }
