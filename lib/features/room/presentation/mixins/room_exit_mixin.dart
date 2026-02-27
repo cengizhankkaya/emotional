@@ -30,23 +30,23 @@ mixin RoomExitMixin<T extends StatefulWidget> on State<T> {
       roomId = roomState.roomId;
     }
 
-    // CallBloc cleanup
+    // 1. Önce CallBloc'u temizle (async cleanup queue'ya giriyor)
     context.read<CallBloc>().add(LeaveCall());
 
-    // RoomBloc cleanup
+    // 2. RoomBloc'u temizle — bu RoomInitial emit eder.
+    // room_screen.dart BlocConsumer listener'ı RoomInitial'i görünce
+    // Navigator.pop() çağırır. Burada ayrıca pop YAPILMIYOR.
     if (roomId != null) {
       final currentUserId =
           (context.read<AuthBloc>().state as AuthAuthenticated).user.uid;
       context.read<RoomBloc>().add(
         LeaveRoomRequested(roomId: roomId, userId: currentUserId),
       );
-    }
-
-    // Force pop
-    Future.delayed(const Duration(milliseconds: 100), () {
+    } else {
+      // Oda state'i yoksa (RoomInitial/RoomLoading) direkt pop
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-    });
+    }
   }
 }

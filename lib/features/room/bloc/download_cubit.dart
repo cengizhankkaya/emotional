@@ -110,6 +110,7 @@ class DownloadCubit extends Cubit<DownloadState> {
   }
 
   void _onDownloadManagerChanged() {
+    if (isClosed) return;
     emit(
       state.copyWith(
         downloadProgress: _downloadManager.downloadProgress,
@@ -122,8 +123,8 @@ class DownloadCubit extends Cubit<DownloadState> {
   }
 
   void _onError(String message) {
+    if (isClosed) return;
     emit(state.copyWith(error: message));
-    // Clear error immediately after emission so it doesn't persist
     emit(state.copyWith(clearError: true));
   }
 
@@ -164,7 +165,6 @@ class DownloadCubit extends Cubit<DownloadState> {
     emit(state.copyWith(isPrefetching: true));
 
     try {
-      // Also pre-scan local files to make the picker instant
       _downloadManager.loadDownloadedVideos(_driveService);
 
       final startTime = DateTime.now();
@@ -176,6 +176,8 @@ class DownloadCubit extends Cubit<DownloadState> {
       debugPrint(
         'DownloadCubit: prefetchDriveFiles() completed in ${elapsed.inMilliseconds}ms',
       );
+
+      if (isClosed) return;
 
       if (fileList != null) {
         debugPrint(
@@ -195,8 +197,8 @@ class DownloadCubit extends Cubit<DownloadState> {
       }
     } catch (e) {
       debugPrint('DownloadCubit: prefetchDriveFiles error: $e');
+      if (isClosed) return;
       emit(state.copyWith(isPrefetching: false));
-      // Don't emit to error stream here to not disrupt the UI, prefetching should be silent
     }
   }
 }

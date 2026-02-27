@@ -51,6 +51,12 @@ class DownloadManager extends ChangeNotifier {
   // Track last completed task to prevent duplicate success notifications
   String? _lastCompletedTaskId;
 
+  // StreamSubscription to allow cancellation
+  StreamSubscription<DownloadTaskOption>? _taskStreamSubscription;
+
+  // Timer for cleanup after download completion
+  Timer? _cleanupTimer;
+
   // Getters
   double? get downloadProgress => _downloadProgress;
   String? get downloadStatus => _downloadStatus;
@@ -85,8 +91,8 @@ class DownloadManager extends ChangeNotifier {
 
       await _permissionHelper.requestInitialPermissions();
 
-      // Listen to DownloadService instead
-      DownloadService().taskStream.listen((task) {
+      // Store subscription so it can be cancelled on dispose
+      _taskStreamSubscription = DownloadService().taskStream.listen((task) {
         _onDownloadProgress(task);
       });
 
@@ -174,7 +180,9 @@ class DownloadManager extends ChangeNotifier {
     debugPrint('DownloadManager: Download COMPLETED successfully.');
     _notifyStateChanged();
 
-    Future.delayed(const Duration(seconds: 2), () {
+    // İptal edilebilir Timer ile temizlik — dispose'da güvenle iptal edilir
+    _cleanupTimer?.cancel();
+    _cleanupTimer = Timer(const Duration(seconds: 2), () {
       _downloadProgress = null;
       _downloadStatus = null;
       _currentDownloadingFileName = null;
@@ -265,6 +273,14 @@ class DownloadManager extends ChangeNotifier {
 
   void _notifyStateChanged() {
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _cleanupTimer?.cancel();
+    _taskStreamSubscription?.cancel();
+    _checkFileDebounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<List<File>> _getLocalFiles() async {

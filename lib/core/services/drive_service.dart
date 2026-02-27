@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:emotional/core/services/download/download_service.dart';
 
 class DriveService {
@@ -100,28 +98,13 @@ class DriveService {
         throw Exception('File access/token check failed: $e');
       }
 
-      final appDir =
-          await getExternalStorageDirectory() ??
-          await getApplicationDocumentsDirectory();
-      final savedDir = appDir.path;
-
-      // Ensure directory exists
-      final directory = Directory(savedDir);
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-
       // Sanitize filename
       final safeFileName = fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
 
-      // 2. URL to download content
-      // NOTE: We use Header-Only Auth. It's the most standard and stable for Google Drive.
-      // External storage directory is used to avoid the "move to public Downloads" bug that causes Status 4 notifications.
+      // URL to download content (DownloadService saves to applicationDocuments)
       final url = 'https://www.googleapis.com/drive/v3/files/$fileId?alt=media';
 
-      debugPrint(
-        'DriveService: [EXTERNAL-STABLE] Enqueuing download for $safeFileName',
-      );
+      debugPrint('DriveService: Enqueuing download for $safeFileName');
 
       final taskId = await DownloadService().download(
         url: url,
@@ -137,7 +120,7 @@ class DriveService {
       }
 
       debugPrint(
-        'DriveService: Enqueued task for $safeFileName with ID: $taskId at $savedDir',
+        'DriveService: Enqueued task for $safeFileName with ID: $taskId',
       );
 
       return taskId;

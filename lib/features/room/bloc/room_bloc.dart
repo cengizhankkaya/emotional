@@ -89,7 +89,9 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
 
   @override
   Future<void> close() {
+    _isLeavingRoom = true;
     _roomSubscription?.cancel();
+    _roomSubscription = null;
     return super.close();
   }
 

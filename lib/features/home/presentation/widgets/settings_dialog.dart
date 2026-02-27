@@ -1,5 +1,8 @@
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/core/init/core_localize.dart';
 import 'package:emotional/core/services/permission_service.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -52,11 +55,10 @@ class _SettingsDialogState extends State<SettingsDialog>
     setState(() => _isLoading = true);
 
     final statuses = {
-      'Kamera': await _permissionService.isCameraGranted,
-      'Mikrofon': await _permissionService.isMicrophoneGranted,
-      'Bildirim': await Permission.notification.isGranted,
-      'Pil': await Permission.ignoreBatteryOptimizations.isGranted,
-      'Galeri': await Permission.photos.isGranted,
+      'camera': await _permissionService.isCameraGranted,
+      'microphone': await _permissionService.isMicrophoneGranted,
+      'notification': await Permission.notification.isGranted,
+      'gallery': await Permission.photos.isGranted,
     };
 
     if (mounted) {
@@ -75,19 +77,16 @@ class _SettingsDialogState extends State<SettingsDialog>
 
     bool result = false;
     switch (key) {
-      case 'Kamera':
+      case 'camera':
         result = await _permissionService.requestCameraPermission();
         break;
-      case 'Mikrofon':
+      case 'microphone':
         result = await _permissionService.requestMicrophonePermission();
         break;
-      case 'Bildirim':
+      case 'notification':
         result = await _permissionService.requestNotificationPermission();
         break;
-      case 'Pil':
-        result = await _permissionService.requestIgnoreBatteryOptimizations();
-        break;
-      case 'Galeri':
+      case 'gallery':
         result = await _permissionService.requestPhotoPermission();
         break;
     }
@@ -95,28 +94,14 @@ class _SettingsDialogState extends State<SettingsDialog>
     if (result) {
       await _checkPermissions();
     } else if (mounted) {
-      Permission p;
-      switch (key) {
-        case 'Kamera':
-          p = Permission.camera;
-          break;
-        case 'Mikrofon':
-          p = Permission.microphone;
-          break;
-        case 'Bildirim':
-          p = Permission.notification;
-          break;
-        case 'Pil':
-          p = Permission.ignoreBatteryOptimizations;
-          break;
-        case 'Galeri':
-          p = Permission.photos;
-          break;
-        default:
-          return;
-      }
-
-      if (await p.isPermanentlyDenied && mounted) {
+      final permission = key == 'camera'
+          ? Permission.camera
+          : key == 'microphone'
+          ? Permission.microphone
+          : key == 'notification'
+          ? Permission.notification
+          : Permission.photos;
+      if (await permission.isPermanentlyDenied && mounted) {
         _showSettingsSnackBar();
       }
     }
@@ -125,7 +110,7 @@ class _SettingsDialogState extends State<SettingsDialog>
   void _showRevokeSettingsSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
+        content: Text(
           'İzinleri iptal etmek için sistem ayarlarını kullanmanız gerekir.',
         ),
         duration: const Duration(seconds: 4),
@@ -187,40 +172,39 @@ class _SettingsDialogState extends State<SettingsDialog>
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
+                            // ── Dil Seçimi ──────────────────────────────
+                            _buildLanguageTile(context),
+                            const Divider(color: Colors.white12, height: 24),
+                            // ── İzinler ─────────────────────────────────
                             _buildPermissionTile(
-                              'Kamera',
-                              'Görüntülü görüşmeler için',
+                              LocaleKeys.settings_camera.tr(),
+                              LocaleKeys.settings_cameraSubtitle.tr(),
                               Icons.camera_alt_rounded,
-                              _permissionStatuses['Kamera'] ?? false,
-                              (val) => _handlePermissionChange('Kamera', val),
+                              _permissionStatuses['camera'] ?? false,
+                              (val) => _handlePermissionChange('camera', val),
                             ),
                             _buildPermissionTile(
-                              'Mikrofon',
-                              'Sesli görüşmeler için',
+                              LocaleKeys.settings_microphone.tr(),
+                              LocaleKeys.settings_microphoneSubtitle.tr(),
                               Icons.mic_rounded,
-                              _permissionStatuses['Mikrofon'] ?? false,
-                              (val) => _handlePermissionChange('Mikrofon', val),
+                              _permissionStatuses['microphone'] ?? false,
+                              (val) =>
+                                  _handlePermissionChange('microphone', val),
                             ),
                             _buildPermissionTile(
-                              'Bildirimler',
-                              'İndirme durumları için',
+                              LocaleKeys.settings_notifications.tr(),
+                              LocaleKeys.settings_notificationsSubtitle.tr(),
                               Icons.notifications_active_rounded,
-                              _permissionStatuses['Bildirim'] ?? false,
-                              (val) => _handlePermissionChange('Bildirim', val),
+                              _permissionStatuses['notification'] ?? false,
+                              (val) =>
+                                  _handlePermissionChange('notification', val),
                             ),
                             _buildPermissionTile(
-                              'Galeri Erişimi',
-                              'Video seçimi için',
+                              LocaleKeys.settings_gallery.tr(),
+                              LocaleKeys.settings_gallerySubtitle.tr(),
                               Icons.photo_library_rounded,
-                              _permissionStatuses['Galeri'] ?? false,
-                              (val) => _handlePermissionChange('Galeri', val),
-                            ),
-                            _buildPermissionTile(
-                              'Pil Optimizasyonu',
-                              'Kesintisiz arka plan işlemleri',
-                              Icons.battery_saver_rounded,
-                              _permissionStatuses['Pil'] ?? false,
-                              (val) => _handlePermissionChange('Pil', val),
+                              _permissionStatuses['gallery'] ?? false,
+                              (val) => _handlePermissionChange('gallery', val),
                             ),
                           ],
                         ),
@@ -247,7 +231,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         ),
         const SizedBox(width: 12),
         Text(
-          'Ayarlar',
+          LocaleKeys.settings_title.tr(),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -260,6 +244,91 @@ class _SettingsDialogState extends State<SettingsDialog>
         ),
       ],
     );
+  }
+
+  /// Dil seçimi tile'ı — Türkçe / İngilizce toggle
+  Widget _buildLanguageTile(BuildContext context) {
+    final currentLocale = context.locale;
+    final isTurkish = currentLocale.languageCode == 'tr';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ColorsCustom.skyBlue.withValues(alpha: 0.3)),
+      ),
+      child: ListTile(
+        leading: const Icon(
+          Icons.language_rounded,
+          color: ColorsCustom.skyBlue,
+        ),
+        title: Text(
+          LocaleKeys.language_sectionTitle.tr(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+        subtitle: Text(
+          LocaleKeys.language_subtitle.tr(),
+          style: const TextStyle(color: Colors.white60, fontSize: 11),
+        ),
+        trailing: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildLangButton(
+                label: '🇹🇷 TR',
+                isSelected: isTurkish,
+                onTap: () => _changeLocale(context, AppLocale.tr.locale),
+              ),
+              _buildLangButton(
+                label: '🇺🇸 EN',
+                isSelected: !isTurkish,
+                onTap: () => _changeLocale(context, AppLocale.en.locale),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLangButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? ColorsCustom.skyBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? ColorsCustom.darkBlue : Colors.white70,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _changeLocale(BuildContext context, Locale locale) {
+    context.setLocale(locale);
   }
 
   Widget _buildPermissionTile(
@@ -316,7 +385,7 @@ class _SettingsDialogState extends State<SettingsDialog>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Sistem Ayarları'),
+            child: Text(LocaleKeys.settings_systemSettings.tr()),
           ),
         ),
         const SizedBox(width: 12),
@@ -331,9 +400,9 @@ class _SettingsDialogState extends State<SettingsDialog>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
-              'Kapat',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Text(
+              LocaleKeys.button_close.tr(),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ),

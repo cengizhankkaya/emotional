@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -24,7 +26,7 @@ class DownloadInterruptionDialog extends StatelessWidget {
             ),
             SizedBox(height: context.dynamicHeight(0.02)),
             Text(
-              'İşlem Güvenliği',
+              LocaleKeys.download_securityTitle.tr(),
               style: TextStyle(
                 color: ColorsCustom.white,
                 fontSize: context.dynamicValue(20),
@@ -33,7 +35,7 @@ class DownloadInterruptionDialog extends StatelessWidget {
             ),
             SizedBox(height: context.dynamicHeight(0.01)),
             Text(
-              'Ekranı kapatmamanız indirme işleminin güvenliği ve veri bütünlüğü için önemlidir. Lütfen işlem bitene kadar bekleyiniz.',
+              LocaleKeys.download_securityMessage.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: ColorsCustom.white.withValues(alpha: 0.7),
@@ -53,9 +55,9 @@ class DownloadInterruptionDialog extends StatelessWidget {
                   ),
                   padding: ProjectPadding.allMedium(),
                 ),
-                child: const Text(
-                  'Anladım',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                child: Text(
+                  LocaleKeys.button_understood.tr(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),

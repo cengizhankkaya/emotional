@@ -13,16 +13,22 @@ class DownloadDriveHelper {
         'DownloadManager: Total local files collected: ${localFiles.length}',
       );
 
+      // Sayfalama ile tüm Drive dosyalarını çek (maks 500)
       List<drive.File> driveMetadata = [];
       try {
-        // Only try silent sign-in for background checks
-        final fileList = await driveService.listVideoFiles(
-          silentOnly: true,
-          pageSize: 100,
-        );
-        if (fileList != null && fileList.files != null) {
-          driveMetadata = fileList.files!;
-        }
+        String? pageToken;
+        do {
+          final fileList = await driveService.listVideoFiles(
+            silentOnly: true,
+            pageSize: 100,
+            pageToken: pageToken,
+          );
+          if (fileList == null) break;
+          if (fileList.files != null) {
+            driveMetadata.addAll(fileList.files!);
+          }
+          pageToken = fileList.nextPageToken;
+        } while (pageToken != null && driveMetadata.length < 500);
       } catch (e) {
         debugPrint(
           'DownloadManager: Could not fetch Drive metadata (silent), using local-only info: $e',

@@ -1,3 +1,100 @@
 {
-    "title": "Duygusal Video Oynatıcı"
+    "app": {
+        "title": "Duygusal Video Oynatıcı",
+        "name": "Emoti"
+    },
+    "language": {
+        "sectionTitle": "Dil",
+        "subtitle": "Uygulama dili",
+        "turkish": "Türkçe",
+        "english": "İngilizce"
+    },
+    "button": {
+        "cancel": "İptal",
+        "ok": "Tamam",
+        "close": "Kapat",
+        "save": "Kaydet",
+        "confirm": "Onayla",
+        "back": "Geri",
+        "retry": "Tekrar Dene",
+        "understood": "Anladım",
+        "leave": "Ayrıl",
+        "stop": "Durdur",
+        "share": "Paylaş",
+        "watch": "İzle",
+        "download": "İndir",
+        "play": "Oynat",
+        "seeAll": "Tümünü Gör"
+    },
+    "room": {
+        "closed": "Oda kapatıldı veya odadan ayrıldınız.",
+        "leaveTitle": "Odadan Çık",
+        "leaveMessage": "Odadan ayrılmak istediğinize emin misiniz?",
+        "hostSelectingVideo": "Host video seçimi yapıyor...",
+        "someone": "Biri",
+        "me": "Sen",
+        "armchairTheme": "Koltuk Teması Seçin",
+        "armchairStyleModern": "Modern",
+        "armchairStyleRetro": "Retro",
+        "armchairStyleClay": "Pastel",
+        "armchairStyleLove": "Aşk",
+        "armchairStyleWhite": "Beyaz",
+        "armchairStyleAntrasit": "Antrasit",
+        "armchairStyleNavy": "Lacivert",
+        "armchairStylePurple": "Mor",
+        "armchairStyleGreen": "Yeşil"
+    },
+    "video": {
+        "selectedVideo": "Seçilen Video",
+        "fileNotFound": "Video dosyası bulunamadı. Kontrol ediliyor...",
+        "fileChecking": "Video dosyası kontrol ediliyor...",
+        "downloading": "İndiriliyor %{}",
+        "localFileMissing": "Yerel Dosya (Eksik)",
+        "showControls": "Kontrolleri Göster",
+        "youtube": "YouTube Video",
+        "youtubeSearch": "YouTube'da Ara"
+    },
+    "call": {
+        "settings": "Ayarlar",
+        "mute": "Sustur",
+        "unmute": "Sesi Aç",
+        "cameraOff": "Kapat",
+        "cameraOn": "Aç",
+        "stopSharing": "Durdur",
+        "startSharing": "Paylaş",
+        "callSettings": "Görüşme Ayarları",
+        "streamQuality": "Yayın Kalitesi",
+        "camera": "Kamera",
+        "microphone": "Mikrofon",
+        "speaker": "Hoparlör",
+        "cameraSelect": "Kamera Seçimi",
+        "microphoneSelect": "Mikrofon Seçimi",
+        "speakerSelect": "Hoparlör Seçimi",
+        "default": "Varsayılan",
+        "deviceNotFound": "Cihaz bulunamadı",
+        "unknownDevice": "Bilinmeyen Cihaz",
+        "rotate": "Döndür",
+        "splitScreen": "Yan Ekran",
+        "sharing": "{} paylaşıyor"
+    },
+    "download": {
+        "securityTitle": "İşlem Güvenliği",
+        "securityMessage": "Ekranı kapatmamanız indirme işleminin güvenliği ve veri bütünlüğü için önemlidir. Lütfen işlem bitene kadar bekleyiniz."
+    },
+    "error": {
+        "title": "Bir Hata Oluştu",
+        "opening": "Konsolu Aç (Tarayıcı)"
+    },
+    "settings": {
+        "title": "Ayarlar",
+        "systemSettings": "Sistem Ayarları",
+        "camera": "Kamera",
+        "cameraSubtitle": "Görüntülü görüşmeler için",
+        "microphone": "Mikrofon",
+        "microphoneSubtitle": "Sesli görüşmeler için",
+        "notifications": "Bildirimler",
+        "notificationsSubtitle": "İndirme durumları için",
+        "gallery": "Galeri Erişimi",
+        "gallerySubtitle": "Video seçimi için"
+    }
 }

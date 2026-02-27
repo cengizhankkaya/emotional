@@ -88,9 +88,6 @@ class DownloadService {
 
       // 2. Storage
       await permissionService.requestStoragePermission();
-
-      // 3. Battery Optimization
-      await permissionService.requestIgnoreBatteryOptimizations();
     }
   }
 

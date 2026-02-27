@@ -119,28 +119,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _checkAndRequestPermissions() async {
     final permissionService = PermissionService();
 
-    // Check if we need to show rationale
-    // Simply check if any is NOT granted first
-    final isCameraGranted = await permissionService.isCameraGranted;
-    final isMicGranted = await permissionService.isMicrophoneGranted;
-    // Notification check is platform specific inside service but returns bool
-    final isNotifGranted = await permissionService
-        .requestNotificationPermission();
-
-    // Check storage too (will likely be true or implicitly handled on new Androids, but matters for old ones)
-    final isStorageGranted = await permissionService.requestStoragePermission();
-
-    // If already granted, do nothing (notification request above acts as check/request for Android 13)
-    if (isCameraGranted && isMicGranted && isNotifGranted && isStorageGranted)
-      return;
-
+    // 1. Zaten verilmişse hiçbir şey yapma
+    if (await permissionService.areCallPermissionsGranted) return;
     if (!mounted) return;
 
-    // Request directly without custom dialog
-    // await permissionService.requestCameraAndMicrophonePermissions();
-    // await permissionService.requestNotificationPermission();
+    // 2. Kalıcı olarak reddedilmişse → Ayarlar'a yönlendir
+    if (await permissionService.isCameraOrMicPermanentlyDenied) {
+      _showPermanentlyDeniedDialog();
+      return;
+    }
 
-    // Show custom permission sheet
+    // 3. Henüz verilmemiş → PermissionSheet göster
     showModalBottomSheet(
       context: context,
       isDismissible: false,
@@ -149,19 +138,66 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => PermissionSheet(
         onGrant: () async {
           Navigator.pop(context);
-          // Request all sequentialy
           await permissionService.requestCameraAndMicrophonePermissions();
-          // Use helper for advanced storage/gallery permissions
           await DownloadPermissionHelper().requestInitialPermissions();
 
-          // After granting, check if we had a pending deep link
           if (_pendingDeepLinkRoomId != null && mounted) {
-            debugPrint(
-              'Processing pending deep link after permissions granted: $_pendingDeepLinkRoomId',
-            );
             _joinRoom(context);
           }
         },
+      ),
+    );
+  }
+
+  /// Kalıcı olarak reddedilmiş izinler için Ayarlar yönlendirme diyalogu
+  void _showPermanentlyDeniedDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsCustom.darkABlue,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text(
+              'İzin Gerekli',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Kamera ve mikrofon izinleri kalıcı olarak reddedilmiş.\n\nOda oluşturmak veya katılmak için uygulama ayarlarından izinleri açmanız gerekiyor.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Vazgeç',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await PermissionService().openAppSettings();
+            },
+            icon: const Icon(Icons.settings_outlined, size: 18),
+            label: const Text('Ayarları Aç'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorsCustom.skyBlue,
+              foregroundColor: ColorsCustom.darkBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -174,9 +210,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<bool> _hasRequiredPermissions() async {
     final permissionService = PermissionService();
-    final isCameraGranted = await permissionService.isCameraGranted;
-    final isMicGranted = await permissionService.isMicrophoneGranted;
-    return isCameraGranted && isMicGranted;
+
+    // Zaten verilmişse geç
+    if (await permissionService.areCallPermissionsGranted) return true;
+
+    // Kalıcı red → diyalog göster, false döndür
+    if (await permissionService.isCameraOrMicPermanentlyDenied) {
+      _showPermanentlyDeniedDialog();
+      return false;
+    }
+
+    // Henüz istenmemiş → PermissionSheet göster
+    _checkAndRequestPermissions();
+    return false;
   }
 
   Future<void> _createRoom(BuildContext context) async {

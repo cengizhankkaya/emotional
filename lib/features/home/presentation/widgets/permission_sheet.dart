@@ -67,14 +67,6 @@ class PermissionSheet extends StatelessWidget {
             SizedBox(height: context.dynamicHeight(0.02)),
             _buildPermissionItem(
               context,
-              icon: Icons.battery_saver_rounded,
-              title: 'Pil İyileştirmeleri',
-              subtitle:
-                  'Arka planda indirmelerin ve görüşmelerin kesilmemesi için',
-            ),
-            SizedBox(height: context.dynamicHeight(0.02)),
-            _buildPermissionItem(
-              context,
               icon: Icons.storage_rounded,
               title: 'Depolama',
               subtitle:

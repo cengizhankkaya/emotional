@@ -1,8 +1,10 @@
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -89,7 +91,8 @@ class _ScreenShareFullscreenViewState extends State<ScreenShareFullscreenView> {
                     isMe: isMe,
                     callState: widget.callState,
                     sharingUserName:
-                        widget.userNames[widget.sharingUserId] ?? 'Biri',
+                        widget.userNames[widget.sharingUserId] ??
+                        LocaleKeys.room_someone.tr(),
                     onToggleSplit: widget.onToggleSplit,
                     onToggleOrientation: widget.onToggleOrientation,
                     onHide: () => setState(() => _showControls = false),
@@ -162,7 +165,7 @@ class _FloatingControlBar extends StatelessWidget {
                 if (isMe) ...[
                   _ControlButton(
                     icon: Icons.stop_screen_share,
-                    label: "Durdur",
+                    label: LocaleKeys.call_stopSharing.tr(),
                     color: Colors.redAccent,
                     onPressed: () =>
                         context.read<CallBloc>().add(ToggleScreenShare()),
@@ -171,7 +174,7 @@ class _FloatingControlBar extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      "$sharingUserName paylaşıyor",
+                      LocaleKeys.call_sharing.tr(args: [sharingUserName]),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -183,14 +186,14 @@ class _FloatingControlBar extends StatelessWidget {
                 const SizedBox(width: 4),
                 _ControlButton(
                   icon: Icons.sync_rounded,
-                  label: "Döndür",
+                  label: LocaleKeys.call_rotate.tr(),
                   color: Colors.orangeAccent,
                   onPressed: onToggleOrientation,
                 ),
                 const SizedBox(width: 4),
                 _ControlButton(
                   icon: Icons.grid_view_rounded,
-                  label: "Yan Ekran",
+                  label: LocaleKeys.call_splitScreen.tr(),
                   color: Colors.deepPurpleAccent,
                   onPressed: onToggleSplit,
                 ),
@@ -230,7 +233,7 @@ class _FloatingControlBar extends StatelessWidget {
     final current = callState.currentQuality;
     return PopupMenuButton<CallQualityPreset>(
       initialValue: current,
-      tooltip: 'Yayın Kalitesi',
+      tooltip: LocaleKeys.call_streamQuality.tr(),
       onSelected: (quality) =>
           context.read<CallBloc>().add(ChangeQuality(quality)),
       itemBuilder: (context) => CallQualityPreset.values
@@ -383,7 +386,7 @@ class _ParticipantOverlay extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: participants.map((uid) {
-        final name = userNames[uid] ?? 'Biri';
+        final name = userNames[uid] ?? LocaleKeys.room_someone.tr();
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(4),
@@ -405,7 +408,7 @@ class _ParticipantOverlay extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                uid == currentUserId ? "Sen" : name,
+                uid == currentUserId ? LocaleKeys.room_me.tr() : name,
                 style: const TextStyle(color: Colors.white70, fontSize: 10),
               ),
               const SizedBox(width: 8),

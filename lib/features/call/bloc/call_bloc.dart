@@ -124,11 +124,6 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         return;
       }
 
-      // Request battery exemption on Android
-      if (Platform.isAndroid) {
-        await permissionService.requestIgnoreBatteryOptimizations();
-      }
-
       await _cleanup();
 
       // Initiate Audio Session (Focus & Routing)
@@ -415,7 +410,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
     _isCallActive = false;
     _audioMonitorTimer?.cancel();
+    _audioMonitorTimer = null;
     _roomSubscription?.cancel();
+    _roomSubscription = null;
+
+    // Timer'ın çalışmakta olan son async tick'inin (getStats vb.) bitmesi için bekleme
+    await Future.delayed(const Duration(milliseconds: 100));
 
     if (_localRenderer != null) {
       _localRenderer!.srcObject = null;

@@ -19,12 +19,21 @@ class AuthStatusWrapper extends StatelessWidget {
           context.read<CallBloc>().add(LeaveCall());
 
           final roomState = context.read<RoomBloc>().state;
+
+          String? roomId;
+          String? userId;
+
           if (roomState is RoomJoined) {
+            roomId = roomState.roomId;
+            userId = roomState.userId;
+          } else if (roomState is RoomCreated) {
+            roomId = roomState.roomId;
+            userId = roomState.userId;
+          }
+
+          if (roomId != null && userId != null) {
             context.read<RoomBloc>().add(
-              LeaveRoomRequested(
-                roomId: roomState.roomId,
-                userId: roomState.userId,
-              ),
+              LeaveRoomRequested(roomId: roomId, userId: userId),
             );
           }
         }

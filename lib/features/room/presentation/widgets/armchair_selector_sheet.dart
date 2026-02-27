@@ -1,6 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/presentation/manager/room_decoration_cubit.dart';
 import 'package:emotional/features/room/presentation/widgets/furniture_theme_data.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -23,9 +25,9 @@ class ArmchairSelectorSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Koltuk Teması Seçin',
-            style: TextStyle(
+          Text(
+            LocaleKeys.room_armchairTheme.tr(),
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 18,
@@ -155,23 +157,23 @@ class ArmchairSelectorSheet extends StatelessWidget {
   String _getStyleName(ArmchairStyle style) {
     switch (style) {
       case ArmchairStyle.modern:
-        return 'Modern';
+        return LocaleKeys.room_armchairStyleModern.tr();
       case ArmchairStyle.vintage:
-        return 'Retro';
+        return LocaleKeys.room_armchairStyleRetro.tr();
       case ArmchairStyle.clay:
-        return 'Pastel';
+        return LocaleKeys.room_armchairStyleClay.tr();
       case ArmchairStyle.love:
-        return 'Aşk';
+        return LocaleKeys.room_armchairStyleLove.tr();
       case ArmchairStyle.fwhite:
-        return 'Beyaz';
+        return LocaleKeys.room_armchairStyleWhite.tr();
       case ArmchairStyle.esce:
-        return 'Antrasit';
+        return LocaleKeys.room_armchairStyleAntrasit.tr();
       case ArmchairStyle.lacivert:
-        return 'Lacivert';
+        return LocaleKeys.room_armchairStyleNavy.tr();
       case ArmchairStyle.mor:
-        return 'Mor';
+        return LocaleKeys.room_armchairStylePurple.tr();
       case ArmchairStyle.yesIl:
-        return 'Yeşil';
+        return LocaleKeys.room_armchairStyleGreen.tr();
     }
   }
 }

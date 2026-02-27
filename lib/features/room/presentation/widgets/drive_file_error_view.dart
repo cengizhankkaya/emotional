@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -23,7 +25,7 @@ class DriveFileErrorView extends StatelessWidget {
             ),
             SizedBox(height: context.dynamicHeight(0.02)),
             Text(
-              'Bir Hata Oluştu',
+              LocaleKeys.error_title.tr(),
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: Colors.white,
                 fontSize: context.dynamicValue(24),
@@ -54,7 +56,7 @@ class DriveFileErrorView extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.open_in_browser),
-                label: const Text('Konsolu Aç (Tarayıcı)'),
+                label: Text(LocaleKeys.error_opening.tr()),
               ),
               SizedBox(height: context.dynamicHeight(0.02)),
               Container(

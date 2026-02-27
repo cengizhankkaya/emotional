@@ -1,3 +1,100 @@
 {
-  "title": "Emotional Video Player"
+  "app": {
+    "title": "Emotional Video Player",
+    "name": "Emoti"
+  },
+  "language": {
+    "sectionTitle": "Language",
+    "subtitle": "App language",
+    "turkish": "Turkish",
+    "english": "English"
+  },
+  "button": {
+    "cancel": "Cancel",
+    "ok": "OK",
+    "close": "Close",
+    "save": "Save",
+    "confirm": "Confirm",
+    "back": "Back",
+    "retry": "Retry",
+    "understood": "Got it",
+    "leave": "Leave",
+    "stop": "Stop",
+    "share": "Share",
+    "watch": "Watch",
+    "download": "Download",
+    "play": "Play",
+    "seeAll": "See All"
+  },
+  "room": {
+    "closed": "Room closed or you have left the room.",
+    "leaveTitle": "Leave Room",
+    "leaveMessage": "Are you sure you want to leave the room?",
+    "hostSelectingVideo": "Host is selecting a video...",
+    "someone": "Someone",
+    "me": "You",
+    "armchairTheme": "Select Armchair Theme",
+    "armchairStyleModern": "Modern",
+    "armchairStyleRetro": "Retro",
+    "armchairStyleClay": "Pastel",
+    "armchairStyleLove": "Love",
+    "armchairStyleWhite": "White",
+    "armchairStyleAntrasit": "Anthracite",
+    "armchairStyleNavy": "Navy",
+    "armchairStylePurple": "Purple",
+    "armchairStyleGreen": "Green"
+  },
+  "video": {
+    "selectedVideo": "Selected Video",
+    "fileNotFound": "Video file not found. Checking...",
+    "fileChecking": "Checking video file...",
+    "downloading": "Downloading {}%",
+    "localFileMissing": "Local File (Missing)",
+    "showControls": "Show Controls",
+    "youtube": "YouTube Video",
+    "youtubeSearch": "Search on YouTube"
+  },
+  "call": {
+    "settings": "Settings",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cameraOff": "Turn Off",
+    "cameraOn": "Turn On",
+    "stopSharing": "Stop",
+    "startSharing": "Share",
+    "callSettings": "Call Settings",
+    "streamQuality": "Stream Quality",
+    "camera": "Camera",
+    "microphone": "Microphone",
+    "speaker": "Speaker",
+    "cameraSelect": "Select Camera",
+    "microphoneSelect": "Select Microphone",
+    "speakerSelect": "Select Speaker",
+    "default": "Default",
+    "deviceNotFound": "No device found",
+    "unknownDevice": "Unknown Device",
+    "rotate": "Rotate",
+    "splitScreen": "Side Screen",
+    "sharing": "{} is sharing"
+  },
+  "download": {
+    "securityTitle": "Process Security",
+    "securityMessage": "Keeping the screen open is important for the security and data integrity of the download process. Please wait until the process is complete."
+  },
+  "error": {
+    "title": "An Error Occurred",
+    "opening": "Open Console (Browser)"
+  },
+  "settings": {
+    "title": "Settings",
+    "systemSettings": "System Settings",
+    "camera": "Camera",
+    "cameraSubtitle": "For video calls",
+    "microphone": "Microphone",
+    "microphoneSubtitle": "For audio calls",
+    "notifications": "Notifications",
+    "notificationsSubtitle": "For download status",
+    "gallery": "Gallery Access",
+    "gallerySubtitle": "For video selection"
+  }
 }

@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/core/services/youtube_service.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
@@ -148,9 +150,9 @@ class _RoomBodyState extends State<_RoomBody>
             if (Navigator.canPop(context)) {
               ScaffoldMessenger.of(context).clearSnackBars();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Oda kapatıldı veya odadan ayrıldınız.'),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text(LocaleKeys.room_closed.tr()),
+                  duration: const Duration(seconds: 2),
                 ),
               );
               Navigator.of(context).pop();
@@ -283,10 +285,8 @@ class _RoomBodyState extends State<_RoomBody>
                       } else {
                         // File is not available, show error and trigger recheck
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Video dosyası bulunamadı. Kontrol ediliyor...',
-                            ),
+                          SnackBar(
+                            content: Text(LocaleKeys.video_fileNotFound.tr()),
                             backgroundColor: Colors.orange,
                           ),
                         );

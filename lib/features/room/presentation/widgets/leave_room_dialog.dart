@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -48,7 +50,7 @@ class LeaveRoomDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Odadan Çık',
+              LocaleKeys.room_leaveTitle.tr(),
               style: GoogleFonts.righteous(
                 color: Colors.white,
                 fontSize: 20,
@@ -57,7 +59,7 @@ class LeaveRoomDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Odadan ayrılmak istediğinize emin misiniz?',
+              LocaleKeys.room_leaveMessage.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
@@ -80,9 +82,9 @@ class LeaveRoomDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                    child: const Text(
-                      'İptal',
-                      style: TextStyle(
+                    child: Text(
+                      LocaleKeys.button_cancel.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
@@ -102,9 +104,9 @@ class LeaveRoomDialog extends StatelessWidget {
                         borderRadius: ProjectRadius.small(),
                       ),
                     ),
-                    child: const Text(
-                      'Ayrıl',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Text(
+                      LocaleKeys.button_leave.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

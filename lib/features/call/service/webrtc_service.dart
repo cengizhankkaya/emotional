@@ -7,6 +7,9 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 class WebRTCService implements ICallService {
   SignalingService? _signalingService;
   final Map<String, RTCPeerConnection> _peerConnections = {};
+  bool _isDisposed = false;
+  int _sessionToken =
+      0; // Her joinRoom'da arttırılır — eski oturum callback'lerini önler
 
   // Configuration
   final Map<String, dynamic> _configuration = {
@@ -102,6 +105,8 @@ class WebRTCService implements ICallService {
 
   @override
   Future<void> joinRoom(String roomId, String userId) async {
+    _isDisposed = false; // Yeni oturum başlıyor, guard'ı sıfırla
+    _sessionToken++; // Eski oturum callback'leri artık geçersiz
     _signalingService = SignalingService(roomId: roomId, userId: userId);
     await _signalingService!.initialize();
 
@@ -186,22 +191,26 @@ class WebRTCService implements ICallService {
     // Peer Connection State (optional logging)
     pc.onConnectionState = (state) async {
       print("[WebRTC] Connection state with $targetUserId: $state");
+      if (_isDisposed) return; // Guard: disposed olduktan sonra işlem yapma
+      final token = _sessionToken; // Bu oturumun token'ını yakala
 
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
         print(
           "[WebRTC] Connection failed with $targetUserId. Attempting full reconnect...",
         );
-        await connect(targetUserId); // Full reconnect
+        if (!_isDisposed && _sessionToken == token) await connect(targetUserId);
       } else if (state ==
           RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        // Soft recovery (Ice Restart)
         print(
           "[WebRTC] Disconnected from $targetUserId. Initiating ICE Restart...",
         );
 
         // Wait a bit to see if it recovers naturally
         await Future.delayed(const Duration(seconds: 3));
+        if (_isDisposed || _sessionToken != token) {
+          return; // Guard: bekleme sırasında dispose veya yeni oturum başlamış
+        }
 
         var currentPc = _peerConnections[targetUserId];
         if (currentPc == pc) {
@@ -223,9 +232,14 @@ class WebRTCService implements ICallService {
 
   @override
   Future<void> connect(String targetUserId) async {
+    if (_isDisposed) return; // Guard: disposed sonrası bağlantı kurma
+
     if (_peerConnections.containsKey(targetUserId)) {
       final pc = _peerConnections[targetUserId];
       final state = await pc?.getConnectionState();
+      if (_isDisposed) {
+        return; // Guard: getConnectionState beklenirken dispose olmuş olabilir
+      }
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         print("[WebRTC] Already connected to $targetUserId");
         return;
@@ -235,19 +249,31 @@ class WebRTCService implements ICallService {
       _peerConnections.remove(targetUserId);
     }
 
+    if (_isDisposed) return; // Guard: tekrar kontrol
     print("[WebRTC] Creating peer connection for $targetUserId");
     final pc = await createPeerConnection(targetUserId);
 
     // Yeni teklif göndermeden önce o kullanıcıya giden tüm ESKİ sinyalleri (candidates vb.) temizle.
     await _signalingService?.clearOutgoingToUser(targetUserId);
 
-    final offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await sendOffer(targetUserId, offer);
+    if (_isDisposed) {
+      await pc
+          .close(); // Guard: createPeerConnection sonrası dispose olmuşsa temizle
+      return;
+    }
+
+    try {
+      final offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await sendOffer(targetUserId, offer);
+    } catch (e) {
+      print("[WebRTC] connect() createOffer failed for $targetUserId: $e");
+    }
   }
 
   /// ICE Restart tetikleyici
   Future<void> _triggerIceRestart(String targetUserId) async {
+    if (_isDisposed) return; // Guard
     final pc = _peerConnections[targetUserId];
     if (pc == null) return;
 
@@ -258,13 +284,15 @@ class WebRTCService implements ICallService {
         'offerToReceiveVideo': true,
         'iceRestart': true,
       });
+      if (_isDisposed) {
+        return; // Guard: createOffer beklenirken dispose olmuş olabilir
+      }
       await pc.setLocalDescription(offer);
       await sendOffer(targetUserId, offer);
       print("[WebRTC] ICE Restart offer sent to $targetUserId");
     } catch (e) {
       print("[WebRTC] Error during ICE Restart for $targetUserId: $e");
-      // If ICE Restart fails, try full reconnect
-      await connect(targetUserId);
+      if (!_isDisposed) await connect(targetUserId);
     }
   }
 
@@ -313,8 +341,18 @@ class WebRTCService implements ICallService {
     String fromUserId,
   ) async {
     print("[WebRTC] Received answer from $fromUserId");
+    if (_isDisposed) return;
     var pc = _peerConnections[fromUserId];
     if (pc != null) {
+      // Sadece 'have-local-offer' state'indeyken answer kabul et.
+      // 'stable' state'inde answer gelmesi eski oturumdan kalan stale sinyal demek.
+      final signalingState = await pc.getSignalingState();
+      if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        print(
+          "[WebRTC] Ignoring stale answer from $fromUserId. PC state: $signalingState",
+        );
+        return;
+      }
       await pc.setRemoteDescription(description);
       _remoteDescriptionSet.add(fromUserId);
       print("[WebRTC] Remote description set for answer from $fromUserId");
@@ -419,6 +457,7 @@ class WebRTCService implements ICallService {
 
   @override
   Future<void> dispose() async {
+    _isDisposed = true;
     await leaveRoom();
   }
 

@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
-import 'package:emotional/core/manager/cache_manager.dart';
 
 class PermissionService {
   // Singleton pattern
@@ -116,45 +114,24 @@ class PermissionService {
   Future<bool> get isMicrophoneGranted async =>
       await ph.Permission.microphone.isGranted;
 
-  final _cacheManager = CacheManager();
+  /// Both camera AND microphone are granted
+  Future<bool> get areCallPermissionsGranted async {
+    final cam = await ph.Permission.camera.isGranted;
+    final mic = await ph.Permission.microphone.isGranted;
+    return cam && mic;
+  }
 
-  /// Requests ignore battery optimizations (critical for long background downloads)
+  /// Kamera veya mikrofon kalıcı olarak reddedilmiş mi?
+  Future<bool> get isCameraOrMicPermanentlyDenied async {
+    final cam = await ph.Permission.camera.isPermanentlyDenied;
+    final mic = await ph.Permission.microphone.isPermanentlyDenied;
+    return cam || mic;
+  }
+
+  /// Batarya optimizasyon izni isteği devre dışı bırakıldı.
+  /// Kullanıcıya sistem diyalogu gösterilmez.
   Future<bool> requestIgnoreBatteryOptimizations() async {
-    if (Platform.isAndroid) {
-      // 1. Check if already granted
-      if (await ph.Permission.ignoreBatteryOptimizations.isGranted) {
-        return true;
-      }
-
-      // 2. Check if user already denied it to avoid infinite loops/nagging
-      if (await _cacheManager.hasDeniedBatteryOptimization()) {
-        debugPrint(
-          'PermissionService: Skipping battery optimization request (User already denied).',
-        );
-        return false;
-      }
-
-      await _waitForLock();
-      try {
-        final status = await ph.Permission.ignoreBatteryOptimizations.request();
-        final success = _handlePermissionStatus(status);
-
-        if (!success) {
-          // Store denial preference
-          await _cacheManager.setHasDeniedBatteryOptimization(true);
-        }
-
-        return success;
-      } catch (e) {
-        debugPrint(
-          'PermissionService: Error requesting battery optimization: $e',
-        );
-        return false;
-      } finally {
-        _releaseLock();
-      }
-    }
-    return true;
+    return false;
   }
 
   /// Requests video permission (Android 13+)
