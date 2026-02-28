@@ -171,7 +171,7 @@ class _DragHandle extends StatelessWidget {
                     const Icon(Icons.settings, color: Colors.white70, size: 14),
                     const SizedBox(width: 8),
                     Text(
-                      'Kontrolleri Göster',
+                      LocaleKeys.video_showControls.tr(),
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: context.dynamicValue(12),

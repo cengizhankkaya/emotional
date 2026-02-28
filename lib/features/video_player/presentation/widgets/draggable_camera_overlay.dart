@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
@@ -189,7 +191,7 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        isLocal ? "Ben" : name,
+                        isLocal ? LocaleKeys.room_me.tr() : name,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -261,7 +263,7 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                     children: [
                       Expanded(
                         child: Text(
-                          isLocal ? "Ben" : name,
+                          isLocal ? LocaleKeys.room_me.tr() : name,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -346,7 +348,9 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                                             ),
                                           ),
                                           child: Text(
-                                            isLocal ? "Ben" : name,
+                                            isLocal
+                                                ? LocaleKeys.room_me.tr()
+                                                : name,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 16,
@@ -396,7 +400,7 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
     if (widget.isVideoEnabled && widget.localRenderer != null) {
       activeCameras.add(
         _buildCameraItem(
-          "Ben",
+          LocaleKeys.room_me.tr(),
           widget.localRenderer,
           true,
           true,

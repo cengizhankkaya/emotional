@@ -2,6 +2,8 @@ import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/room/domain/entities/room_entity.dart';
 import 'package:emotional/features/room/presentation/widgets/participant_video_row.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -94,7 +96,12 @@ class SplitMediaLayout extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            "${userNames[sharingUserId] ?? 'Biri'} paylaşıyor",
+                            LocaleKeys.call_sharing.tr(
+                              args: [
+                                userNames[sharingUserId] ??
+                                    LocaleKeys.room_someone.tr(),
+                              ],
+                            ),
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 10,

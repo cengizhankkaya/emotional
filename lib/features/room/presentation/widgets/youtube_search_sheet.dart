@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/core/services/youtube_service.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -46,7 +48,11 @@ class _YouTubeSearchSheetState extends State<YouTubeSearchSheet> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Arama sırasında hata oluştu: $e')),
+          SnackBar(
+            content: Text(
+              LocaleKeys.youtube_errorOccurred.tr(args: [e.toString()]),
+            ),
+          ),
         );
       }
     }
@@ -98,7 +104,7 @@ class _YouTubeSearchSheetState extends State<YouTubeSearchSheet> {
           Icon(Icons.search, color: ColorsCustom.skyBlue),
           const SizedBox(width: 12),
           Text(
-            'YouTube\'da Ara',
+            LocaleKeys.video_youtubeSearch.tr(),
             style: TextStyle(
               color: Colors.white,
               fontSize: context.dynamicValue(18),
@@ -126,7 +132,7 @@ class _YouTubeSearchSheetState extends State<YouTubeSearchSheet> {
               autofocus: true,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Video ara...',
+                hintText: LocaleKeys.youtube_hint.tr(),
                 hintStyle: const TextStyle(color: Colors.white30),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),
@@ -149,7 +155,7 @@ class _YouTubeSearchSheetState extends State<YouTubeSearchSheet> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
-            child: const Text('Ara'),
+            child: Text(LocaleKeys.youtube_search.tr()),
           ),
         ],
       ),
@@ -175,8 +181,8 @@ class _YouTubeSearchSheetState extends State<YouTubeSearchSheet> {
           const SizedBox(height: 16),
           Text(
             _searchController.text.isEmpty
-                ? 'İzlemek istediğin videoyu ara'
-                : 'Sonuç bulunamadı',
+                ? LocaleKeys.youtube_emptyState.tr()
+                : LocaleKeys.youtube_noResults.tr(),
             style: const TextStyle(color: Colors.white30),
           ),
         ],

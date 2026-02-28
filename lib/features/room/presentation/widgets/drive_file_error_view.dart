@@ -40,7 +40,8 @@ class DriveFileErrorView extends StatelessWidget {
                 fontSize: context.dynamicValue(14),
               ),
             ),
-            if (error.contains('etkinleştirin')) ...[
+            if (error.contains('etkinleştirin') ||
+                error.contains('enable')) ...[
               SizedBox(height: context.dynamicHeight(0.03)),
               ElevatedButton.icon(
                 onPressed: () {},

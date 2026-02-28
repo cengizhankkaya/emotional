@@ -8,6 +8,8 @@ import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:intl/intl.dart';
 
 class ChatWidget extends StatefulWidget {
@@ -58,8 +60,7 @@ class _ChatWidgetState extends State<ChatWidget> {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
     // Kullanıcı alta yakınsa (ör. son 50 px içinde) "en alttayız" kabul et.
-    final bool isNowAtBottom =
-        position.maxScrollExtent - position.pixels <= 50;
+    final bool isNowAtBottom = position.maxScrollExtent - position.pixels <= 50;
     if (isNowAtBottom != _isAtBottom) {
       setState(() {
         _isAtBottom = isNowAtBottom;
@@ -82,7 +83,7 @@ class _ChatWidgetState extends State<ChatWidget> {
           roomId: widget.roomId,
           text: text,
           userId: authState.user.uid,
-          userName: authState.user.displayName ?? 'Anonymous',
+          userName: authState.user.displayName ?? LocaleKeys.room_someone.tr(),
         ),
       );
       _textController.clear();
@@ -121,7 +122,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Sohbet',
+                      LocaleKeys.chat_title.tr(),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: context.dynamicValue(16),
@@ -167,10 +168,10 @@ class _ChatWidgetState extends State<ChatWidget> {
                     } else if (state is ChatLoaded) {
                       final messages = state.messages;
                       if (messages.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Text(
-                            'Henüz mesaj yok',
-                            style: TextStyle(color: Colors.white54),
+                            LocaleKeys.chat_noMessages.tr(),
+                            style: const TextStyle(color: Colors.white54),
                           ),
                         );
                       }
@@ -208,7 +209,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
-                                    children: const [
+                                    children: [
                                       Icon(
                                         Icons.arrow_downward,
                                         color: Colors.white,
@@ -216,8 +217,8 @@ class _ChatWidgetState extends State<ChatWidget> {
                                       ),
                                       SizedBox(width: 6),
                                       Text(
-                                        'Yeni mesajlar',
-                                        style: TextStyle(
+                                        LocaleKeys.chat_newMessages.tr(),
+                                        style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -232,7 +233,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                     } else if (state is ChatError) {
                       return Center(
                         child: Text(
-                          'Hata: ${state.message}',
+                          LocaleKeys.chat_errorPrefix.tr(args: [state.message]),
                           style: const TextStyle(color: Colors.redAccent),
                         ),
                       );
@@ -252,7 +253,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                         controller: _textController,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: 'Mesaj yaz...',
+                          hintText: LocaleKeys.chat_typeMessage.tr(),
                           hintStyle: const TextStyle(color: Colors.white54),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.1),

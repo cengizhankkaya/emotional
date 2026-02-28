@@ -3,10 +3,13 @@ import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -43,7 +46,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                     SizedBox(height: context.dynamicHeight(0.05)),
                     Text(
-                      'Emoti',
+                      LocaleKeys.app_name.tr(),
                       style: GoogleFonts.righteous(
                         color: ColorsCustom.skyBlue.withAlpha(255),
                         fontWeight: FontWeight.w400,
@@ -53,7 +56,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Birlikte izlemenin keyfi',
+                      LocaleKeys.auth_login_subtitle.tr(),
                       style: TextStyle(
                         color: ColorsCustom.skyBlue.withValues(alpha: 0.9),
                         fontSize: context.dynamicValue(16),
@@ -115,7 +118,7 @@ class LoginScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 16),
                                       Text(
-                                        'Google ile Giriş Yap',
+                                        LocaleKeys.auth_login_googleButton.tr(),
                                         style: TextStyle(
                                           fontSize: context.dynamicValue(16),
                                           fontWeight: FontWeight.w600,
@@ -131,13 +134,65 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // Privacy note
-                    Text(
-                      'Giriş yaparak Kullanım Koşullarını\nve Gizlilik Politikasını kabul etmiş olursunuz',
+                    RichText(
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: context.dynamicValue(12),
-                        height: 1.5,
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: context.dynamicValue(12),
+                          height: 1.5,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: LocaleKeys.auth_login_privacyStarted.tr(),
+                          ),
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () async {
+                                final url = Uri.parse(
+                                  'https://my-portfolio-1ece9.web.app/#/emoti-privacy-policy',
+                                );
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url);
+                                }
+                              },
+                              child: Text(
+                                LocaleKeys.auth_login_terms.tr(),
+                                style: TextStyle(
+                                  color: ColorsCustom.skyBlue,
+                                  fontSize: context.dynamicValue(12),
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: ColorsCustom.skyBlue,
+                                ),
+                              ),
+                            ),
+                          ),
+                          TextSpan(text: LocaleKeys.auth_login_and.tr()),
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () async {
+                                final url = Uri.parse(
+                                  'https://my-portfolio-1ece9.web.app/#/emoti-privacy-policy',
+                                );
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url);
+                                }
+                              },
+                              child: Text(
+                                LocaleKeys.auth_login_privacyPolicy.tr(),
+                                style: TextStyle(
+                                  color: ColorsCustom.skyBlue,
+                                  fontSize: context.dynamicValue(12),
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: ColorsCustom.skyBlue,
+                                ),
+                              ),
+                            ),
+                          ),
+                          TextSpan(
+                            text: LocaleKeys.auth_login_privacyEnded.tr(),
+                          ),
+                        ],
                       ),
                     ),
                   ],

@@ -24,7 +24,9 @@
     "watch": "Watch",
     "download": "Download",
     "play": "Play",
-    "seeAll": "See All"
+    "seeAll": "See All",
+    "delete": "Delete",
+    "search": "Search"
   },
   "room": {
     "closed": "Room closed or you have left the room.",
@@ -42,7 +44,26 @@
     "armchairStyleAntrasit": "Anthracite",
     "armchairStyleNavy": "Navy",
     "armchairStylePurple": "Purple",
-    "armchairStyleGreen": "Green"
+    "armchairStyleGreen": "Green",
+    "id": "Room ID: {}",
+    "joined": "{} joined the room",
+    "left": "{} left the room",
+    "inviteTitle": "Emoti Room Invitation",
+    "inviteMessage": "Join my Emoti room!\n\nRoom ID: {}\n\nQuick Join Link: https://emotional-app-b42af.web.app/join/{}\n\nYou can click the link to join the room directly.",
+    "tooltips": {
+      "invite": "Invite",
+      "leave": "Leave Room",
+      "theme": "Armchair Theme",
+      "chat": "Chat"
+    },
+    "defaultUserName": "User",
+    "noCamera": "No Camera",
+    "waitingForScreenShare": "Waiting for screen share...",
+    "transferHost": {
+      "title": "Transfer Host",
+      "message": "Do you want to transfer host authority to {}?",
+      "button": "Transfer"
+    }
   },
   "video": {
     "selectedVideo": "Selected Video",
@@ -75,11 +96,158 @@
     "unknownDevice": "Unknown Device",
     "rotate": "Rotate",
     "splitScreen": "Side Screen",
-    "sharing": "{} is sharing"
+    "sharing": "{} is sharing",
+    "quality": {
+      "low": "Data Saver (360p)",
+      "balanced": "Balanced (480p)",
+      "high": "High Quality (720p)",
+      "ultra": "Ultra Quality (1080p)"
+    },
+    "videoSize": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "devices": {
+      "phoneMic": "Phone Microphone",
+      "headsetMic": "Headset Microphone",
+      "bluetoothMic": "Bluetooth Microphone ({})",
+      "speakerPhone": "Speaker (Phone)",
+      "earpiece": "Earpiece",
+      "headsetWired": "Headset (Wired)",
+      "bluetoothHeadset": "Bluetooth Headset ({})",
+      "earpieceHeadset": "Earpiece / Headset",
+      "cameraIndex": "Camera {}",
+      "micIndex": "Microphone {}"
+    }
+  },
+  "chat": {
+    "title": "Chat",
+    "noMessages": "No messages yet",
+    "newMessages": "New messages",
+    "typeMessage": "Type message...",
+    "errorPrefix": "Error: {}"
+  },
+  "home": {
+    "welcome": "Hello, {}!",
+    "createRoom": {
+      "title": "Create New Room",
+      "subtitle": "Start a new session and invite your friends.",
+      "button": "CREATE ROOM"
+    },
+    "joinRoom": {
+      "title": "Join Room",
+      "idLabel": "Room ID",
+      "idHint": "Enter 6-digit Room ID",
+      "button": "JOIN ROOM"
+    },
+    "divider": "OR",
+    "permissions": {
+      "title": "Permissions Required",
+      "subtitle": "The app needs the following permissions for full performance:",
+      "cameraMicTitle": "Camera and Microphone",
+      "cameraMicSubtitle": "For video and audio chat rooms",
+      "galleryTitle": "Gallery and Media",
+      "gallerySubtitle": "To select and watch videos with your friends",
+      "notificationsTitle": "Notifications",
+      "notificationsSubtitle": "To track download status",
+      "storageTitle": "Storage",
+      "storageSubtitle": "To save videos to your device (Older Devices)",
+      "button": "Grant Permissions",
+      "settingsTitle": "Permission Required",
+      "settingsMessage": "Camera and microphone permissions are permanently denied.\n\nYou need to enable permissions from app settings to create or join a room.",
+      "openSettings": "Open Settings"
+    },
+    "download": {
+      "showDownloads": "Show Downloads",
+      "downloadedVideos": "Downloaded Videos",
+      "moreVideos": "+{} more videos"
+    },
+    "profile": {
+      "whoAreWeTitle": "Who Are We?",
+      "whoAreWeContent": "This app is a special social sharing space that eliminates distances with your friends or family, allowing you to watch the same thing at the same time.",
+      "whatCanYouDoTitle": "What Can You Do?",
+      "whatCanYouDoContent": "• Watching movies, series, and videos together\n• Simultaneous voice and video chat while watching\n• Share your emotions instantly",
+      "privacyTitle": "Privacy and Importance",
+      "privacyContent": "User privacy is our top priority. Only people you invite can join your rooms. Data shared during your communication is protected by high security standards.",
+      "close": "Got it, Close"
+    },
+    "feedback": {
+      "roomNotFound": "Room not found.",
+      "roomCreated": "Room Created: {}",
+      "roomJoined": "Room Joined: {}",
+      "revokeTitle": "You need to use system settings to revoke permissions.",
+      "permanentlyDenied": "This permission is permanently denied. You need to enable it from settings."
+    }
+  },
+  "drive": {
+    "apiNotEnabled": "Google Drive API is not enabled.\nPlease enable it from the Cloud Console.",
+    "deleteTitle": "Delete File",
+    "deleteMessage": "Are you sure you want to delete {}?",
+    "fileDeleted": "File deleted.",
+    "selectVideo": "Select Video",
+    "downloads": "Downloads",
+    "gallery": "Gallery",
+    "drive": "Drive",
+    "noVideosFound": "No videos found.",
+    "noDownloadedVideos": "No downloaded videos."
+  },
+  "youtube": {
+    "hint": "Search video...",
+    "search": "Search",
+    "emptyState": "Search for a video you want to watch",
+    "noResults": "No results found",
+    "errorOccurred": "An error occurred during search: {}"
   },
   "download": {
-    "securityTitle": "Process Security",
-    "securityMessage": "Keeping the screen open is important for the security and data integrity of the download process. Please wait until the process is complete."
+    "securityMessage": "Keeping the screen open is important for the security and data integrity of the download process. Please wait until the process is complete.",
+    "status": {
+      "downloading": "Downloading...",
+      "downloadingProgress": "Downloading: {}%",
+      "completed": "Download completed.",
+      "completedSuccess": "Download completed!",
+      "verifying": "Verifying file...",
+      "starting": "Starting download...",
+      "error": "An error occurred",
+      "stopped": "Download stopped or cancelled."
+    },
+    "errors": {
+      "failedToStart": "Failed to start download.",
+      "notLoggedIn": "Not logged in. Please log in.",
+      "noInternet": "No internet connection or network restricted.",
+      "downloadError": "Download error: {}",
+      "accessDenied": "Access denied (403). Check your session.",
+      "fileNotFound": "File not found (404).",
+      "failedTryAgain": "Download failed. Check your connection and try again."
+    }
+  },
+  "video_player": {
+    "settings": {
+      "playbackSpeed": "Playback Speed",
+      "audioChannel": "Audio Channel",
+      "subtitle": "Subtitle",
+      "volumeLevel": "Volume Level",
+      "error": "Error"
+    },
+    "subtitle": {
+      "selection": "Subtitle Selection",
+      "searchHint": "Search subtitle...",
+      "specialOptions": "Special Options",
+      "none": "No Subtitle",
+      "loadExternal": "Load External Subtitle",
+      "embedded": "Embedded Subtitles",
+      "notFound": "Subtitle not found",
+      "externalLoaded": "External subtitle loaded."
+    },
+    "audio": {
+      "selection": "Audio Language Selection",
+      "notFound": "Language not found"
+    },
+    "controls": {
+      "joinRoom": "Join Room",
+      "preparingYoutube": "Preparing YouTube link...",
+      "loadingVideo": "Loading video..."
+    }
   },
   "error": {
     "title": "An Error Occurred",
@@ -96,5 +264,56 @@
     "notificationsSubtitle": "For download status",
     "gallery": "Gallery Access",
     "gallerySubtitle": "For video selection"
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "subtitle": "Enjoy watching together",
+      "googleButton": "Sign in with Google",
+      "anonymousButton": "Continue as Guest",
+      "welcomeBack": "Welcome Back",
+      "loginPrompt": "Sign in to continue",
+      "emailLabel": "Email",
+      "emailHint": "Enter your email",
+      "passwordLabel": "Password",
+      "passwordHint": "Enter your password",
+      "loginButton": "LOG IN",
+      "privacyStarted": "By logging in, you accept the ",
+      "terms": "Terms of Use",
+      "and": "\nand ",
+      "privacyPolicy": "Privacy Policy",
+      "privacyEnded": "."
+    },
+    "validation": {
+      "emailRequired": "Please enter your email",
+      "emailInvalid": "Please enter a valid email",
+      "passwordRequired": "Please enter your password",
+      "passwordMinLength": "Password must be at least 6 characters"
+    },
+    "error": {
+      "loginFailed": "Login failed: {}",
+      "googleFailed": "Google sign in failed: {}",
+      "anonymousFailed": "Anonymous login failed: {}",
+      "userIsNull": "User is null",
+      "authFailed": "Authentication failed",
+      "userIsNullAfterSignIn": "User is null after sign in",
+      "googleAuthFailed": "Google authentication failed"
+    },
+    "logout": {
+      "title": "Log Out",
+      "message": "Are you sure you want to log out of your account?",
+      "button": "Log Out"
+    }
+  },
+  "call_error": {
+    "permissionRequired": "Camera and microphone permissions are required.",
+    "joinFailed": "Failed to join call: {}"
+  },
+  "chat_error": {
+    "sendFailed": "Failed to send message: {}"
+  },
+  "room_error": {
+    "syncFailed": "Sync error (Permission?): {}",
+    "updateVideoFailed": "Failed to update room video: {}"
   }
 }

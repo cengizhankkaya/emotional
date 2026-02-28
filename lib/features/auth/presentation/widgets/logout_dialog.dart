@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -50,7 +52,7 @@ class LogoutDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Çıkış Yap',
+              LocaleKeys.auth_logout_title.tr(),
               style: GoogleFonts.righteous(
                 color: Colors.white,
                 fontSize: 20,
@@ -59,7 +61,7 @@ class LogoutDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
+              LocaleKeys.auth_logout_message.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
@@ -82,9 +84,9 @@ class LogoutDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                    child: const Text(
-                      'İptal',
-                      style: TextStyle(
+                    child: Text(
+                      LocaleKeys.button_cancel.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
@@ -104,9 +106,9 @@ class LogoutDialog extends StatelessWidget {
                         borderRadius: ProjectRadius.small(),
                       ),
                     ),
-                    child: const Text(
-                      'Çıkış Yap',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Text(
+                      LocaleKeys.auth_logout_button.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

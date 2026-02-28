@@ -1,3 +1,6 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
+
 enum CallVideoSize { small, medium, large }
 
 extension CallVideoSizeExtension on CallVideoSize {
@@ -26,11 +29,11 @@ extension CallVideoSizeExtension on CallVideoSize {
   String get displayName {
     switch (this) {
       case CallVideoSize.small:
-        return 'Küçük';
+        return LocaleKeys.call_videoSize_small.tr();
       case CallVideoSize.medium:
-        return 'Orta';
+        return LocaleKeys.call_videoSize_medium.tr();
       case CallVideoSize.large:
-        return 'Büyük';
+        return LocaleKeys.call_videoSize_large.tr();
     }
   }
 }

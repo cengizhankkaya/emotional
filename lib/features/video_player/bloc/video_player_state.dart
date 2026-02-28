@@ -19,6 +19,7 @@ class VideoPlayerActive extends VideoPlayerState {
   final String? youtubeUrl;
   final bool isMinimized;
   final bool isBuffering;
+  final bool isInitializing;
 
   // Sync Status
   final bool isSyncing;
@@ -38,6 +39,7 @@ class VideoPlayerActive extends VideoPlayerState {
     this.youtubeUrl,
     this.isMinimized = false,
     this.isBuffering = false,
+    this.isInitializing = false,
     this.isSyncing = false,
     this.pendingSyncRequest,
     this.roomId,
@@ -57,6 +59,7 @@ class VideoPlayerActive extends VideoPlayerState {
     String? youtubeUrl,
     bool? isMinimized,
     bool? isBuffering,
+    bool? isInitializing,
     bool? isSyncing,
     VideoSyncRequest? Function()? pendingSyncRequest,
     String? roomId,
@@ -72,6 +75,7 @@ class VideoPlayerActive extends VideoPlayerState {
       youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       isMinimized: isMinimized ?? this.isMinimized,
       isBuffering: isBuffering ?? this.isBuffering,
+      isInitializing: isInitializing ?? this.isInitializing,
       isSyncing: isSyncing ?? this.isSyncing,
       pendingSyncRequest: pendingSyncRequest != null
           ? pendingSyncRequest()
@@ -93,6 +97,7 @@ class VideoPlayerActive extends VideoPlayerState {
     youtubeUrl,
     isMinimized,
     isBuffering,
+    isInitializing,
     isSyncing,
     pendingSyncRequest,
     roomId,

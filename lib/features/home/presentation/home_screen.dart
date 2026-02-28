@@ -19,6 +19,8 @@ import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import '../../../core/manager/cache_manager.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -157,29 +159,29 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: ColorsCustom.darkABlue,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 8),
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            const SizedBox(width: 8),
             Text(
-              'İzin Gerekli',
-              style: TextStyle(
+              LocaleKeys.home_permissions_settingsTitle.tr(),
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-        content: const Text(
-          'Kamera ve mikrofon izinleri kalıcı olarak reddedilmiş.\n\nOda oluşturmak veya katılmak için uygulama ayarlarından izinleri açmanız gerekiyor.',
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          LocaleKeys.home_permissions_settingsMessage.tr(),
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Vazgeç',
-              style: TextStyle(color: Colors.white54),
+            child: Text(
+              LocaleKeys.button_cancel.tr(),
+              style: const TextStyle(color: Colors.white54),
             ),
           ),
           ElevatedButton.icon(
@@ -188,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
               await PermissionService().openAppSettings();
             },
             icon: const Icon(Icons.settings_outlined, size: 18),
-            label: const Text('Ayarları Aç'),
+            label: Text(LocaleKeys.home_permissions_openSettings.tr()),
             style: ElevatedButton.styleFrom(
               backgroundColor: ColorsCustom.skyBlue,
               foregroundColor: ColorsCustom.darkBlue,
@@ -273,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final authState = context.watch<AuthBloc>().state;
     final userName = authState is AuthAuthenticated
         ? UserHelper.getUserDisplayName(authState.user)
-        : 'Kullanıcı';
+        : LocaleKeys.room_someone.tr();
 
     return BlocProvider<DownloadCubit>(
       create: (context) => DownloadCubit(
@@ -296,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _pendingDeepLinkRoomId = null; // Clear on error
               String errorMessage = state.message;
               if (errorMessage.contains('Room not found')) {
-                errorMessage = 'Oda bulunamadı.';
+                errorMessage = LocaleKeys.home_feedback_roomNotFound.tr();
                 _cacheManager
                     .clearLastRoomId(); // Clear invalid room ID from cache
               }
@@ -312,7 +314,11 @@ class _HomeScreenState extends State<HomeScreen> {
               _cacheManager.saveLastRoomId(state.roomId);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Oda Oluşturuldu: ${state.roomId}'),
+                  content: Text(
+                    LocaleKeys.home_feedback_roomCreated.tr(
+                      args: [state.roomId],
+                    ),
+                  ),
                   backgroundColor: ColorsCustom.darkABlue,
                 ),
               );
@@ -330,7 +336,11 @@ class _HomeScreenState extends State<HomeScreen> {
               } else if (state.participants.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Odaya Katılındı: ${state.roomId}'),
+                    content: Text(
+                      LocaleKeys.home_feedback_roomJoined.tr(
+                        args: [state.roomId],
+                      ),
+                    ),
                     backgroundColor: ColorsCustom.darkABlue,
                   ),
                 );
@@ -353,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Merhaba, $userName!',
+                      LocaleKeys.home_welcome.tr(args: [userName]),
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: Colors.white,

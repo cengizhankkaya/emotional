@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 
@@ -87,6 +89,11 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       _roomId = event.roomId;
       _userId = event.userId;
 
+      // Ensure synchronous wipe of tracking maps for fast rejoins
+      _connectionInitiated.clear();
+      _activeUsers.clear();
+      _remoteRenderers.clear();
+
       if (_isSuspended) {
         debugPrint(
           '[CallBloc] JoinCall received but app is SUSPENDED. Initializing in BACKGROUND mode (No camera).',
@@ -120,7 +127,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       final microphoneGranted = permissions[Permission.microphone] ?? false;
 
       if (!cameraGranted || !microphoneGranted) {
-        emit(CallError('Kamera ve mikrofon izinleri gerekli.'));
+        emit(CallError(LocaleKeys.call_error_permissionRequired.tr()));
         return;
       }
 
@@ -210,7 +217,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       _isCallActive = true;
       _startAudioLevelMonitor();
     } catch (e) {
-      emit(CallError('Failed to join call: $e'));
+      emit(
+        CallError(LocaleKeys.call_error_joinFailed.tr(args: [e.toString()])),
+      );
     }
   }
 

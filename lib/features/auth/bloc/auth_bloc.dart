@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:equatable/equatable.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -48,12 +50,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (user != null) {
         emit(AuthAuthenticated(user));
       } else {
-        emit(const AuthFailure('Anonymous login failed: User is null'));
+        emit(
+          AuthFailure(
+            LocaleKeys.auth_error_anonymousFailed.tr(
+              args: [LocaleKeys.auth_error_userIsNull.tr()],
+            ),
+          ),
+        );
       }
     } on FirebaseAuthException catch (e) {
-      emit(AuthFailure(e.message ?? 'Anonymous authentication failed'));
+      emit(
+        AuthFailure(
+          LocaleKeys.auth_error_anonymousFailed.tr(
+            args: [e.message ?? LocaleKeys.auth_error_authFailed.tr()],
+          ),
+        ),
+      );
     } catch (e) {
-      emit(AuthFailure(e.toString()));
+      emit(
+        AuthFailure(
+          LocaleKeys.auth_error_anonymousFailed.tr(args: [e.toString()]),
+        ),
+      );
     }
   }
 
@@ -73,12 +91,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (user != null) {
         emit(AuthAuthenticated(user));
       } else {
-        emit(const AuthFailure('Login failed: User is null after sign in'));
+        emit(
+          AuthFailure(
+            LocaleKeys.auth_error_loginFailed.tr(
+              args: [LocaleKeys.auth_error_userIsNullAfterSignIn.tr()],
+            ),
+          ),
+        );
       }
     } on FirebaseAuthException catch (e) {
-      emit(AuthFailure(e.message ?? 'Authentication failed'));
+      emit(
+        AuthFailure(
+          LocaleKeys.auth_error_loginFailed.tr(
+            args: [e.message ?? LocaleKeys.auth_error_authFailed.tr()],
+          ),
+        ),
+      );
     } catch (e) {
-      emit(AuthFailure(e.toString()));
+      emit(
+        AuthFailure(LocaleKeys.auth_error_loginFailed.tr(args: [e.toString()])),
+      );
     }
   }
 
@@ -119,12 +151,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (user != null) {
         emit(AuthAuthenticated(user));
       } else {
-        emit(const AuthFailure('Google sign in failed: User is null'));
+        emit(
+          AuthFailure(
+            LocaleKeys.auth_error_googleFailed.tr(
+              args: [LocaleKeys.auth_error_userIsNull.tr()],
+            ),
+          ),
+        );
       }
     } on FirebaseAuthException catch (e) {
-      emit(AuthFailure(e.message ?? 'Google authentication failed'));
+      emit(
+        AuthFailure(
+          LocaleKeys.auth_error_googleFailed.tr(
+            args: [e.message ?? LocaleKeys.auth_error_googleAuthFailed.tr()],
+          ),
+        ),
+      );
     } catch (e) {
-      emit(AuthFailure(e.toString()));
+      emit(
+        AuthFailure(
+          LocaleKeys.auth_error_googleFailed.tr(args: [e.toString()]),
+        ),
+      );
     }
   }
 }

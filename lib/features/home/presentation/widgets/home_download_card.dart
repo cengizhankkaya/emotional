@@ -5,6 +5,8 @@ import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
@@ -90,7 +92,7 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'İndirmeleri Göster',
+                                LocaleKeys.home_download_showDownloads.tr(),
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: context.dynamicValue(12),
@@ -149,7 +151,7 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
               ),
               SizedBox(width: context.dynamicValue(8)),
               Text(
-                'İndirilen Videolar',
+                LocaleKeys.home_download_downloadedVideos.tr(),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: context.dynamicValue(14),
@@ -183,7 +185,7 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
                       SizedBox(width: context.dynamicValue(8)),
                       Expanded(
                         child: Text(
-                          video.name ?? 'Bilinmeyen Video',
+                          video.name ?? LocaleKeys.call_unknownDevice.tr(),
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: context.dynamicValue(12),
@@ -200,7 +202,9 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '+${state.downloadedVideos.length - 3} video daha',
+                LocaleKeys.home_download_moreVideos.tr(
+                  args: [(state.downloadedVideos.length - 3).toString()],
+                ),
                 style: TextStyle(
                   color: ColorsCustom.gray,
                   fontSize: context.dynamicValue(11),
@@ -234,7 +238,9 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
               SizedBox(width: context.dynamicValue(8)),
               Expanded(
                 child: Text(
-                  'İndiriliyor %${(state.downloadProgress! * 100).toInt()}',
+                  LocaleKeys.video_downloading.tr(
+                    args: [(state.downloadProgress! * 100).toInt().toString()],
+                  ),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: context.dynamicValue(14),
@@ -273,7 +279,7 @@ class _HomeDownloadCardState extends State<HomeDownloadCard> {
       child: OutlinedButton.icon(
         onPressed: () => _openDriveFilePicker(context),
         icon: const Icon(Icons.video_library),
-        label: const Text('Tümünü Gör'),
+        label: Text(LocaleKeys.button_seeAll.tr()),
         style: OutlinedButton.styleFrom(
           foregroundColor: ColorsCustom.white,
           side: const BorderSide(color: ColorsCustom.white10),

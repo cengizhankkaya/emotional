@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
@@ -135,15 +137,19 @@ class _ScreenShareContent extends StatelessWidget {
         }
 
         if (renderer == null) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.stop_screen_share, color: Colors.white54, size: 48),
-                SizedBox(height: 16),
+                const Icon(
+                  Icons.stop_screen_share,
+                  color: Colors.white54,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
                 Text(
-                  "Ekran paylaşımı bekleniyor...",
-                  style: TextStyle(color: Colors.white54),
+                  LocaleKeys.room_waitingForScreenShare.tr(),
+                  style: const TextStyle(color: Colors.white54),
                 ),
               ],
             ),

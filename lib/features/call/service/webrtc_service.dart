@@ -147,6 +147,7 @@ class WebRTCService implements ICallService {
 
     for (var pc in _peerConnections.values) {
       await pc.close();
+      await pc.dispose();
     }
     _peerConnections.clear();
     _remoteCandidateQueues.clear();
@@ -246,6 +247,7 @@ class WebRTCService implements ICallService {
       }
       print("[WebRTC] Connection to $targetUserId is $state, restarting...");
       await pc?.close();
+      await pc?.dispose();
       _peerConnections.remove(targetUserId);
     }
 
@@ -259,6 +261,7 @@ class WebRTCService implements ICallService {
     if (_isDisposed) {
       await pc
           .close(); // Guard: createPeerConnection sonrası dispose olmuşsa temizle
+      await pc.dispose();
       return;
     }
 
@@ -314,6 +317,7 @@ class WebRTCService implements ICallService {
         fromUserId,
       ); // Önce haritadan çıkar ki yeni PC ile karışmasın
       await stalePc.close();
+      await stalePc.dispose();
       _remoteDescriptionSet.remove(fromUserId);
       _remoteCandidateQueues.remove(fromUserId);
     }
@@ -398,6 +402,7 @@ class WebRTCService implements ICallService {
     var pc = _peerConnections[fromUserId];
     if (pc != null) {
       await pc.close();
+      await pc.dispose();
       _peerConnections.remove(fromUserId);
     }
     _remoteDescriptionSet.remove(fromUserId);
@@ -441,6 +446,7 @@ class WebRTCService implements ICallService {
         _peerConnections.remove(userId);
       }
       await pcToForget.close();
+      await pcToForget.dispose();
     }
 
     // Eğer biz siliyorsak, description ve kuyrukları da temizle (ama sadece bu session için)

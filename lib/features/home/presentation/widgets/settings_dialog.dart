@@ -110,12 +110,10 @@ class _SettingsDialogState extends State<SettingsDialog>
   void _showRevokeSettingsSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'İzinleri iptal etmek için sistem ayarlarını kullanmanız gerekir.',
-        ),
+        content: Text(LocaleKeys.home_feedback_revokeTitle.tr()),
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
-          label: 'Ayarlar',
+          label: LocaleKeys.home_permissions_openSettings.tr(),
           onPressed: () => _permissionService.openAppSettings(),
         ),
       ),
@@ -125,11 +123,9 @@ class _SettingsDialogState extends State<SettingsDialog>
   void _showSettingsSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          'Bu izin kalıcı olarak reddedilmiş. Ayarlardan açmanız gerekiyor.',
-        ),
+        content: Text(LocaleKeys.home_feedback_permanentlyDenied.tr()),
         action: SnackBarAction(
-          label: 'Ayarlar',
+          label: LocaleKeys.home_permissions_openSettings.tr(),
           onPressed: () => _permissionService.openAppSettings(),
         ),
       ),

@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/room/bloc/download_cubit.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
@@ -55,11 +57,13 @@ class RoomScreenListeners extends StatelessWidget {
             }
             if (state.isVideoDownloaded && state.localVideoFile != null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('İndirme tamamlandı!'),
+                SnackBar(
+                  content: Text(
+                    LocaleKeys.download_status_completedSuccess.tr(),
+                  ),
                   backgroundColor: Colors.green,
                   behavior: SnackBarBehavior.floating,
-                  margin: EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(16),
                   duration: Duration(seconds: 2),
                 ),
               );

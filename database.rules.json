@@ -23,6 +23,10 @@
                     "$userId": {
                         ".write": "auth != null && auth.uid == $userId"
                     }
+                },
+                "messages": {
+                    ".read": "auth != null",
+                    ".write": "auth != null"
                 }
             }
         }

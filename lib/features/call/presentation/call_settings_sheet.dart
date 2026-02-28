@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
@@ -40,7 +42,7 @@ class CallSettingsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Görüşme Ayarları',
+                LocaleKeys.call_callSettings.tr(),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -51,14 +53,14 @@ class CallSettingsSheet extends StatelessWidget {
               // Video Selection
               _buildDropdown<MediaDeviceInfo>(
                 context: context,
-                label: 'Kamera',
+                label: LocaleKeys.call_camera.tr(),
                 value: state.videoInputs.firstWhere(
                   (d) => d.deviceId == state.selectedVideoInputId,
                   orElse: () => state.videoInputs.isNotEmpty
                       ? state.videoInputs.first
                       : MediaDeviceInfo(
                           deviceId: 'unknown',
-                          label: 'unknown',
+                          label: LocaleKeys.call_unknownDevice.tr(),
                           kind: 'unknown',
                         ),
                 ),
@@ -69,7 +71,9 @@ class CallSettingsSheet extends StatelessWidget {
                   }
                 },
                 itemLabelBuilder: (d) => d.label.isEmpty
-                    ? 'Kamera ${state.videoInputs.indexOf(d) + 1}'
+                    ? LocaleKeys.call_devices_cameraIndex.tr(
+                        args: [(state.videoInputs.indexOf(d) + 1).toString()],
+                      )
                     : d.label,
               ),
 
@@ -78,14 +82,14 @@ class CallSettingsSheet extends StatelessWidget {
               // Audio Input Selection
               _buildDropdown<MediaDeviceInfo>(
                 context: context,
-                label: 'Mikrofon',
+                label: LocaleKeys.call_microphone.tr(),
                 value: state.audioInputs.firstWhere(
                   (d) => d.deviceId == state.selectedAudioInputId,
                   orElse: () => state.audioInputs.isNotEmpty
                       ? state.audioInputs.first
                       : MediaDeviceInfo(
                           deviceId: 'unknown',
-                          label: 'unknown',
+                          label: LocaleKeys.call_unknownDevice.tr(),
                           kind: 'unknown',
                         ),
                 ),
@@ -96,7 +100,9 @@ class CallSettingsSheet extends StatelessWidget {
                   }
                 },
                 itemLabelBuilder: (d) => d.label.isEmpty
-                    ? 'Mikrofon ${state.audioInputs.indexOf(d) + 1}'
+                    ? LocaleKeys.call_devices_micIndex.tr(
+                        args: [(state.audioInputs.indexOf(d) + 1).toString()],
+                      )
                     : d.label,
               ),
 
@@ -105,7 +111,7 @@ class CallSettingsSheet extends StatelessWidget {
               // Quality Selection
               _buildDropdown<CallQualityPreset>(
                 context: context,
-                label: 'Görüntü Kalitesi',
+                label: LocaleKeys.call_streamQuality.tr(),
                 value: state.currentQuality,
                 items: CallQualityPreset.values,
                 onChanged: (preset) {
@@ -133,7 +139,7 @@ class CallSettingsSheet extends StatelessWidget {
     required String Function(T) itemLabelBuilder,
   }) {
     // Basic null check for lists if empty
-    if (items.isEmpty && label != 'Görüntü Kalitesi')
+    if (items.isEmpty && label != LocaleKeys.call_streamQuality.tr())
       return const SizedBox.shrink();
 
     return Column(

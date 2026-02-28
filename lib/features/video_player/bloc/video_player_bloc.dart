@@ -113,6 +113,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
           controller: controller,
           youtubeUrl: event.url,
           isBuffering: true,
+          isInitializing: true,
         ),
       );
       openPath = await _youtubeService.getStreamUrl(event.url!);
@@ -124,6 +125,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
             controller: controller,
             youtubeUrl: event.url,
             isBuffering: false,
+            isInitializing: false,
           ),
         );
         return;
@@ -146,6 +148,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         youtubeUrl: event.url,
         isMinimized: false,
         isBuffering: _videoService.isBuffering,
+        isInitializing: false,
       ),
     );
 

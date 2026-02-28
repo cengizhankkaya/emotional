@@ -1,3 +1,6 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
+
 enum CallQualityPreset {
   low, // 360p, 15fps (Data Saver)
   balanced, // 540p, 24fps (Default)
@@ -35,13 +38,13 @@ extension CallQualityExtension on CallQualityPreset {
   String get displayName {
     switch (this) {
       case CallQualityPreset.low:
-        return 'Veri Tasarrufu (360p)';
+        return LocaleKeys.call_quality_low.tr();
       case CallQualityPreset.balanced:
-        return 'Dengeli (480p)';
+        return LocaleKeys.call_quality_balanced.tr();
       case CallQualityPreset.high:
-        return 'Yüksek Kalite (720p)';
+        return LocaleKeys.call_quality_high.tr();
       case CallQualityPreset.ultra:
-        return 'Ultra Kalite (1080p)';
+        return LocaleKeys.call_quality_ultra.tr();
     }
   }
 }

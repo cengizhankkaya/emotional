@@ -2,6 +2,8 @@ import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
 
 class PermissionSheet extends StatelessWidget {
@@ -26,7 +28,7 @@ class PermissionSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'İzinler Gerekli',
+              LocaleKeys.home_permissions_title.tr(),
               style: TextStyle(
                 fontSize: context.dynamicValue(22),
                 fontWeight: FontWeight.bold,
@@ -36,7 +38,7 @@ class PermissionSheet extends StatelessWidget {
             ),
             SizedBox(height: context.dynamicHeight(0.01)),
             Text(
-              'Uygulamanın tam performansı için aşağıdaki izinlere ihtiyacı var:',
+              LocaleKeys.home_permissions_subtitle.tr(),
               style: TextStyle(
                 fontSize: context.dynamicValue(14),
                 color: Colors.white70,
@@ -47,30 +49,29 @@ class PermissionSheet extends StatelessWidget {
             _buildPermissionItem(
               context,
               icon: Icons.video_call_rounded,
-              title: 'Kamera ve Mikrofon',
-              subtitle: 'Görüntülü ve sesli sohbet odaları için',
+              title: LocaleKeys.home_permissions_cameraMicTitle.tr(),
+              subtitle: LocaleKeys.home_permissions_cameraMicSubtitle.tr(),
             ),
             SizedBox(height: context.dynamicHeight(0.02)),
             _buildPermissionItem(
               context,
               icon: Icons.photo_library_rounded,
-              title: 'Galeri ve Medya',
-              subtitle: 'Videoları seçip arkadaşlarınızla izleyebilmek için',
+              title: LocaleKeys.home_permissions_galleryTitle.tr(),
+              subtitle: LocaleKeys.home_permissions_gallerySubtitle.tr(),
             ),
             SizedBox(height: context.dynamicHeight(0.02)),
             _buildPermissionItem(
               context,
               icon: Icons.notifications_active_rounded,
-              title: 'Bildirimler',
-              subtitle: 'İndirme durumunu takip edebilmeniz için',
+              title: LocaleKeys.home_permissions_notificationsTitle.tr(),
+              subtitle: LocaleKeys.home_permissions_notificationsSubtitle.tr(),
             ),
             SizedBox(height: context.dynamicHeight(0.02)),
             _buildPermissionItem(
               context,
               icon: Icons.storage_rounded,
-              title: 'Depolama',
-              subtitle:
-                  'Videoları cihazınıza kaydedebilmek için (Eski Cihazlar)',
+              title: LocaleKeys.home_permissions_storageTitle.tr(),
+              subtitle: LocaleKeys.home_permissions_storageSubtitle.tr(),
             ),
             SizedBox(height: context.dynamicHeight(0.03)),
             ElevatedButton(
@@ -85,7 +86,7 @@ class PermissionSheet extends StatelessWidget {
                 elevation: 0,
               ),
               child: Text(
-                'İzinleri Ver',
+                LocaleKeys.home_permissions_button.tr(),
                 style: TextStyle(
                   fontSize: context.dynamicValue(16),
                   fontWeight: FontWeight.bold,

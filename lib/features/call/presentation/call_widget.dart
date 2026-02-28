@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:flutter/material.dart';
@@ -38,7 +40,7 @@ class _CallWidgetState extends State<CallWidget> {
 
                   if (isMe) {
                     return _buildMiniCameraItem(
-                      name: 'Sen',
+                      name: LocaleKeys.room_me.tr(),
                       isLocal: true,
                       hasVideo: state.isVideoEnabled && !state.isScreenSharing,
                       renderer: state.localRenderer,

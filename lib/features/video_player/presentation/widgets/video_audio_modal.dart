@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_settings_modal.dart';
@@ -80,9 +82,9 @@ class _VideoAudioModalState extends State<VideoAudioModal> {
                   children: [
                     Icon(Icons.audiotrack, color: Colors.blue[300], size: 24),
                     const SizedBox(width: 12),
-                    const Text(
-                      'Ses Dili Seçimi',
-                      style: TextStyle(
+                    Text(
+                      LocaleKeys.video_player_audio_selection.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -102,7 +104,8 @@ class _VideoAudioModalState extends State<VideoAudioModal> {
                     onChanged: (value) => setState(() => _searchQuery = value),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Dil ara...',
+                      hintText: LocaleKeys.video_player_subtitle_searchHint
+                          .tr(),
                       hintStyle: TextStyle(color: Colors.grey[500]),
                       prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
                       filled: true,
@@ -136,7 +139,7 @@ class _VideoAudioModalState extends State<VideoAudioModal> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Dil bulunamadı',
+                          LocaleKeys.video_player_audio_notFound.tr(),
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 16,

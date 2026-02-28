@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -47,7 +49,7 @@ class _LoginFormState extends State<LoginForm> {
           ),
           SizedBox(height: context.dynamicHeight(0.02)),
           Text(
-            "Tekrar Hoşgeldiniz",
+            LocaleKeys.auth_login_welcomeBack.tr(),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -57,7 +59,7 @@ class _LoginFormState extends State<LoginForm> {
           ),
           SizedBox(height: context.dynamicHeight(0.01)),
           Text(
-            "Devam etmek için giriş yapın",
+            LocaleKeys.auth_login_loginPrompt.tr(),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white70,
               fontSize: context.dynamicValue(14),
@@ -69,9 +71,9 @@ class _LoginFormState extends State<LoginForm> {
             keyboardType: TextInputType.emailAddress,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: 'E-posta',
+              labelText: LocaleKeys.auth_login_emailLabel.tr(),
               labelStyle: const TextStyle(color: Colors.white70),
-              hintText: 'E-postanızı girin',
+              hintText: LocaleKeys.auth_login_emailHint.tr(),
               hintStyle: const TextStyle(color: Colors.white38),
               prefixIcon: const Icon(
                 Icons.email_outlined,
@@ -97,10 +99,10 @@ class _LoginFormState extends State<LoginForm> {
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Lütfen e-postanızı girin';
+                return LocaleKeys.auth_validation_emailRequired.tr();
               }
               if (!value.contains('@')) {
-                return 'Geçerli bir e-posta girin';
+                return LocaleKeys.auth_validation_emailInvalid.tr();
               }
               return null;
             },
@@ -111,9 +113,9 @@ class _LoginFormState extends State<LoginForm> {
             obscureText: true,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: 'Şifre',
+              labelText: LocaleKeys.auth_login_passwordLabel.tr(),
               labelStyle: const TextStyle(color: Colors.white70),
-              hintText: 'Şifrenizi girin',
+              hintText: LocaleKeys.auth_login_passwordHint.tr(),
               hintStyle: const TextStyle(color: Colors.white38),
               prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
               filled: true,
@@ -136,10 +138,10 @@ class _LoginFormState extends State<LoginForm> {
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Lütfen şifrenizi girin';
+                return LocaleKeys.auth_validation_passwordRequired.tr();
               }
               if (value.length < 6) {
-                return 'Şifre en az 6 karakter olmalı';
+                return LocaleKeys.auth_validation_passwordMinLength.tr();
               }
               return null;
             },
@@ -170,7 +172,7 @@ class _LoginFormState extends State<LoginForm> {
                           ),
                         )
                       : Text(
-                          'GİRİŞ YAP',
+                          LocaleKeys.auth_login_loginButton.tr(),
                           style: TextStyle(
                             fontSize: context.dynamicValue(16),
                             fontWeight: FontWeight.bold,
@@ -193,7 +195,7 @@ class _LoginFormState extends State<LoginForm> {
                   const Icon(Icons.login, color: Colors.white),
             ),
             label: Text(
-              "Google ile Giriş Yap",
+              LocaleKeys.auth_login_googleButton.tr(),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: context.dynamicValue(16),
@@ -214,7 +216,7 @@ class _LoginFormState extends State<LoginForm> {
               context.read<AuthBloc>().add(AnonymousLoginRequested());
             },
             child: Text(
-              "Misafir Olarak Devam Et",
+              LocaleKeys.auth_login_anonymousButton.tr(),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.8),
                 fontSize: context.dynamicValue(16),

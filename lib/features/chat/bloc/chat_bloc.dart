@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:emotional/features/chat/repository/chat_repository.dart';
 import 'package:equatable/equatable.dart';
@@ -59,7 +61,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         event.userName,
       );
     } catch (e) {
-      emit(ChatError('Failed to send message: $e'));
+      emit(
+        ChatError(LocaleKeys.chat_error_sendFailed.tr(args: [e.toString()])),
+      );
     }
   }
 

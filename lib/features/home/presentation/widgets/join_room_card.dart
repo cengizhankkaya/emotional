@@ -2,6 +2,8 @@ import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
 
 /// Card widget for joining an existing room
@@ -29,7 +31,7 @@ class JoinRoomCard extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'Odaya Katıl',
+              LocaleKeys.home_joinRoom_title.tr(),
               style: TextStyle(
                 fontSize: context.dynamicValue(18),
                 fontWeight: FontWeight.bold,
@@ -41,9 +43,9 @@ class JoinRoomCard extends StatelessWidget {
               controller: roomIdController,
               style: const TextStyle(color: ColorsCustom.white),
               decoration: InputDecoration(
-                labelText: 'Oda ID',
+                labelText: LocaleKeys.home_joinRoom_idLabel.tr(),
                 labelStyle: const TextStyle(color: ColorsCustom.skyBlue),
-                hintText: '6 haneli Oda ID girin',
+                hintText: LocaleKeys.home_joinRoom_idHint.tr(),
                 hintStyle: const TextStyle(color: ColorsCustom.skyBlue),
                 prefixIcon: const Icon(
                   Icons.numbers,
@@ -78,7 +80,7 @@ class JoinRoomCard extends StatelessWidget {
                     borderRadius: ProjectRadius.medium(),
                   ),
                 ),
-                child: const Text('ODAYA KATIL'),
+                child: Text(LocaleKeys.home_joinRoom_button.tr()),
               ),
             ),
           ],

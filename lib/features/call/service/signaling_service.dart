@@ -106,28 +106,40 @@ class SignalingService {
   void listenForIncomingSignals() {
     final mySignalRef = _roomSignalRef.child(userId);
 
+    void handleOfferEvent(DatabaseEvent event) {
+      if (event.snapshot.value == null) return;
+      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+      final fromUserId = event.snapshot.key;
+      var description = RTCSessionDescription(data['sdp'], data['type']);
+      if (fromUserId != null) {
+        onRemoteOffer?.call(description, fromUserId);
+      }
+    }
+
     _subscriptions.add(
-      mySignalRef.child('offers').onChildAdded.listen((event) {
-        if (event.snapshot.value == null) return;
-        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-        final fromUserId = event.snapshot.key;
-        var description = RTCSessionDescription(data['sdp'], data['type']);
-        if (fromUserId != null) {
-          onRemoteOffer?.call(description, fromUserId);
-        }
-      }),
+      mySignalRef.child('offers').onChildAdded.listen(handleOfferEvent),
     );
 
     _subscriptions.add(
-      mySignalRef.child('answers').onChildAdded.listen((event) {
-        if (event.snapshot.value == null) return;
-        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-        final fromUserId = event.snapshot.key;
-        var description = RTCSessionDescription(data['sdp'], data['type']);
-        if (fromUserId != null) {
-          onRemoteAnswer?.call(description, fromUserId);
-        }
-      }),
+      mySignalRef.child('offers').onChildChanged.listen(handleOfferEvent),
+    );
+
+    void handleAnswerEvent(DatabaseEvent event) {
+      if (event.snapshot.value == null) return;
+      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+      final fromUserId = event.snapshot.key;
+      var description = RTCSessionDescription(data['sdp'], data['type']);
+      if (fromUserId != null) {
+        onRemoteAnswer?.call(description, fromUserId);
+      }
+    }
+
+    _subscriptions.add(
+      mySignalRef.child('answers').onChildAdded.listen(handleAnswerEvent),
+    );
+
+    _subscriptions.add(
+      mySignalRef.child('answers').onChildChanged.listen(handleAnswerEvent),
     );
 
     _subscriptions.add(
@@ -159,14 +171,20 @@ class SignalingService {
       }),
     );
 
+    void handleByeEvent(DatabaseEvent event) {
+      final fromUserId = event.snapshot.key;
+      if (fromUserId != null) {
+        onRemoteBye?.call(fromUserId);
+        mySignalRef.child('bye').child(fromUserId).remove();
+      }
+    }
+
     _subscriptions.add(
-      mySignalRef.child('bye').onChildAdded.listen((event) {
-        final fromUserId = event.snapshot.key;
-        if (fromUserId != null) {
-          onRemoteBye?.call(fromUserId);
-          mySignalRef.child('bye').child(fromUserId).remove();
-        }
-      }),
+      mySignalRef.child('bye').onChildAdded.listen(handleByeEvent),
+    );
+
+    _subscriptions.add(
+      mySignalRef.child('bye').onChildChanged.listen(handleByeEvent),
     );
   }
 

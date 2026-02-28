@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/call/domain/services/i_media_device_service.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -207,11 +209,11 @@ class MediaDeviceService implements IMediaDeviceService {
           final typeStr = d.type.toString().toLowerCase();
 
           if (typeStr.contains('builtinmic')) {
-            label = 'Telefon Mikrofonu';
+            label = LocaleKeys.call_devices_phoneMic.tr();
           } else if (typeStr.contains('wired') || typeStr.contains('headset')) {
-            label = 'Kulaklık Mikrofonu';
+            label = LocaleKeys.call_devices_headsetMic.tr();
           } else if (typeStr.contains('bluetooth')) {
-            label = 'Bluetooth Mikrofon (${d.name})';
+            label = LocaleKeys.call_devices_bluetoothMic.tr(args: [d.name]);
           }
 
           // Try to match with existing enumerated device if possible
@@ -269,19 +271,19 @@ class MediaDeviceService implements IMediaDeviceService {
           final typeStr = d.type.toString().toLowerCase();
 
           if (typeStr.contains('speaker')) {
-            label = 'Hoparlör (Telefon)';
+            label = LocaleKeys.call_devices_speakerPhone.tr();
             deviceId = 'speaker';
           } else if (typeStr.contains('earpiece') ||
               typeStr.contains('receiver')) {
-            label = 'Ahize';
+            label = LocaleKeys.call_devices_earpiece.tr();
             deviceId = 'earpiece';
           } else if (typeStr.contains('headset') ||
               typeStr.contains('headphones') ||
               typeStr.contains('wired')) {
-            label = 'Kulaklık (Kablolu)';
+            label = LocaleKeys.call_devices_headsetWired.tr();
             deviceId = 'earpiece';
           } else if (typeStr.contains('bluetooth')) {
-            label = 'Bluetooth Kulaklık (${d.name})';
+            label = LocaleKeys.call_devices_bluetoothHeadset.tr(args: [d.name]);
             deviceId = 'earpiece';
           }
 
@@ -303,13 +305,13 @@ class MediaDeviceService implements IMediaDeviceService {
         return [
           MediaDeviceInfo(
             deviceId: 'speaker',
-            label: 'Hoparlör (Telefon)',
+            label: LocaleKeys.call_devices_speakerPhone.tr(),
             kind: 'audiooutput',
             groupId: 'default',
           ),
           MediaDeviceInfo(
             deviceId: 'earpiece',
-            label: 'Ahize / Kulaklık',
+            label: LocaleKeys.call_devices_earpieceHeadset.tr(),
             kind: 'audiooutput',
             groupId: 'default',
           ),

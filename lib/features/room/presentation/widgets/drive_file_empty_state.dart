@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 
@@ -19,7 +21,9 @@ class DriveFileEmptyState extends StatelessWidget {
           ),
           SizedBox(height: context.dynamicHeight(0.02)),
           Text(
-            isLocal ? 'İndirilmiş video yok.' : 'Video bulunamadı.',
+            isLocal
+                ? LocaleKeys.drive_noDownloadedVideos.tr()
+                : LocaleKeys.drive_noVideosFound.tr(),
             style: TextStyle(
               color: Colors.white54,
               fontSize: context.dynamicValue(18),

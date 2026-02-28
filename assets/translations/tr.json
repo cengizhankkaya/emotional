@@ -24,7 +24,9 @@
         "watch": "İzle",
         "download": "İndir",
         "play": "Oynat",
-        "seeAll": "Tümünü Gör"
+        "seeAll": "Tümünü Gör",
+        "delete": "Sil",
+        "search": "Ara"
     },
     "room": {
         "closed": "Oda kapatıldı veya odadan ayrıldınız.",
@@ -42,7 +44,26 @@
         "armchairStyleAntrasit": "Antrasit",
         "armchairStyleNavy": "Lacivert",
         "armchairStylePurple": "Mor",
-        "armchairStyleGreen": "Yeşil"
+        "armchairStyleGreen": "Yeşil",
+        "id": "Oda ID: {}",
+        "joined": "{} odaya katıldı",
+        "left": "{} odadan ayrıldı",
+        "inviteTitle": "Emoti Oda Daveti",
+        "inviteMessage": "Emoti odama katıl!\n\nOda Kimliği: {}\n\nHızlı Katılma Linki: https://emotional-app-b42af.web.app/join/{}\n\nLinki tıklayarak direkt odaya katılabilirsin.",
+        "tooltips": {
+            "invite": "Davet Et",
+            "leave": "Odadan Çık",
+            "theme": "Koltuk Teması",
+            "chat": "Sohbet"
+        },
+        "defaultUserName": "Kullanıcı",
+        "noCamera": "Kamera Yok",
+        "waitingForScreenShare": "Ekran paylaşımı bekleniyor...",
+        "transferHost": {
+            "title": "Host Devret",
+            "message": "Host yetkisini {} kullanıcısına devretmek istiyor musunuz?",
+            "button": "Devret"
+        }
     },
     "video": {
         "selectedVideo": "Seçilen Video",
@@ -75,11 +96,159 @@
         "unknownDevice": "Bilinmeyen Cihaz",
         "rotate": "Döndür",
         "splitScreen": "Yan Ekran",
-        "sharing": "{} paylaşıyor"
+        "sharing": "{} paylaşıyor",
+        "quality": {
+            "low": "Veri Tasarrufu (360p)",
+            "balanced": "Dengeli (480p)",
+            "high": "Yüksek Kalite (720p)",
+            "ultra": "Ultra Kalite (1080p)"
+        },
+        "videoSize": {
+            "small": "Küçük",
+            "medium": "Orta",
+            "large": "Büyük"
+        },
+        "devices": {
+            "phoneMic": "Telefon Mikrofonu",
+            "headsetMic": "Kulaklık Mikrofonu",
+            "bluetoothMic": "Bluetooth Mikrofon ({})",
+            "speakerPhone": "Hoparlör (Telefon)",
+            "earpiece": "Ahize",
+            "headsetWired": "Kulaklık (Kablolu)",
+            "bluetoothHeadset": "Bluetooth Kulaklık ({})",
+            "earpieceHeadset": "Ahize / Kulaklık",
+            "cameraIndex": "Kamera {}",
+            "micIndex": "Mikrofon {}"
+        }
+    },
+    "chat": {
+        "title": "Sohbet",
+        "noMessages": "Henüz mesaj yok",
+        "newMessages": "Yeni mesajlar",
+        "typeMessage": "Mesaj yaz...",
+        "errorPrefix": "Hata: {}"
+    },
+    "home": {
+        "welcome": "Merhaba, {}!",
+        "createRoom": {
+            "title": "Yeni Oda Oluştur",
+            "subtitle": "Yeni bir oturum başlat ve arkadaşlarını davet et.",
+            "button": "ODA OLUŞTUR"
+        },
+        "joinRoom": {
+            "title": "Odaya Katıl",
+            "idLabel": "Oda ID",
+            "idHint": "6 haneli Oda ID girin",
+            "button": "ODAYA KATIL"
+        },
+        "divider": "VEYA",
+        "permissions": {
+            "title": "İzinler Gerekli",
+            "subtitle": "Uygulamanın tam performansı için aşağıdaki izinlere ihtiyacı var:",
+            "cameraMicTitle": "Kamera ve Mikrofon",
+            "cameraMicSubtitle": "Görüntülü ve sesli sohbet odaları için",
+            "galleryTitle": "Galeri ve Medya",
+            "gallerySubtitle": "Videoları seçip arkadaşlarınızla izleyebilmek için",
+            "notificationsTitle": "Bildirimler",
+            "notificationsSubtitle": "İndirme durumunu takip edebilmeniz için",
+            "storageTitle": "Depolama",
+            "storageSubtitle": "Videoları cihazınıza kaydedebilmek için (Eski Cihazlar)",
+            "button": "İzinleri Ver",
+            "settingsTitle": "İzin Gerekli",
+            "settingsMessage": "Kamera ve mikrofon izinleri kalıcı olarak reddedilmiş.\n\nOda oluşturmak veya katılmak için uygulama ayarlarından izinleri açmanız gerekiyor.",
+            "openSettings": "Ayarları Aç"
+        },
+        "download": {
+            "showDownloads": "İndirmeleri Göster",
+            "downloadedVideos": "İndirilen Videolar",
+            "moreVideos": "+{} video daha"
+        },
+        "profile": {
+            "whoAreWeTitle": "Biz Kimiz?",
+            "whoAreWeContent": "Bu uygulama, arkadaşlarınızla veya ailenizle mesafeleri yok eden, aynı anda aynı şeyi izlemenize olanak sağlayan özel bir sosyal paylaşım alanıdır.",
+            "whatCanYouDoTitle": "Neler Yapabilirsiniz?",
+            "whatCanYouDoContent": "• Birlikte film, dizi ve video izleme\n• İzlerken eş zamanlı sesli ve görüntülü sohbet\n• Duygularınızı anlık olarak paylaşma",
+            "privacyTitle": "Gizlilik ve Önemi",
+            "privacyContent": "Kullanıcı gizliliği en büyük önceliğimizdir. Odalarınıza sadece davet ettiğiniz kişiler katılabilir. İletişiminiz sırasında paylaşılan veriler yüksek güvenlik standartlarıyla korunur.",
+            "close": "Anladım, Kapat"
+        },
+        "feedback": {
+            "roomNotFound": "Oda bulunamadı.",
+            "roomCreated": "Oda Oluşturuldu: {}",
+            "roomJoined": "Odaya Katılındı: {}",
+            "revokeTitle": "İzinleri iptal etmek için sistem ayarlarını kullanmanız gerekir.",
+            "permanentlyDenied": "Bu izin kalıcı olarak reddedilmiş. Ayarlardan açmanız gerekiyor."
+        }
+    },
+    "drive": {
+        "apiNotEnabled": "Google Drive API etkin değil.\nLütfen Cloud Console'dan etkinleştirin.",
+        "deleteTitle": "Dosyayı Sil",
+        "deleteMessage": "{} dosyasını silmek istediğinize emin misiniz?",
+        "fileDeleted": "Dosya silindi.",
+        "selectVideo": "Video Seç",
+        "downloads": "İndirilenler",
+        "gallery": "Galeri",
+        "drive": "Drive",
+        "noVideosFound": "Video bulunamadı.",
+        "noDownloadedVideos": "İndirilmiş video yok."
+    },
+    "youtube": {
+        "hint": "Video ara...",
+        "search": "Ara",
+        "emptyState": "İzlemek istediğin videoyu ara",
+        "noResults": "Sonuç bulunamadı",
+        "errorOccurred": "Arama sırasında hata oluştu: {}"
     },
     "download": {
         "securityTitle": "İşlem Güvenliği",
-        "securityMessage": "Ekranı kapatmamanız indirme işleminin güvenliği ve veri bütünlüğü için önemlidir. Lütfen işlem bitene kadar bekleyiniz."
+        "securityMessage": "İndirme işleminin güvenliği ve veri bütünlüğü için ekranın açık tutulması önemlidir. Lütfen işlem tamamlanana kadar bekleyin.",
+        "status": {
+            "downloading": "İndiriliyor...",
+            "downloadingProgress": "İndiriliyor: {}%",
+            "completed": "İndirme tamamlandı.",
+            "completedSuccess": "İndirme tamamlandı!",
+            "verifying": "Dosya doğrulanıyor...",
+            "starting": "İndirme başlatılıyor...",
+            "error": "Hata oluştu",
+            "stopped": "İndirme durduruldu veya iptal edildi."
+        },
+        "errors": {
+            "failedToStart": "İndirme başlatılamadı.",
+            "notLoggedIn": "Oturum açılmamış. Lütfen giriş yapın.",
+            "noInternet": "İnternet bağlantısı kurulamadı veya ağ kısıtlı.",
+            "downloadError": "İndirme hatası: {}",
+            "accessDenied": "Erişim engellendi (403). Oturumunuzu kontrol edin.",
+            "fileNotFound": "Dosya bulunamadı (404).",
+            "failedTryAgain": "İndirme başarısız. Bağlantınızı kontrol edip tekrar deneyin."
+        }
+    },
+    "video_player": {
+        "settings": {
+            "playbackSpeed": "Oynatma Hızı",
+            "audioChannel": "Ses Kanalı",
+            "subtitle": "Altyazı",
+            "volumeLevel": "Ses Seviyesi",
+            "error": "Hata"
+        },
+        "subtitle": {
+            "selection": "Altyazı Seçimi",
+            "searchHint": "Altyazı ara...",
+            "specialOptions": "Özel Seçenekler",
+            "none": "Altyazı Yok",
+            "loadExternal": "Harici Altyazı Yükle",
+            "embedded": "Gömülü Altyazılar",
+            "notFound": "Altyazı bulunamadı",
+            "externalLoaded": "Harici altyazı yüklendi."
+        },
+        "audio": {
+            "selection": "Ses Dili Seçimi",
+            "notFound": "Dil bulunamadı"
+        },
+        "controls": {
+            "joinRoom": "Odaya Katıl",
+            "preparingYoutube": "YouTube bağlantısı hazırlanıyor...",
+            "loadingVideo": "Video yükleniyor..."
+        }
     },
     "error": {
         "title": "Bir Hata Oluştu",
@@ -96,5 +265,56 @@
         "notificationsSubtitle": "İndirme durumları için",
         "gallery": "Galeri Erişimi",
         "gallerySubtitle": "Video seçimi için"
+    },
+    "auth": {
+        "login": {
+            "title": "Giriş Yap",
+            "subtitle": "Birlikte izlemenin keyfi",
+            "googleButton": "Google ile Giriş Yap",
+            "anonymousButton": "Misafir Olarak Devam Et",
+            "welcomeBack": "Tekrar Hoşgeldiniz",
+            "loginPrompt": "Devam etmek için giriş yapın",
+            "emailLabel": "E-posta",
+            "emailHint": "E-postanızı girin",
+            "passwordLabel": "Şifre",
+            "passwordHint": "Şifrenizi girin",
+            "loginButton": "GİRİŞ YAP",
+            "privacyStarted": "Giriş yaparak ",
+            "terms": "Kullanım Koşullarını",
+            "and": "\nve ",
+            "privacyPolicy": "Gizlilik Politikasını",
+            "privacyEnded": " kabul etmiş olursunuz"
+        },
+        "validation": {
+            "emailRequired": "Lütfen e-postanızı girin",
+            "emailInvalid": "Geçerli bir e-posta girin",
+            "passwordRequired": "Lütfen şifrenizi girin",
+            "passwordMinLength": "Şifre en az 6 karakter olmalı"
+        },
+        "error": {
+            "loginFailed": "Giriş başarısız: {}",
+            "googleFailed": "Google ile giriş başarısız: {}",
+            "anonymousFailed": "Misafir girişi başarısız: {}",
+            "userIsNull": "Kullanıcı bulunamadı",
+            "authFailed": "Kimlik doğrulama başarısız",
+            "userIsNullAfterSignIn": "Giriş sonrası kullanıcı bulunamadı",
+            "googleAuthFailed": "Google kimlik doğrulama başarısız"
+        },
+        "logout": {
+            "title": "Çıkış Yap",
+            "message": "Hesabınızdan çıkış yapmak istediğinize emin misiniz?",
+            "button": "Çıkış Yap"
+        }
+    },
+    "call_error": {
+        "permissionRequired": "Kamera ve mikrofon izinleri gerekli.",
+        "joinFailed": "Görüşmeye katılma başarısız: {}"
+    },
+    "chat_error": {
+        "sendFailed": "Mesaj gönderme başarısız: {}"
+    },
+    "room_error": {
+        "syncFailed": "Senkronizasyon hatası (Yetki?): {}",
+        "updateVideoFailed": "Oda videosu güncellenirken hata oluştu: {}"
     }
 }

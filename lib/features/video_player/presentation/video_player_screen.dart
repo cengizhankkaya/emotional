@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
@@ -99,8 +101,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot join call: User/Room info missing'),
+        SnackBar(
+          content: Text(
+            LocaleKeys.call_error_joinFailed.tr(
+              args: ['User/Room info missing'],
+            ),
+          ),
         ),
       );
     }

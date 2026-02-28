@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
@@ -191,15 +193,27 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            const Expanded(
-              child: Text(
-                'Video Title',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                overflow: TextOverflow.ellipsis,
+            Expanded(
+              child: BlocBuilder<VideoPlayerBloc, VideoPlayerState>(
+                builder: (context, state) {
+                  String title = 'Video';
+                  if (state is VideoPlayerActive) {
+                    if (state.videoFile != null) {
+                      title = state.videoFile!.path.split('/').last;
+                    } else if (state.youtubeUrl != null) {
+                      title = 'YouTube';
+                    }
+                  }
+                  return Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                },
               ),
             ),
             BlocBuilder<CallBloc, CallState>(
@@ -209,7 +223,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
                   return IconButton(
                     onPressed: widget.onJoinCall,
                     icon: const Icon(Icons.videocam, color: Colors.white),
-                    tooltip: 'Odaya Katıl',
+                    tooltip: LocaleKeys.video_player_controls_joinRoom.tr(),
                   );
                 } else {
                   final isVideoEnabled = callState.isVideoEnabled;
@@ -266,16 +280,42 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
     return BlocBuilder<VideoPlayerBloc, VideoPlayerState>(
       buildWhen: (previous, current) {
         if (current is VideoPlayerActive && previous is VideoPlayerActive) {
-          return current.isBuffering != previous.isBuffering;
+          return current.isBuffering != previous.isBuffering ||
+              current.isInitializing != previous.isInitializing;
         }
         return true;
       },
       builder: (context, state) {
         if (state is! VideoPlayerActive) return const SizedBox.shrink();
 
-        if (state.isBuffering) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
+        if (state.isBuffering || state.isInitializing) {
+          final isYoutubeInit =
+              state.isInitializing && state.youtubeUrl != null;
+          return Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: Colors.white),
+                  const SizedBox(height: 16),
+                  Text(
+                    isYoutubeInit
+                        ? LocaleKeys.video_player_controls_preparingYoutube.tr()
+                        : LocaleKeys.video_player_controls_loadingVideo.tr(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 

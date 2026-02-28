@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_settings_modal.dart';
@@ -56,16 +58,22 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Harici altyazı yüklendi.')),
+            SnackBar(
+              content: Text(
+                LocaleKeys.video_player_subtitle_externalLoaded.tr(),
+              ),
+            ),
           );
         }
       }
     } catch (e) {
       debugPrint('External subtitle error: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${LocaleKeys.video_player_settings_error.tr()}: $e'),
+          ),
+        );
       }
     }
   }
@@ -110,9 +118,9 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                   children: [
                     Icon(Icons.subtitles, color: Colors.blue[300], size: 24),
                     const SizedBox(width: 12),
-                    const Text(
-                      'Altyazı Seçimi',
-                      style: TextStyle(
+                    Text(
+                      LocaleKeys.video_player_subtitle_selection.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -132,7 +140,8 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                     onChanged: (value) => setState(() => _searchQuery = value),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Altyazı ara...',
+                      hintText: LocaleKeys.video_player_subtitle_searchHint
+                          .tr(),
                       hintStyle: TextStyle(color: Colors.grey[500]),
                       prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
                       filled: true,
@@ -161,7 +170,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: Text(
-                    'Özel Seçenekler',
+                    LocaleKeys.video_player_subtitle_specialOptions.tr(),
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 12,
@@ -196,7 +205,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                       onChanged: (_) => _selectNoSubtitle(),
                     ),
                     title: Text(
-                      'Altyazı Yok',
+                      LocaleKeys.video_player_subtitle_none.tr(),
                       style: TextStyle(
                         color: currentTrackId == 'no'
                             ? Colors.red[300]
@@ -225,9 +234,9 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                   ),
                   child: ListTile(
                     leading: const Icon(Icons.upload_file, color: Colors.green),
-                    title: const Text(
-                      'Harici Altyazı Yükle',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    title: Text(
+                      LocaleKeys.video_player_subtitle_loadExternal.tr(),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
                     subtitle: Text(
                       '.srt, .vtt, .ass',
@@ -249,7 +258,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                     child: Text(
-                      'Gömülü Altyazılar',
+                      LocaleKeys.video_player_subtitle_embedded.tr(),
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 12,
@@ -271,7 +280,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Altyazı bulunamadı',
+                            LocaleKeys.video_player_subtitle_notFound.tr(),
                             style: TextStyle(
                               color: Colors.grey[500],
                               fontSize: 16,

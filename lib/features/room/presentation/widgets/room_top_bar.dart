@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 
@@ -99,12 +101,12 @@ class RoomTopBar extends StatelessWidget {
       context: context,
       onPressed: () {
         Share.share(
-          'Emoti odama katıl!\n\nOda Kimliği: $roomId\n\nHızlı Katılma Linki: https://emotional-app-b42af.web.app/join/$roomId\n\nLinki tıklayarak direkt odaya katılabilirsin.',
-          subject: 'Emoti Oda Daveti',
+          LocaleKeys.room_inviteMessage.tr(args: [roomId, roomId]),
+          subject: LocaleKeys.room_inviteTitle.tr(),
         );
       },
       icon: Icons.share,
-      tooltip: 'Davet Et',
+      tooltip: LocaleKeys.room_tooltips_invite.tr(),
     );
   }
 
@@ -122,7 +124,7 @@ class RoomTopBar extends StatelessWidget {
       },
       icon: Icons.no_meeting_room,
       iconColor: Colors.redAccent,
-      tooltip: 'Odadan Çık',
+      tooltip: LocaleKeys.room_tooltips_leave.tr(),
     );
   }
 
@@ -131,7 +133,7 @@ class RoomTopBar extends StatelessWidget {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: SelectableText(
-          'Oda ID: $roomId',
+          LocaleKeys.room_id.tr(args: [roomId]),
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.9),
             // Daha küçük font ile dar ekranlarda da taşma olmadan göster.
@@ -167,7 +169,7 @@ class RoomTopBar extends StatelessWidget {
         );
       },
       icon: Icons.chair,
-      tooltip: 'Koltuk Teması',
+      tooltip: LocaleKeys.room_tooltips_theme.tr(),
     );
   }
 
@@ -178,7 +180,7 @@ class RoomTopBar extends StatelessWidget {
         scaffoldKey.currentState?.openEndDrawer();
       },
       icon: Icons.chat_bubble_outline,
-      tooltip: 'Sohbet',
+      tooltip: LocaleKeys.room_tooltips_chat.tr(),
     );
   }
 }

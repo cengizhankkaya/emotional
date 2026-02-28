@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -193,24 +195,31 @@ class _ProfileDialogState extends State<ProfileDialog>
                   ],
                 ),
                 const SizedBox(height: 28),
-                _buildSectionTitle(context, 'Biz Kimiz?'),
+                _buildSectionTitle(
+                  context,
+                  LocaleKeys.home_profile_whoAreWeTitle.tr(),
+                ),
                 _buildSectionContent(
                   context,
-                  'Bu uygulama, arkadaşlarınızla veya ailenizle mesafeleri yok eden, aynı anda aynı şeyi izlemenize olanak sağlayan özel bir sosyal paylaşım alanıdır.',
+                  LocaleKeys.home_profile_whoAreWeContent.tr(),
                 ),
                 const SizedBox(height: 16),
-                _buildSectionTitle(context, 'Neler Yapabilirsiniz?'),
+                _buildSectionTitle(
+                  context,
+                  LocaleKeys.home_profile_whatCanYouDoTitle.tr(),
+                ),
                 _buildSectionContent(
                   context,
-                  '• Birlikte film, dizi ve video izleme\n'
-                  '• İzlerken eş zamanlı sesli ve görüntülü sohbet\n'
-                  '• Duygularınızı anlık olarak paylaşma',
+                  LocaleKeys.home_profile_whatCanYouDoContent.tr(),
                 ),
                 const SizedBox(height: 16),
-                _buildSectionTitle(context, 'Gizlilik ve Önemi'),
+                _buildSectionTitle(
+                  context,
+                  LocaleKeys.home_profile_privacyTitle.tr(),
+                ),
                 _buildSectionContent(
                   context,
-                  'Kullanıcı gizliliği en büyük önceliğimizdir. Odalarınıza sadece davet ettiğiniz kişiler katılabilir. İletişiminiz sırasında paylaşılan veriler yüksek güvenlik standartlarıyla korunur.',
+                  LocaleKeys.home_profile_privacyContent.tr(),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -230,8 +239,8 @@ class _ProfileDialogState extends State<ProfileDialog>
                         ),
                       ),
                     ),
-                    child: const Text(
-                      'Anladım, Kapat',
+                    child: Text(
+                      LocaleKeys.home_profile_close.tr(),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,

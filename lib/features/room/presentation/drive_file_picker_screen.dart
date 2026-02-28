@@ -6,6 +6,8 @@ import 'package:emotional/features/room/presentation/widgets/drive_file_empty_st
 import 'package:emotional/features/room/presentation/widgets/drive_file_error_view.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_grid_item.dart';
 import 'package:emotional/features/room/presentation/widgets/drive_file_list_item.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
@@ -125,8 +127,7 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
         setState(() {
           if (e.toString().contains('403') ||
               e.toString().contains('disabled')) {
-            _error =
-                'Google Drive API etkin değil.\nLütfen Cloud Console\'dan etkinleştirin.';
+            _error = LocaleKeys.drive_apiNotEnabled.tr();
           } else {
             _error = e.toString();
           }
@@ -263,22 +264,28 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: ColorsCustom.darkGray,
-        title: const Text(
-          'Dosyayı Sil',
-          style: TextStyle(color: ColorsCustom.white),
+        title: Text(
+          LocaleKeys.drive_deleteTitle.tr(),
+          style: const TextStyle(color: ColorsCustom.white),
         ),
         content: Text(
-          '${file.name} dosyasını silmek istediğinize emin misiniz?',
+          LocaleKeys.drive_deleteMessage.tr(args: [file.name!]),
           style: const TextStyle(color: ColorsCustom.darkGray),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('İptal', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              LocaleKeys.button_cancel.tr(),
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sil', style: TextStyle(color: Colors.redAccent)),
+            child: Text(
+              LocaleKeys.button_delete.tr(),
+              style: const TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -291,15 +298,18 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
         await downloadManager.deleteDownloadedVideo(file.name!);
 
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Dosya silindi.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(LocaleKeys.drive_fileDeleted.tr())),
+          );
           _loadInitialData(); // Refresh UI
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('${LocaleKeys.chat_errorPrefix.tr(args: [''])} $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -316,9 +326,12 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFF1A1D21),
         appBar: AppBar(
-          title: const Text(
-            'Video Seç',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          title: Text(
+            LocaleKeys.drive_selectVideo.tr(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           backgroundColor: const Color(0xFF1A1D21),
           elevation: 0,
@@ -349,10 +362,10 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
-                tabs: const [
-                  Tab(text: 'İndirilenler'),
-                  Tab(text: 'Galeri'),
-                  Tab(text: 'Drive'),
+                tabs: [
+                  Tab(text: LocaleKeys.drive_downloads.tr()),
+                  Tab(text: LocaleKeys.drive_gallery.tr()),
+                  Tab(text: LocaleKeys.drive_drive.tr()),
                 ],
               ),
             ),
@@ -428,10 +441,10 @@ class _DriveFilePickerScreenState extends State<DriveFilePickerScreen> {
 
   Widget _buildGalleryList(List<drive.File> files) {
     if (files.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Cihazda video bulunamadı.',
-          style: TextStyle(color: Colors.grey),
+          LocaleKeys.drive_noVideosFound.tr(),
+          style: const TextStyle(color: Colors.grey),
         ),
       );
     }

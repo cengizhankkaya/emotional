@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
@@ -367,15 +369,21 @@ class AvatarParticipantWidget extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E2229),
-        title: const Text('Host Devret', style: TextStyle(color: Colors.white)),
+        title: Text(
+          LocaleKeys.room_transferHost_title.tr(),
+          style: const TextStyle(color: Colors.white),
+        ),
         content: Text(
-          'Host yetkisini $userName kullanıcısına devretmek istiyor musunuz?',
+          LocaleKeys.room_transferHost_message.tr(args: [userName]),
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('İptal', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              LocaleKeys.button_cancel.tr(),
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -385,7 +393,10 @@ class AvatarParticipantWidget extends StatelessWidget {
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
-            child: const Text('Devret', style: TextStyle(color: Colors.white)),
+            child: Text(
+              LocaleKeys.room_transferHost_button.tr(),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),

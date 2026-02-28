@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/core/services/download/download_service.dart';
@@ -111,7 +113,7 @@ class DownloadManager extends ChangeNotifier {
           _currentDownloadingFileId = null;
           _currentDownloadingFileName = task.filename;
           _downloadProgress = task.progress;
-          _downloadStatus = 'İndiriliyor...';
+          _downloadStatus = LocaleKeys.download_status_downloading.tr();
           notifyListeners();
         } else if (task.status == TaskStatus.complete) {
           if (task.filename != null) {
@@ -147,12 +149,16 @@ class DownloadManager extends ChangeNotifier {
         task.status == TaskStatus.notFound) {
       _handleTaskEnd(task);
     } else if (task.status == TaskStatus.paused) {
-      _downloadStatus = 'Durduruldu (${(task.progress * 100).toInt()}%)';
+      _downloadStatus = LocaleKeys.download_status_stopped.tr(
+        args: [(task.progress * 100).toInt().toString()],
+      );
       debugPrint('DownloadManager: Download PAUSED');
       _notifyStateChanged();
     } else {
       _downloadProgress = task.progress; // progress is 0.0 to 1.0
-      _downloadStatus = 'İndiriliyor: ${(task.progress * 100).toInt()}%';
+      _downloadStatus = LocaleKeys.download_status_downloadingProgress.tr(
+        args: [(task.progress * 100).toInt().toString()],
+      );
       _notifyStateChanged();
     }
   }
@@ -176,7 +182,7 @@ class DownloadManager extends ChangeNotifier {
     }
 
     _downloadProgress = 1.0;
-    _downloadStatus = 'İndirme tamamlandı.';
+    _downloadStatus = LocaleKeys.download_status_completed.tr();
     debugPrint('DownloadManager: Download COMPLETED successfully.');
     _notifyStateChanged();
 
@@ -209,7 +215,7 @@ class DownloadManager extends ChangeNotifier {
       'DownloadManager: Status $statusName received. Attempting recovery...',
     );
 
-    _downloadStatus = 'Dosya doğrulanıyor...';
+    _downloadStatus = LocaleKeys.download_status_verifying.tr();
     _notifyStateChanged();
 
     // Delegate complex recovery logic to helper
@@ -378,7 +384,10 @@ class DownloadManager extends ChangeNotifier {
     String fileName, {
     bool requestNotificationPermission = true,
   }) async {
-    if (_downloadStatus != null && _downloadStatus!.contains('İndiriliyor')) {
+    if (_downloadStatus != null &&
+        _downloadStatus!.contains(
+          LocaleKeys.download_status_downloading.tr(),
+        )) {
       debugPrint(
         'DownloadManager: Download already in progress. Ignoring request.',
       );
@@ -387,7 +396,7 @@ class DownloadManager extends ChangeNotifier {
 
     try {
       _downloadProgress = 0;
-      _downloadStatus = 'İndirme başlatılıyor...';
+      _downloadStatus = LocaleKeys.download_status_starting.tr();
       _currentDownloadingFileName = fileName;
       _currentDownloadingFileId = fileId;
       _notifyStateChanged();
@@ -414,7 +423,7 @@ class DownloadManager extends ChangeNotifier {
       debugPrint('Stacktrace: $stackTrace');
 
       _downloadProgress = null;
-      _downloadStatus = 'Hata oluştu';
+      _downloadStatus = LocaleKeys.download_status_error.tr();
       _notifyStateChanged();
 
       final userMessage = _errorHelper.getErrorMessage(e);

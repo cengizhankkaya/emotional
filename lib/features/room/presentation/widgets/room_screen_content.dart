@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:emotional/features/chat/presentation/chat_widget.dart';
@@ -438,15 +440,15 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
     }
 
     if (activeRenderers.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_off, color: Colors.white24, size: 30),
-            SizedBox(height: 4),
+            const Icon(Icons.videocam_off, color: Colors.white24, size: 30),
+            const SizedBox(height: 4),
             Text(
-              "Kamera Yok",
-              style: TextStyle(color: Colors.white24, fontSize: 8),
+              LocaleKeys.room_noCamera.tr(),
+              style: const TextStyle(color: Colors.white24, fontSize: 8),
             ),
           ],
         ),

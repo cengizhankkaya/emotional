@@ -61,34 +61,46 @@ class RoomRepositoryImpl implements RoomRepository {
 
     final roomRef = _database.ref('rooms/$roomId');
 
-    final result = await roomRef.runTransaction((Object? post) {
-      if (post == null) {
-        return Transaction.abort();
-      }
+    try {
+      final result = await roomRef.runTransaction((Object? post) {
+        if (post == null) {
+          return Transaction.abort();
+        }
 
-      final Map<dynamic, dynamic> roomData = post as Map<dynamic, dynamic>;
-      final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
+        final Map<dynamic, dynamic> roomData = post as Map<dynamic, dynamic>;
+        final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
 
-      // Check if user is already in the room (avoid redundant joins)
-      if (users.containsKey(userId)) {
+        // Check if user is already in the room (avoid redundant joins)
+        if (users.containsKey(userId)) {
+          return Transaction.success(roomData);
+        }
+
+        users[userId] = userName;
+        roomData['users'] = users;
         return Transaction.success(roomData);
+      });
+
+      if (!result.committed) {
+        final snapshot = await roomRef.get();
+        if (!snapshot.exists) {
+          throw Exception('Oda bulunamadı');
+        }
+        // Fallback: If transaction wasn't committed but room exists, force an update
+        print(
+          'RoomRepository: joinRoom transaction uncommitted, forcing update...',
+        );
+        await roomRef.child('users').update({userId: userName});
       }
-
-      users[userId] = userName;
-      roomData['users'] = users;
-      return Transaction.success(roomData);
-    });
-
-    if (!result.committed) {
+    } catch (e) {
+      print(
+        'RoomRepository: joinRoom transaction failed ($e), falling back to force update...',
+      );
+      // Direct update fallback in case of "too many retries" or "overridden"
       final snapshot = await roomRef.get();
       if (!snapshot.exists) {
-        // Gerçek hata: oda gerçekten yoksa kullanıcıya bildir.
         throw Exception('Oda bulunamadı');
       }
-      // Oda var ama transaction commit edilmediyse (geçici çakışma vb.)
-      // kullanıcıya hata göstermeden sessizce çıkıyoruz; kullanıcı
-      // yeniden denediğinde normal şekilde katılabilecek.
-      return;
+      await roomRef.child('users').update({userId: userName});
     }
 
     // Set up onDisconnect ONLY after successful transaction
@@ -114,38 +126,51 @@ class RoomRepositoryImpl implements RoomRepository {
     final signalRef = _database.ref('rooms/$roomId/signal/$userId');
     await signalRef.onDisconnect().cancel();
 
-    // Use a transaction to ensure atomic update and cleanup
-    final result = await roomRef.runTransaction((Object? post) {
-      if (post == null) {
-        return Transaction.success(post);
+    try {
+      final result = await roomRef.runTransaction((Object? post) {
+        if (post == null) {
+          return Transaction.success(post);
+        }
+
+        final Map<dynamic, dynamic> roomData = post as Map<dynamic, dynamic>;
+        final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
+
+        if (users.containsKey(userId)) {
+          users.remove(userId);
+        }
+
+        // If no users left, delete the room
+        if (users.isEmpty) {
+          return Transaction.success(null);
+        }
+
+        // If the leaving user was the host, assign a new one
+        final currentHost = roomData['host'] as String?;
+        if (currentHost == userId) {
+          // Assign the first available user as the new host
+          roomData['host'] = users.keys.first.toString();
+        }
+
+        // Update the user list
+        roomData['users'] = users;
+        return Transaction.success(roomData);
+      });
+      print(
+        'RoomRepository: LeaveRoom transaction finished for $userId with result: ${result.committed}',
+      );
+
+      if (!result.committed) {
+        print(
+          'RoomRepository: leaveRoom transaction uncommitted, forcing remove...',
+        );
+        await roomRef.child('users/$userId').remove();
       }
-
-      final Map<dynamic, dynamic> roomData = post as Map<dynamic, dynamic>;
-      final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
-
-      if (users.containsKey(userId)) {
-        users.remove(userId);
-      }
-
-      // If no users left, delete the room
-      if (users.isEmpty) {
-        return Transaction.success(null);
-      }
-
-      // If the leaving user was the host, assign a new one
-      final currentHost = roomData['host'] as String?;
-      if (currentHost == userId) {
-        // Assign the first available user as the new host
-        roomData['host'] = users.keys.first.toString();
-      }
-
-      // Update the user list
-      roomData['users'] = users;
-      return Transaction.success(roomData);
-    });
-    print(
-      'RoomRepository: LeaveRoom transaction finished for $userId with result: ${result.committed}',
-    );
+    } catch (e) {
+      print(
+        'RoomRepository: leaveRoom transaction failed ($e), falling back to force remove...',
+      );
+      await roomRef.child('users/$userId').remove();
+    }
   }
 
   @override

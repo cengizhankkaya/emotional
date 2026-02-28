@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 
 import 'package:emotional/features/room/domain/entities/room_entity.dart';
 import 'package:emotional/features/room/domain/usecases/create_room_usecase.dart';
@@ -33,6 +35,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
   String? _currentUserName;
   bool _isAppInBackgrounded = false;
   bool _isLeavingRoom = false;
+  bool _isJoiningRoom = false; // Guard for rapid re-joins
 
   RoomBloc({
     required CreateRoomUseCase createRoom,
@@ -116,8 +119,11 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     JoinRoomRequested event,
     Emitter<RoomState> emit,
   ) async {
+    if (_isJoiningRoom) return;
+
     emit(RoomLoading());
     try {
+      _isJoiningRoom = true;
       _currentUserId = event.userId;
       _currentUserName = event.userName;
       _isLeavingRoom = false;
@@ -125,6 +131,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
       _subscribeToRoom(event.roomId);
     } catch (e) {
       emit(RoomError(e.toString()));
+    } finally {
+      _isJoiningRoom = false;
     }
   }
 
@@ -183,10 +191,31 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
               );
               return;
             }
+            if (_isJoiningRoom) {
+              print('RoomBloc: Re-join already in progress. Ignoring.');
+              return;
+            }
             print(
-              'RoomBloc: User $_currentUserId MISSING from usersMap while joined. Re-joining automatically...',
+              'RoomBloc: User $_currentUserId MISSING from usersMap while joined. Re-joining automatically in 1s...',
             );
-            _joinRoom(roomId, _currentUserId!, _currentUserName ?? "Kullanıcı");
+            _isJoiningRoom = true;
+            Future.delayed(const Duration(seconds: 1), () {
+              if (_isLeavingRoom) {
+                _isJoiningRoom = false;
+                return;
+              }
+              _joinRoom(
+                    roomId,
+                    _currentUserId!,
+                    _currentUserName ?? LocaleKeys.room_someone.tr(),
+                  )
+                  .catchError((e) {
+                    print('RoomBloc: Failed to auto-rejoin: $e');
+                  })
+                  .whenComplete(() {
+                    _isJoiningRoom = false;
+                  });
+            });
             return;
           } else {
             print(
@@ -277,7 +306,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     for (final participant in newParticipants) {
       if (!oldParticipants.contains(participant)) {
         final userName = userNames[participant] ?? participant;
-        notification = '$userName odaya katıldı';
+        notification = LocaleKeys.room_joined.tr(args: [userName]);
         break;
       }
     }
@@ -286,7 +315,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
       for (final participant in oldParticipants) {
         if (!newParticipants.contains(participant)) {
           final userName = userNames[participant] ?? participant;
-          notification = '$userName odadan ayrıldı';
+          notification = LocaleKeys.room_left.tr(args: [userName]);
           break;
         }
       }
@@ -331,7 +360,11 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
       print('RoomBloc: UpdateRoomVideoRequested success');
     } catch (e) {
       print('RoomBloc: UpdateRoomVideoRequested failed: $e');
-      emit(RoomError('Failed to update room video: $e'));
+      emit(
+        RoomError(
+          LocaleKeys.room_error_updateVideoFailed.tr(args: [e.toString()]),
+        ),
+      );
     }
   }
 
@@ -352,7 +385,9 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         final currentState = state as RoomJoined;
         emit(
           currentState.copyWith(
-            notificationMessage: 'Senkronizasyon hatası (Yetki?): $e',
+            notificationMessage: LocaleKeys.room_error_syncFailed.tr(
+              args: [e.toString()],
+            ),
           ),
         );
       }

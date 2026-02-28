@@ -2,6 +2,8 @@ import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
 
 /// Card widget for creating a new room
@@ -24,7 +26,7 @@ class CreateRoomCard extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'Yeni Oda Oluştur',
+              LocaleKeys.home_createRoom_title.tr(),
               style: TextStyle(
                 fontSize: context.dynamicValue(18),
                 fontWeight: FontWeight.bold,
@@ -33,7 +35,7 @@ class CreateRoomCard extends StatelessWidget {
             ),
             SizedBox(height: context.dynamicHeight(0.02)),
             Text(
-              'Yeni bir oturum başlat ve arkadaşlarını davet et.',
+              LocaleKeys.home_createRoom_subtitle.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey,
@@ -53,7 +55,7 @@ class CreateRoomCard extends StatelessWidget {
                     borderRadius: ProjectRadius.medium(),
                   ),
                 ),
-                child: const Text('ODA OLUŞTUR'),
+                child: Text(LocaleKeys.home_createRoom_button.tr()),
               ),
             ),
           ],
