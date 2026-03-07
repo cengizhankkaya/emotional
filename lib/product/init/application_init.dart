@@ -11,6 +11,10 @@ import 'package:emotional/core/services/download/download_service.dart';
 
 import '../../core/init/core_localize.dart';
 import '../../firebase_options.dart';
+import 'package:flutter/foundation.dart';
+import 'package:emotional/product/init/config/app_enviroment.dart';
+import 'package:emotional/product/init/config/dev_env.dart';
+import 'package:emotional/product/init/config/prod_env.dart';
 
 @immutable
 final class ApplicationInit {
@@ -20,6 +24,13 @@ final class ApplicationInit {
   Future<void> start() async {
     // 1. Bind Flutter Engine
     WidgetsFlutterBinding.ensureInitialized();
+
+    // 1.2 Initialize Environment Variables
+    if (kDebugMode) {
+      AppEnviroment.setup(config: DevEnv());
+    } else {
+      AppEnviroment.setup(config: ProdEnv());
+    }
 
     // 1.5 Initialize Connectivity Watcher
     ZoConnectivityWatcher().setUp();
