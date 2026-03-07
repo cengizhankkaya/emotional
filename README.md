@@ -11,6 +11,11 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License"></a>
   </p>
   <p>
+    <a href="https://play.google.com/store/apps/details?id=com.esce.emoti">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" height="50">
+    </a>
+  </p>
+  <p>
     <b>🇬🇧 English</b> | <a href="README.tr.md">🇹🇷 Türkçe</a>
   </p>
 </div>

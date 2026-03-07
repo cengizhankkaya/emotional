@@ -22,7 +22,7 @@ class ForceUpdateDialog extends StatelessWidget {
         ElevatedButton(
           onPressed: () {
             // TODO: Replace with your actual App Store / Play Store link when published
-            // launchUrl(Uri.parse('https://play.google.com/store/apps/details?id=com.cengizhankkaya.emoti'));
+            // launchUrl(Uri.parse('https://play.google.com/store/apps/details?id=com.esce.emoti'));
           },
           child: const Text("Güncelle"),
         ),
