@@ -26,6 +26,18 @@ Google Drive'dan bir film izliyor, YouTube'dan içerik akışı yapıyor veya ye
 
 ---
 
+## 📸 Uygulama Görüntüleri (Screenshots)
+
+<div align="center">
+  <img src="assets/docs/screenshot_1.png" alt="Emoti Ana Ekran" width="230"/>
+  <img src="assets/docs/screenshot_2.png" alt="Emoti Oda Görünümü" width="230"/>
+  <img src="assets/docs/screenshot_3.png" alt="Emoti Görüntülü Arama" width="230"/>
+</div>
+
+*Play Store mağaza görsellerinizi `assets/docs/` klasörüne ekleyip isimlerini `screenshot_1.png`, `screenshot_2.png` olarak ayarlayabilir veya yukarıdaki dosya yollarını (src) değiştirebilirsiniz.*
+
+---
+
 ## ✨ Özellikler
 
 - 🎥 **Senkronize Video Oynatma:** Arkadaşlarınızla birlikte video izleyin. Oynatma, duraklatma ve ileri/geri sarma (seek) olayları odadaki tüm eşler (peers) arasında anında senkronize edilir.

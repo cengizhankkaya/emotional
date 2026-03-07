@@ -25,6 +25,18 @@ Whether it's watching a movie from Google Drive, streaming from YouTube, or play
 
 ---
 
+## 📸 App Screenshots
+
+<div align="center">
+  <img src="assets/docs/screenshot_1.png" alt="Emoti Home Screen" width="230"/>
+  <img src="assets/docs/screenshot_2.png" alt="Emoti Room layout" width="230"/>
+  <img src="assets/docs/screenshot_3.png" alt="Emoti Call interface" width="230"/>
+</div>
+
+*Add your Play Store/App Store promotional images to the `assets/docs/` folder and name them `screenshot_1.png`, `screenshot_2.png`, etc., or replace the paths above.*
+
+---
+
 ## ✨ Features
 
 - 🎥 **Synchronized Video Playback:** Watch videos together with friends. Play, pause, and seek events are instantly synced across all peers in the room.
