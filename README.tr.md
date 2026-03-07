@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="assets/logo/logo.png" alt="Emotional Logo" width="150" height="auto" />
-  <h1>Emotional</h1>
+  <img src="assets/logo/logo.png" alt="Emoti Logo" width="150" height="auto" />
+  <h1>Emoti</h1>
   <p><strong>Gerçek zamanlı WebRTC iletişimi, senkronize medya oynatma ve Firebase tabanlı güvenli bir arka uç (backend) sunan modern ve yüksek ölçeklenebilir Flutter uygulaması.</strong></p>
 
   <p>
@@ -18,11 +18,11 @@
 
 ---
 
-## 📖 Emotional Hakkında
+## 📖 Emoti Hakkında
 
-**Emotional**, Flutter ile geliştirilmiş açık kaynaklı bir sosyal medya ve senkronize video izleme platformudur. Kullanıcıların sanal odalar oluşturmasına, arkadaşlarını davet etmesine ve videoyu gerçek zamanlı (WebRTC) görüntülü ve sesli görüşme yaparken tamamen senkronize bir şekilde izlemelerine olanak tanır.
+**Emoti**, Flutter ile geliştirilmiş açık kaynaklı bir sosyal medya ve senkronize video izleme platformudur. Kullanıcıların sanal odalar oluşturmasına, arkadaşlarını davet etmesine ve videoyu gerçek zamanlı (WebRTC) görüntülü ve sesli görüşme yaparken tamamen senkronize bir şekilde izlemelerine olanak tanır.
 
-Google Drive'dan bir film izliyor, YouTube'dan içerik akışı yapıyor veya yerel bir dosya oynatıyor olsanız da, Emotional odadaki herkesin ekranını mükemmel bir saniye hassasiyetiyle eşzamanlı tutar.
+Google Drive'dan bir film izliyor, YouTube'dan içerik akışı yapıyor veya yerel bir dosya oynatıyor olsanız da, Emoti odadaki herkesin ekranını mükemmel bir saniye hassasiyetiyle eşzamanlı tutar.
 
 ---
 
@@ -36,7 +36,7 @@ Google Drive'dan bir film izliyor, YouTube'dan içerik akışı yapıyor veya ye
   - **Koltuk (Armchair) Modu:** Sanal koltukları temsil eden rahat bir oda ortamı.
   - **Sinema (Cinema) Modu:** Sinematik bir düzenle tamamen videoya odaklanın.
   - **Bölünmüş (Split) Mod:** Video oynatıcısı ile arkadaşlarınızın web kamerası görüntülerini mükemmel bir dengeyle ortadan ikiye bölün.
-- 🔗 **Derin Bağlantılar (Deep Linking):** Özel URL'ler kullanarak kullanıcıları doğrudan odalara davet edin (ör. `emotional://join/{roomId}`).
+- 🔗 **Derin Bağlantılar (Deep Linking):** Özel URL'ler kullanarak kullanıcıları doğrudan odalara davet edin (ör. `emoti://join/{roomId}`).
 - 🔒 **Yüksek Güvenlik:** Derinlemesine entegre edilmiş ortam (environment) şifrelemesi, API anahtarlarının havuzda (repository) veya derlenmiş (compiled) kodda asla açığa çıkmamasını sağlar.
 - 🌍 **Yerelleştirme (Localization):** Kutudan çıktığı haliyle çoklu dil desteği (İngilizce ve Türkçe).
 
@@ -85,7 +85,7 @@ lib/
 
 ## 🚀 Başvuru Kaynağı (Başlangıç)
 
-Emotional'i yerel ortamınızda (local) çalıştırmak veya koda katkıda bulunmak mı istiyorsunuz? Projeyi kurmak için şu adımları izleyin.
+Emoti'yi yerel ortamınızda (local) çalıştırmak veya koda katkıda bulunmak mı istiyorsunuz? Projeyi kurmak için şu adımları izleyin.
 
 ### 📋 Ön Koşullar
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) (^3.10.4)
@@ -141,7 +141,7 @@ flutter run
 
 ## 🤝 Katkıda Bulunma (Contributing)
 
-Emotional, açık kaynak (open-source) topluluğu tarafından ve bu topluluk için inşa edilmiştir. Flutter, WebRTC veya Clean Architecture öğreniyorsanız eğer yeni yetenekler kazanmak veya test etmek için harika bir adrestir!
+Emoti, açık kaynak (open-source) topluluğu tarafından ve bu topluluk için inşa edilmiştir. Flutter, WebRTC veya Clean Architecture öğreniyorsanız eğer yeni yetenekler kazanmak veya test etmek için harika bir adrestir!
 
 1. Projeyi kendinize "Fork"layın
 2. Özelliğiniz (Feature) için bir Branch oluşturun (`git checkout -b feature/YeniHarikaOzellik`)

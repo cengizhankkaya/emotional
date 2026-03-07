@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="assets/logo/logo.png" alt="Emotional Logo" width="150" height="auto" />
-  <h1>Emotional</h1>
+  <img src="assets/logo/logo.png" alt="Emoti Logo" width="150" height="auto" />
+  <h1>Emoti</h1>
   <p><strong>A modern, highly scalable Flutter application featuring real-time WebRTC communication, synchronized media playback, and a secure Firebase-powered backend.</strong></p>
 
   <p>
@@ -17,11 +17,11 @@
 
 ---
 
-## 📖 About Emotional
+## 📖 About Emoti
 
-**Emotional** is an open-source social media and synchronized video-watching platform built with Flutter. It allows users to create virtual rooms, invite friends, and watch videos together completely in sync while simultaneously interacting via real-time WebRTC video and audio calls.
+**Emoti** is an open-source social media and synchronized video-watching platform built with Flutter. It allows users to create virtual rooms, invite friends, and watch videos together completely in sync while simultaneously interacting via real-time WebRTC video and audio calls.
 
-Whether it's watching a movie from Google Drive, streaming from YouTube, or playing a local file, Emotional keeps everyone in the room perfectly synchronized.
+Whether it's watching a movie from Google Drive, streaming from YouTube, or playing a local file, Emoti keeps everyone in the room perfectly synchronized.
 
 ---
 
@@ -35,7 +35,7 @@ Whether it's watching a movie from Google Drive, streaming from YouTube, or play
   - **Armchair Mode:** A cozy setup representing virtual seats.
   - **Cinema Mode:** Focus entirely on the video with a cinematic layout.
   - **Split Mode:** Perfectly balance the video player and your friends' webcam feeds.
-- 🔗 **Deep Linking:** Seamlessly invite users directly into rooms using custom URLs (e.g., `emotional://join/{roomId}`).
+- 🔗 **Deep Linking:** Seamlessly invite users directly into rooms using custom URLs (e.g., `emoti://join/{roomId}`).
 - 🔒 **High Security:** Deeply integrated environment obfuscation ensures no API keys are ever exposed in the repository or compiled code.
 - 🌍 **Localization:** Multi-language support out of the box (English & Turkish).
 
@@ -84,7 +84,7 @@ lib/
 
 ## 🚀 Getting Started
 
-Want to run Emotional locally or contribute? Follow these steps to build the project.
+Want to run Emoti locally or contribute? Follow these steps to build the project.
 
 ### 📋 Prerequisites
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) (^3.10.4)
@@ -140,7 +140,7 @@ flutter run
 
 ## 🤝 Contributing
 
-Emotional is built by and for the open-source community. If you are learning Flutter, WebRTC, or Clean Architecture, this is a great place to start!
+Emoti is built by and for the open-source community. If you are learning Flutter, WebRTC, or Clean Architecture, this is a great place to start!
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
