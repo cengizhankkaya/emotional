@@ -26,17 +26,40 @@ Whether it's watching a movie from Google Drive, streaming from YouTube, or play
 ---
 
 ## 📸 App Screenshots
+# Emoti - Video Together
 
 <div align="center">
-  <img src="assets/docs/screenshot_1.png" alt="Emoti Home Screen" width="230"/>
-  <img src="assets/docs/screenshot_2.png" alt="Emoti Room layout" width="230"/>
-  <img src="assets/docs/screenshot_3.png" alt="Emoti Call interface" width="230"/>
+  <h3>📱 Uygulama Ekran Görüntüleri</h3>
+  <table style="width:100%">
+    <tr>
+      <td align="center" width="16%">
+        <img src="https://github.com/user-attachments/assets/0fb6368f-4224-40cc-91d9-5849787e745d" alt="Ana Ekran" width="160"/>
+        <br><sub><b>Giriş</b></sub>
+      </td>
+      <td align="center" width="16%">
+        <img src="https://github.com/user-attachments/assets/8dce462b-9e5c-42d9-a6dc-9a3461795c2b" alt="Oda Düzeni" width="160"/>
+        <br><sub><b>Odalar</b></sub>
+      </td>
+      <td align="center" width="16%">
+        <img src="https://github.com/user-attachments/assets/583c8103-9fe4-4651-bd43-60f17515d4d4" alt="Görüntülü Arama" width="160"/>
+        <br><sub><b>Video İzleme</b></sub>
+      </td>
+      <td align="center" width="16%">
+        <img src="https://github.com/user-attachments/assets/ce580e21-d633-4aab-af2b-3c91e387c514" alt="Özellikler 1" width="160"/>
+        <br><sub><b>Arama</b></sub>
+      </td>
+      <td align="center" width="16%">
+        <img src="https://github.com/user-attachments/assets/8a2cdc42-56d2-4708-ad36-c6ef1626a881" alt="Özellikler 2" width="160"/>
+        <br><sub><b>Sohbet</b></sub>
+      </td>
+      <td align="center" width="16%">
+        <img src="https://github.com/user-attachments/assets/d26a6b39-9d0b-479b-8d49-936117b02f3a" alt="Özellikler 3" width="160"/>
+        <br><sub><b>Emoti</b></sub>
+      </td>
+    </tr>
+  </table>
 </div>
-
-*Add your Play Store/App Store promotional images to the `assets/docs/` folder and name them `screenshot_1.png`, `screenshot_2.png`, etc., or replace the paths above.*
-
 ---
-
 ## ✨ Features
 
 - 🎥 **Synchronized Video Playback:** Watch videos together with friends. Play, pause, and seek events are instantly synced across all peers in the room.
