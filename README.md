@@ -10,6 +10,9 @@
     <a href="https://webrtc.org/"><img src="https://img.shields.io/badge/WebRTC-%23333333.svg?style=for-the-badge&logo=webrtc&logoColor=white" alt="WebRTC"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License"></a>
   </p>
+  <p>
+    <b>🇬🇧 English</b> | <a href="README.tr.md">🇹🇷 Türkçe</a>
+  </p>
 </div>
 
 ---
