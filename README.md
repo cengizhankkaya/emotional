@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="assets/logo/logo.png" alt="Emotional Logo" width="150"/>
+  <img src="assets/logo/logo.png" alt="Emotional Logo" width="150" height="auto" />
   <h1>Emotional</h1>
-  <p>A modern, highly scalable Flutter application featuring real-time WebRTC communication, advanced media playback, and a secure Firebase-powered backend.</p>
+  <p><strong>A modern, highly scalable Flutter application featuring real-time WebRTC communication, synchronized media playback, and a secure Firebase-powered backend.</strong></p>
 
   <p>
     <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white" alt="Flutter"></a>
@@ -14,150 +14,138 @@
 
 ---
 
-## 🌟 Key Features
+## 📖 About Emotional
 
-*   **Real-Time Audio & Video Calls**: Built with `flutter_webrtc` for seamless peer-to-peer (P2P) communication and room management.
-*   **Secure Environment Management**: Uncompromised security utilizing the `envied` package to encrypt and obfuscate sensitive API keys (`.env` files are never exposed in compiled code).
-*   **Robust Backend integration**: Powered by Firebase (Authentication, Realtime Database, Firestore, Remote Config, Analytics).
-*   **Media & Video Playback**: High-performance video and media handling using `media_kit`.
-*   **Clean Architecture**: Designed with scalability in mind, separating presentation, business logic (BLoC), and data layers.
-*   **Localization Support**: Fully localized with `easy_localization` to support multiple languages effortlessly.
+**Emotional** is an open-source social media and synchronized video-watching platform built with Flutter. It allows users to create virtual rooms, invite friends, and watch videos together completely in sync while simultaneously interacting via real-time WebRTC video and audio calls.
+
+Whether it's watching a movie from Google Drive, streaming from YouTube, or playing a local file, Emotional keeps everyone in the room perfectly synchronized.
 
 ---
 
-## 🛠 Tech Stack & Dependencies
+## ✨ Features
 
-*   **Framework**: [Flutter](https://flutter.dev/) (SDK ^3.10.4)
-*   **State Management**: `flutter_bloc`, `equatable`
-*   **Backend & Cloud**: `firebase_core`, `firebase_auth`, `firebase_database`, `firebase_remote_config`
-*   **Security & Config**: `envied` (Environment obfuscation)
-*   **Media & Real-time**: `flutter_webrtc`, `media_kit`, `camera`
-*   **UI/UX**: `google_fonts`, `font_awesome_flutter`, `lottie`, `flutter_svg`
-*   **Local Storage**: `shared_preferences`
-*   **Background Services**: `background_downloader`, `wakelock_plus`
+- 🎥 **Synchronized Video Playback:** Watch videos together with friends. Play, pause, and seek events are instantly synced across all peers in the room.
+- 📞 **Real-Time Video & Audio Calls:** Built-in P2P communication powered by WebRTC.
+- 📁 **Multiple Media Sources:** Support for local files, direct URLs, YouTube streams, and Google Drive integrations.
+- 💬 **Live Chat:** Real-time text messaging within the virtual rooms.
+- 🛋️ **Dynamic Layouts:** Choose between different viewing experiences:
+  - **Armchair Mode:** A cozy setup representing virtual seats.
+  - **Cinema Mode:** Focus entirely on the video with a cinematic layout.
+  - **Split Mode:** Perfectly balance the video player and your friends' webcam feeds.
+- 🔗 **Deep Linking:** Seamlessly invite users directly into rooms using custom URLs (e.g., `emotional://join/{roomId}`).
+- 🔒 **High Security:** Deeply integrated environment obfuscation ensures no API keys are ever exposed in the repository or compiled code.
+- 🌍 **Localization:** Multi-language support out of the box (English & Turkish).
+
+---
+
+## 🛠 Why These Technologies? (Under The Hood)
+
+For developers exploring our codebase, we carefully selected our tech stack to ensure high performance, maintainability, and scalability. Here is a breakdown of **what** we used and **why**:
+
+| Technology | Package | Why we use it |
+| :--- | :--- | :--- |
+| **State Management** | [`flutter_bloc`](https://pub.dev/packages/flutter_bloc) & `equatable` | Provides a strict, predictable state container. It separates business logic from the UI, making the app highly testable and easy to maintain as complexity grows. |
+| **Video Player** | [`media_kit`](https://pub.dev/packages/media_kit) | The most powerful, cross-platform video player for Flutter. It uses native hardware acceleration and supports almost every codec, which is crucial for a media-heavy application. |
+| **Real-time Comms** | [`flutter_webrtc`](https://pub.dev/packages/flutter_webrtc) | Enables low-latency, peer-to-peer audio and video streaming without routing heavy media traffic through a central server, significantly reducing backend costs. |
+| **Backend & Signaling**| [`firebase_database`](https://pub.dev/packages/firebase_database) | We use Firebase Realtime Database as our signaling server for WebRTC (exchanging SDP offers, answers, and ICE candidates) as well as for managing room states and live chat with low latency. |
+| **Security** | [`envied`](https://pub.dev/packages/envied) | Open-source apps are vulnerable to key scraping. Envied compiles our `.env` variables into obfuscated Dart code, ensuring API keys are never leaked in the repo or easily reverse-engineered from the binary. |
+| **Background Tasks** | [`background_downloader`](https://pub.dev/packages/background_downloader) | Allows robust downloading of large video files from Google Drive even when the app is moved to the background, preventing interrupted downloads. |
+
+---
+
+## 🏗 Architecture & Folder Structure
+
+This project follows a hybrid of **Clean Architecture** and **Feature-First** design patterns. This ensures that features are isolated, decoupled, and easy to work on for multiple contributors without causing merge conflicts.
+
+```text
+lib/
+├── core/             # Universal, app-independent services (Network watcher, Cache, Permissions)
+├── features/         # Feature-based modular structure
+│   ├── app.dart      # Main app entry structure
+│   ├── auth/         # Authentication flows (Google Sign-In implementation)
+│   ├── call/         # WebRTC Signaling, PeerConnection, and Media Devices management
+│   ├── chat/         # In-room messaging logic
+│   ├── home/         # Dashboard, Deep Links handler, permission verifications
+│   ├── room/         # The most complex module: Room state, synchronized playback, dynamic layouts
+│   └── video_player/ # MediaKit UI integration, PiP (Picture-in-Picture), player overlays
+├── product/          # App-specific UI kits, themes, constants, and generated assets
+└── main.dart         # Clean entry point
+```
+
+### Layer Responsibilities:
+1.  **Core (`core/`)**: Completely independent of specific business logic. Contains generalized solutions (e.g., `PermissionService` with strict mutex locks to prevent overlapping permission dialogs) that can be dragged and dropped into any other Flutter project.
+2.  **Product (`product/`)**: Contains logic and widgets specific to *this* app but used globally. We avoid polluting `main.dart` by keeping initialization logic (Theme, App-specific widgets, initializers) inside `product/init/`.
+3.  **Features (`features/`)**: Driven by business logic. Every capability is isolated. Inside a feature, we separate the UI (`presentation/`), State Management (`bloc/`), and Logic (`domain/` & `data/`).
 
 ---
 
 ## 🚀 Getting Started
 
-Follow these detailed instructions to get your local development environment up and running.
+Want to run Emotional locally or contribute? Follow these steps to build the project.
 
 ### 📋 Prerequisites
-
-Before you begin, ensure you have met the following requirements:
-*   [Flutter SDK](https://docs.flutter.dev/get-started/install) installed on your machine.
-*   An IDE such as [VS Code](https://code.visualstudio.com/) or [Android Studio](https://developer.android.com/studio).
-*   A [Firebase](https://console.firebase.google.com/) account.
-*   Git for version control.
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (^3.10.4)
+- A [Firebase](https://console.firebase.google.com/) account (Required to act as your backend/signaling server).
 
 ### 1️⃣ Clone the Repository
-
 ```bash
 git clone https://github.com/cengizhankkaya/emotional.git
 cd emotional
 ```
 
 ### 2️⃣ Install Dependencies
-
-Fetch all the required Dart and Flutter packages:
 ```bash
 flutter pub get
 ```
 
-### 3️⃣ Setup Environment Variables (Critical for Security)
+### 3️⃣ Setup Environment Variables (Critical)
+Because this project is open-source, API keys are completely stripped from the repository. You must create your own `.env` files for the app to compile.
 
-This project strictly follows security best practices and does **not** commit API keys to version control. We use the `envied` package to safely obfuscate keys.
-
-1.  Navigate to your `assets/` folder and create an `env` directory:
-    ```bash
-    mkdir -p assets/env
-    ```
-2.  Create two files inside `assets/env/`: `.env` (for dev) and `.prod.env` (for production).
-3.  Add your API variables to both files. For example:
-    ```env
-    BASE_URL=https://api.yourdomain.com
-    API_KEY=YOUR_SECRET_API_KEY
-    ```
-4.  Run the build runner to generate the obfuscated Dart configuration files:
-    ```bash
-    dart run build_runner build --delete-conflicting-outputs
-    ```
-    *If this is successful, you will notice dynamically generated files (e.g., `dev_env.g.dart`) in `lib/product/init/config/` which encrypts your values.*
+1. Navigate to the `assets/` folder and create an `env` directory:
+   ```bash
+   mkdir -p assets/env
+   ```
+2. Create two files inside `assets/env/`: `.env` (for dev) and `.prod.env` (for production).
+3. Add your required API variables to both files. 
+   ```env
+   BASEURL=https://your-api-url.com
+   # Add any other keys required by lib/product/init/config/app_enviroment.dart
+   ```
+4. Run the build runner to generate the obfuscated configuration files securely:
+   ```bash
+   dart run build_runner build --delete-conflicting-outputs
+   ```
+   *Note: If successful, files like `dev_env.g.dart` will be generated.*
 
 ### 4️⃣ Setup Firebase
+You need to connect the app to your own Firebase project for Auth and WebRTC signaling to function.
+1. Create a project on the [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Google Sign-In** in the Authentication tab.
+3. Create a **Realtime Database** (Start in Test Mode or configure proper rules).
+4. Use the [FlutterFire CLI](https://firebase.google.com/docs/flutter/setup) to automatically configure your active project:
+   ```bash
+   dart pub global activate flutterfire_cli
+   flutterfire configure
+   ```
 
-Because this is a Firebase-powered application, you need to connect it to your own Firebase project.
-
-1.  Create a project on the [Firebase Console](https://console.firebase.google.com/).
-2.  Register your Android (`build.gradle` application ID) and iOS (`Runner.xcodeproj` bundle ID) applications.
-3.  Download and place the required configuration files:
-    *   **Android:** Place `google-services.json` inside `android/app/`.
-    *   **iOS:** Place `GoogleService-Info.plist` inside `ios/Runner/`.
-4.  *(Alternative)* Use the [FlutterFire CLI](https://firebase.google.com/docs/flutter/setup) to automatically configure:
-    ```bash
-    dart pub global activate flutterfire_cli
-    flutterfire configure
-    ```
-
-### 5️⃣ Run the Application
-
-Now you are ready to launch the app:
-
+### 5️⃣ Run the App
 ```bash
-# Run on an attached device or emulator
 flutter run
 ```
 
 ---
 
-## 🏗 Architecture & Folder Structure
-
-This project adopts a **Clean Architecture** combined with a **Feature-First** (Feature-driven) approach. This structure ensures that the codebase remains highly modular, easily testable, and scalable as new features are added.
-
-The source code inside the `lib/` directory is organized as follows:
-
-```text
-lib/
-├── core/
-│   ├── base/           # Base classes (BaseView, BaseViewModel, BaseState)
-│   ├── constants/      # App-wide constants (enums, styling assets, API endpoints)
-│   ├── init/           # Core initializers (Localization setup, Network setup)
-│   └── services/       # Global services (DownloadService, StorageServices)
-│
-├── features/           # Each feature contains its own presentation and logic layers
-│   ├── app.dart        # Main app entry structure
-│   ├── auth/           # Authentication feature (Login, Register flows)
-│   ├── call/           # Call management (Signaling, WebRTC connection states)
-│   ├── room/           # Room feature (UI, Camera/Mic controls, Messaging)
-│   └── video_player/   # Video playback feature (MediaKit integration)
-│
-├── product/            # Application & Product level setup
-│   ├── init/           
-│   │   ├── config/             # Environment configs (envied implementation)
-│   │   ├── application_init.dart # Async boot tasks (Firebase, Localization, Orientations)
-│   │   └── product_scope.dart  # MultiBlocProvider and MultiRepositoryProvider wraps
-│   ├── widget/         # Shared, product-specific UI widgets (Dialogs, Buttons)
-│   └── util/           # Utility/Helper functions (Date formatters, Validators)
-│
-└── main.dart           # Clean entry point. Only calls ApplicationInit and ProductScope
-```
-
-### Layer Responsibilities:
-1.  **Core Layer (`core/`)**: Completely independent of specific business logic. Contains generalized solutions, base widgets, and external service wrappers (e.g., Network Managers) that can be copied to any other Flutter project.
-2.  **Product Layer (`product/`)**: Contains logic and widgets that are specific to *this* product but used globally across multiple features (e.g., App theme, Product-specific buttons). We avoid polluting `main.dart` by keeping all initialization logic inside `product/init/`.
-3.  **Feature Layer (`features/`)**: Driven by business logic. Every major functionality (Auth, Room, Call) is isolated here. Inside a feature, we typically separate the UI (`presentation/`) from the State Management (`bloc/` or `manager/`).
-
----
-
 ## 🤝 Contributing
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Emotional is built by and for the open-source community. If you are learning Flutter, WebRTC, or Clean Architecture, this is a great place to start!
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+**Coding Standards:** Please adhere to the internal folder structure. Use BLoC for state management additions, and try to keep your presentation layers dumb and logic-less. Always run `flutter format` before committing your PR.
 
 ---
 
@@ -166,6 +154,8 @@ Contributions are what make the open-source community such an amazing place to l
 Distributed under the MIT License. See the [LICENSE](LICENSE) file for more information.
 
 ---
+
 <div align="center">
-  <b>Built with ❤️ by Cengizhan KAYA</b>
+  <b>Built with ❤️ by Cengizhan KAYA</b><br>
+  <i>Open Source for the Flutter Community</i>
 </div>
