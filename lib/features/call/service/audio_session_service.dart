@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'package:emotional/features/call/domain/services/i_audio_session_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 
-class AudioSessionService {
+class AudioSessionService implements IAudioSessionService {
   AudioSession? _session;
   StreamSubscription<AudioInterruptionEvent>? _interruptionSubscription;
   StreamSubscription<AudioDevicesChangedEvent>? _deviceChangeSubscription;
@@ -28,8 +29,11 @@ class AudioSessionService {
         androidWillPauseWhenDucked: true,
       );
 
-  /// initializes and activates the audio session for a call.
+  @override
   Future<void> activate() async {
+    // 1. Pre-emptive cleanup of any previous session/subscriptions
+    await deactivate();
+
     try {
       _session = await AudioSession.instance;
       await _session!.configure(_voiceChatConfig);
@@ -91,7 +95,7 @@ class AudioSessionService {
     }
   }
 
-  /// Deactivates the session, returning control to other apps (music etc.)
+  @override
   Future<void> deactivate() async {
     await _interruptionSubscription?.cancel();
     _interruptionSubscription = null;

@@ -14,6 +14,9 @@ import 'package:emotional/features/room/domain/usecases/stream_room_usecase.dart
 import 'package:emotional/features/room/domain/usecases/sync_settings_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/sync_video_usecase.dart';
 import 'package:emotional/features/room/domain/usecases/update_room_video_usecase.dart';
+import 'package:emotional/features/call/service/audio_session_service.dart';
+import 'package:emotional/features/call/service/media_device_service.dart';
+import 'package:emotional/features/call/service/webrtc_service.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/core/bloc/network/network_bloc.dart';
 import 'package:flutter/material.dart';
@@ -97,8 +100,12 @@ class ProductScope extends StatelessWidget {
                 ChatBloc(chatRepository: context.read<ChatRepository>()),
           ),
           BlocProvider<CallBloc>(
-            create: (context) =>
-                CallBloc(roomRepository: context.read<RoomRepository>()),
+            create: (context) => CallBloc(
+              roomRepository: context.read<RoomRepository>(),
+              callService: WebRTCService(),
+              mediaDeviceService: MediaDeviceService(),
+              audioSessionService: AudioSessionService(),
+            ),
           ),
           BlocProvider<VideoPlayerBloc>(create: (context) => VideoPlayerBloc()),
           BlocProvider<NetworkBloc>(create: (context) => NetworkBloc()),

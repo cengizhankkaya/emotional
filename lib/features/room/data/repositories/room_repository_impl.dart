@@ -263,6 +263,62 @@ class RoomRepositoryImpl implements RoomRepository {
   }
 
   @override
+  Future<RoomEntity?> getRoom(String roomId) async {
+    final snapshot = await _database.ref('rooms/$roomId').get();
+    if (!snapshot.exists || snapshot.value == null) return null;
+
+    final data = snapshot.value as Map<dynamic, dynamic>;
+
+    final usersMap = data['users'] as Map<dynamic, dynamic>? ?? {};
+    final users = Map<String, String>.fromEntries(
+      usersMap.entries.map(
+        (e) => MapEntry(e.key.toString(), e.value.toString()),
+      ),
+    );
+
+    final videoState = data['videoState'] as Map<dynamic, dynamic>?;
+    final isPlaying = videoState?['isPlaying'] as bool? ?? false;
+    final position = videoState?['position'] as int? ?? 0;
+    final updatedBy = videoState?['updatedBy'] as String?;
+    final lastUpdatedAt = videoState?['updatedAt'] as int? ?? 0;
+    final speed = (videoState?['speed'] as num?)?.toDouble() ?? 1.0;
+    final audioTrack = videoState?['audioTrack'] as String?;
+    final subtitleTrack = videoState?['subtitleTrack'] as String?;
+
+    final usersStateMap = data['usersState'] as Map<dynamic, dynamic>? ?? {};
+    final usersState = <String, UserMediaState>{};
+    usersStateMap.forEach((key, value) {
+      final valMap = value as Map<dynamic, dynamic>;
+      usersState[key.toString()] = UserMediaState(
+        isVideoEnabled: valMap['video'] as bool? ?? false,
+        isAudioEnabled: valMap['audio'] as bool? ?? false,
+        isScreenSharing: valMap['screen'] as bool? ?? false,
+        isWatchingVideo: valMap['watching'] as bool? ?? false,
+        lastUpdatedAt: valMap['updatedAt'] as int? ?? 0,
+      );
+    });
+
+    return RoomEntity(
+      id: roomId,
+      hostId: data['host'] as String? ?? '',
+      users: users,
+      usersState: usersState,
+      status: data['status'] as String? ?? 'waiting',
+      driveFileId: data['driveFileId'] as String?,
+      driveFileName: data['driveFileName'] as String?,
+      driveFileSize: data['driveFileSize'] as String?,
+      isPlaying: isPlaying,
+      position: position,
+      updatedBy: updatedBy,
+      lastUpdatedAt: lastUpdatedAt,
+      speed: speed,
+      selectedAudioTrack: audioTrack,
+      selectedSubtitleTrack: subtitleTrack,
+      armchairStyle: data['armchairStyle'] as String?,
+    );
+  }
+
+  @override
   Stream<RoomEntity?> streamRoom(String roomId) {
     return _database.ref('rooms/$roomId').onValue.map((event) {
       if (event.snapshot.value == null) return null;

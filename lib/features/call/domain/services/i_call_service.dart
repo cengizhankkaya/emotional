@@ -5,7 +5,8 @@ abstract class ICallService {
   Future<void> initialize();
 
   /// Join a room
-  Future<void> joinRoom(String roomId, String userId);
+  /// Join a room
+  Future<void> joinRoom(String roomId, String userId, {bool isHost = false});
 
   /// Leave the current room
   Future<void> leaveRoom();
@@ -24,6 +25,21 @@ abstract class ICallService {
 
   /// Send an ICE candidate to a user
   Future<void> sendIceCandidate(String targetUserId, RTCIceCandidate candidate);
+
+  /// Update the local stream being transmitted
+  void updateLocalStream(MediaStream? stream);
+
+  /// Replace video track for all active peer connections
+  Future<void> replaceLocalAllVideoTrack(MediaStreamTrack newTrack);
+
+  /// Replace audio track for all active peer connections
+  Future<void> replaceLocalAllAudioTrack(MediaStreamTrack newTrack);
+
+  /// Get the current audio level for a remote user (0.0 to 1.0)
+  Future<double> getRemoteAudioLevel(String userId);
+
+  /// Get the current local audio level (0.0 to 1.0)
+  Future<double> getLocalAudioLevel();
 
   /// Callback for when a remote stream is received
   set onRemoteStream(Function(MediaStream stream, String userId)? callback);

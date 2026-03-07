@@ -16,8 +16,11 @@ class MediaDeviceService implements IMediaDeviceService {
   String? _selectedAudioOutputId;
   bool _isBusy = false;
 
+  @override
   String? get selectedVideoDeviceId => _selectedVideoDeviceId;
+  @override
   String? get selectedAudioDeviceId => _selectedAudioDeviceId;
+  @override
   String? get selectedAudioOutputId => _selectedAudioOutputId;
 
   @override
@@ -57,9 +60,9 @@ class MediaDeviceService implements IMediaDeviceService {
       "MediaDeviceService: Attempting to start stream with quality: ${quality.name}",
     );
 
-    // Dispose previous if any
+    // Stop and dispose previous if any
     if (_cameraStream != null) {
-      await _cameraStream!.dispose();
+      await _stopStream(_cameraStream);
       _cameraStream = null;
     }
 
@@ -165,7 +168,7 @@ class MediaDeviceService implements IMediaDeviceService {
 
       // 2. If screen share is active, re-start it with new constraints
       if (_screenStream != null) {
-        await startScreenShare();
+        await _startScreenShareInternal();
       }
     } catch (e) {
       print(
@@ -327,26 +330,37 @@ class MediaDeviceService implements IMediaDeviceService {
 
   @override
   Future<void> selectVideoInput(MediaDeviceInfo device) async {
-    _selectedVideoDeviceId = device.deviceId;
-    await _tryStartStream(_currentQuality, requireVideo: true);
+    if (_isBusy) return;
+    _isBusy = true;
+    try {
+      _selectedVideoDeviceId = device.deviceId;
+      await _tryStartStream(_currentQuality, requireVideo: true);
+    } finally {
+      _isBusy = false;
+    }
   }
 
   @override
   Future<void> selectAudioInput(MediaDeviceInfo device) async {
-    _selectedAudioDeviceId = device.deviceId;
-    final hasVideo =
-        _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? true;
-    await _tryStartStream(_currentQuality, requireVideo: hasVideo);
+    if (_isBusy) return;
+    _isBusy = true;
+    try {
+      _selectedAudioDeviceId = device.deviceId;
+      final hasVideo =
+          _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? true;
+      await _tryStartStream(_currentQuality, requireVideo: hasVideo);
+    } finally {
+      _isBusy = false;
+    }
   }
 
   @override
   Future<void> selectAudioOutput(MediaDeviceInfo device) async {
-    _selectedAudioOutputId = device.deviceId;
+    if (_isBusy) return;
+    _isBusy = true;
     try {
+      _selectedAudioOutputId = device.deviceId;
       final label = device.label.toLowerCase();
-      // On mobile, we use setSpeakerphoneOn.
-      // 'speaker' is for the loud speaker.
-      // 'earpiece' or empty usually refers to the internal receiver or connected headset.
       final isSpeaker = label.contains('speaker') || label.contains('hoparlör');
       await Helper.setSpeakerphoneOn(isSpeaker);
       print(
@@ -354,6 +368,8 @@ class MediaDeviceService implements IMediaDeviceService {
       );
     } catch (e) {
       print("Error selecting audio output: $e");
+    } finally {
+      _isBusy = false;
     }
   }
 
@@ -400,57 +416,62 @@ class MediaDeviceService implements IMediaDeviceService {
 
   @override
   Future<void> startScreenShare() async {
-    if (_isBusy && _screenStream == null) return;
-    final externalCall = !_isBusy;
-    if (externalCall) _isBusy = true;
+    if (_isBusy) return;
+    _isBusy = true;
 
     try {
-      if (_screenStream != null) {
-        final tracks = _screenStream!.getTracks();
-        for (var track in tracks) {
-          track.stop();
-        }
-        await _screenStream!.dispose();
-        _screenStream = null;
-      }
-
-      final mediaConstraints = <String, dynamic>{
-        'audio': false,
-        'video': _currentQuality.toScreenConstraints(),
-      };
-
-      _screenStream = await navigator.mediaDevices.getDisplayMedia(
-        mediaConstraints,
-      );
-
-      print(
-        "MediaDeviceService: Screen share stream started with ${_currentQuality.name}.",
-      );
+      await _startScreenShareInternal();
     } catch (e) {
-      print("Error starting screen share: $e");
+      print("[MediaDeviceService] Error in startScreenShare: $e");
       rethrow;
     } finally {
-      if (externalCall) _isBusy = false;
+      _isBusy = false;
     }
+  }
+
+  Future<void> _startScreenShareInternal() async {
+    // 1. Stop previous if any
+    await _stopStream(_screenStream);
+    _screenStream = null;
+
+    final mediaConstraints = <String, dynamic>{
+      'audio': false,
+      'video': _currentQuality.toScreenConstraints(),
+    };
+
+    _screenStream = await navigator.mediaDevices.getDisplayMedia(
+      mediaConstraints,
+    );
+
+    print(
+      "MediaDeviceService: Screen share stream started with ${_currentQuality.name}.",
+    );
   }
 
   @override
   Future<void> stopScreenShare() async {
-    if (_screenStream != null) {
-      final tracks = _screenStream!.getTracks();
-      for (var track in tracks) {
-        track.stop();
-      }
-      await _screenStream!.dispose();
-      _screenStream = null;
-    }
+    await _stopStream(_screenStream);
+    _screenStream = null;
   }
 
   @override
   Future<void> dispose() async {
-    await _cameraStream?.dispose();
-    await _screenStream?.dispose();
+    await _stopStream(_cameraStream);
+    await _stopStream(_screenStream);
     _cameraStream = null;
     _screenStream = null;
+  }
+
+  Future<void> _stopStream(MediaStream? stream) async {
+    if (stream == null) return;
+    try {
+      final tracks = stream.getTracks();
+      for (var track in tracks) {
+        track.stop();
+      }
+      await stream.dispose();
+    } catch (e) {
+      print("[MediaDeviceService] Error stopping stream: $e");
+    }
   }
 }

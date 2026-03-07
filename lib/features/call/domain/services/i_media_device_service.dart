@@ -15,6 +15,10 @@ abstract class IMediaDeviceService {
   /// Get the current screen share stream
   MediaStream? get screenStream;
 
+  String? get selectedVideoDeviceId;
+  String? get selectedAudioDeviceId;
+  String? get selectedAudioOutputId;
+
   /// List available video input devices (Cameras)
   Future<List<MediaDeviceInfo>> getVideoInputs();
 

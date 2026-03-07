@@ -9,6 +9,8 @@ abstract class RoomRepository {
 
   Stream<RoomEntity?> streamRoom(String roomId);
 
+  Future<RoomEntity?> getRoom(String roomId);
+
   Future<void> updateRoomVideo(
     String roomId,
     String fileId,

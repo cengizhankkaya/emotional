@@ -3,6 +3,8 @@ import 'package:emotional/features/call/domain/enums/call_video_size.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+const Object _sentinel = Object();
+
 abstract class CallState extends Equatable {
   const CallState();
 
@@ -10,9 +12,13 @@ abstract class CallState extends Equatable {
   List<Object?> get props => [];
 }
 
-class CallInitial extends CallState {}
+class CallInitial extends CallState {
+  const CallInitial();
+}
 
-class CallLoading extends CallState {}
+class CallLoading extends CallState {
+  const CallLoading();
+}
 
 class CallConnected extends CallState {
   // Core State
@@ -72,10 +78,10 @@ class CallConnected extends CallState {
     List<MediaDeviceInfo>? audioInputs,
     List<MediaDeviceInfo>? audioOutputs,
     CallQualityPreset? currentQuality,
-    String? selectedVideoInputId,
-    String? selectedAudioInputId,
-    String? selectedAudioOutputId,
-    String? activeSpeakerId, // Added to copyWith
+    Object? selectedVideoInputId = _sentinel,
+    Object? selectedAudioInputId = _sentinel,
+    Object? selectedAudioOutputId = _sentinel,
+    Object? activeSpeakerId = _sentinel,
     CallVideoSize? videoSize,
     bool? isScreenSharing,
   }) {
@@ -93,12 +99,18 @@ class CallConnected extends CallState {
       audioInputs: audioInputs ?? this.audioInputs,
       audioOutputs: audioOutputs ?? this.audioOutputs,
       currentQuality: currentQuality ?? this.currentQuality,
-      selectedVideoInputId: selectedVideoInputId ?? this.selectedVideoInputId,
-      selectedAudioInputId: selectedAudioInputId ?? this.selectedAudioInputId,
-      selectedAudioOutputId:
-          selectedAudioOutputId ?? this.selectedAudioOutputId,
-      activeSpeakerId:
-          activeSpeakerId ?? this.activeSpeakerId, // Added to return
+      selectedVideoInputId: selectedVideoInputId == _sentinel
+          ? this.selectedVideoInputId
+          : selectedVideoInputId as String?,
+      selectedAudioInputId: selectedAudioInputId == _sentinel
+          ? this.selectedAudioInputId
+          : selectedAudioInputId as String?,
+      selectedAudioOutputId: selectedAudioOutputId == _sentinel
+          ? this.selectedAudioOutputId
+          : selectedAudioOutputId as String?,
+      activeSpeakerId: activeSpeakerId == _sentinel
+          ? this.activeSpeakerId
+          : activeSpeakerId as String?,
       videoSize: videoSize ?? this.videoSize,
       isScreenSharing: isScreenSharing ?? this.isScreenSharing,
     );
