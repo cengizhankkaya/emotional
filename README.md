@@ -62,17 +62,41 @@ This project follows a hybrid of **Clean Architecture** and **Feature-First** de
 
 ```text
 lib/
-├── core/             # Universal, app-independent services (Network watcher, Cache, Permissions)
-├── features/         # Feature-based modular structure
-│   ├── app.dart      # Main app entry structure
-│   ├── auth/         # Authentication flows (Google Sign-In implementation)
-│   ├── call/         # WebRTC Signaling, PeerConnection, and Media Devices management
-│   ├── chat/         # In-room messaging logic
-│   ├── home/         # Dashboard, Deep Links handler, permission verifications
-│   ├── room/         # The most complex module: Room state, synchronized playback, dynamic layouts
-│   └── video_player/ # MediaKit UI integration, PiP (Picture-in-Picture), player overlays
-├── product/          # App-specific UI kits, themes, constants, and generated assets
-└── main.dart         # Clean entry point
+├── core/                       # Universal, app-independent services & utilities
+│   ├── bloc/                   # Global state (e.g., Network status connectivity watcher)
+│   ├── init/                   # Core initialization (e.g., Localization setup)
+│   ├── manager/                # Global managers (e.g., Local CacheManager)
+│   └── services/               # Singleton services (DriveService, DownloadService, PermissionService, YoutubeService)
+│
+├── features/                   # Feature-based modular structure
+│   ├── app.dart                # Main application widget wrapper
+│   ├── auth/                   # Authentication module (Google Sign-In logic, AuthBloc, Login screen)
+│   ├── call/                   # P2P Video/Audio Calls module
+│   │   ├── bloc/               # CallState management
+│   │   ├── domain/             # Call interfaces and enums (Call sizes, quality presets)
+│   │   ├── presentation/       # Video call widgets and settings sheets
+│   │   └── service/            # WebRTCService, SignalingService, MediaDeviceService
+│   ├── chat/                   # In-room live text messaging module
+│   ├── home/                   # Dashboard module
+│   │   └── presentation/       # Home screen, deep link joining, permission request sheets
+│   ├── room/                   # The core virtual room module (Highly complex)
+│   │   ├── bloc/               # Room lifecycle & Download Cubit
+│   │   ├── data/               # Firebase Realtime Database repository implementation
+│   │   ├── domain/             # Room use cases (Join, Leave, Create) & Layout Enums
+│   │   └── presentation/       # Core room UI, Dynamic Layouts (Armchair, Cinema, Split), Participants, Controls
+│   └── video_player/           # Synchronized video playback module
+│       ├── bloc/               # Player state (Play/Pause/Seek sync)
+│       └── presentation/       # MediaKit overlays, Picture-in-Picture logic
+│
+├── product/                    # App-specific UI kits, themes, constants, and generated assets
+│   ├── generated/              # Auto-generated assets (flutter_gen)
+│   ├── init/                   # App startup tasks (ApplicationInit, Theme, ProductScope for BLoCs)
+│   ├── model/                  # Global models (e.g., Remote Config Enums)
+│   ├── utility/                # Constants (ColorsCustom, padding, fonts) and extensions
+│   └── widget/                 # Custom shared widgets (Dialogs, specific buttons)
+│
+├── firebase_options.dart       # Auto-generated Firebase configuration
+└── main.dart                   # Clean entry point (Calls ApplicationInit and runApp)
 ```
 
 ### Layer Responsibilities:

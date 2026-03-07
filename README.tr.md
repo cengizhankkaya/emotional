@@ -63,17 +63,41 @@ Bu proje, **Temiz Mimari (Clean Architecture)** ile **Özellik Öncelikli (Featu
 
 ```text
 lib/
-├── core/             # Uygulamadan bağımsız, evrensel servisler (İnternet dinleyicisi, Önbellek, İzinler)
-├── features/         # Özellik tabanlı (feature-based) modüler yapı
-│   ├── app.dart      # Ana uygulama bağlayıcı yapısı
-│   ├── auth/         # Kimlik doğrulama akışları (Google Sign-In entegrasyonu)
-│   ├── call/         # WebRTC Sinyalleşme, PeerConnection ve Medya Cihazları yönetimi
-│   ├── chat/         # Oda içi mesajlaşma mantığı
-│   ├── home/         # Pano (Dashboard), Derin Linkler (Deep Links) yöneticisi, izin doğrulamaları
-│   ├── room/         # En karmaşık modül: Oda durumu, senkronize oynatma, dinamik düzenler (layouts)
-│   └── video_player/ # MediaKit UI entegrasyonu, PiP (Resim-içinde-resim)
-├── product/          # Uygulamaya özel UI kitleri, temalar, sabitler ve derlenmiş asset'ler
-└── main.dart         # Temiz (Clean) giriş noktası
+├── core/                       # Uygulamadan bağımsız, evrensel servisler & utility'ler
+│   ├── bloc/                   # Global durumlar (örn. İnternet bağlantısı durumu yöneticisi)
+│   ├── init/                   # Çekirdek başlatmalar (örn. Çoklu dil/Localization kurulumu)
+│   ├── manager/                # Global yöneticiler (örn. Yerel CacheManager)
+│   └── services/               # Singleton servisler (DriveService, DownloadService, PermissionService, YoutubeService)
+│
+├── features/                   # Özellik tabanlı (feature-based) modüler yapı
+│   ├── app.dart                # Ana uygulama widget sarmalayıcısı (wrapper)
+│   ├── auth/                   # Kimlik doğrulama modülü (Google Sign-In mantığı, AuthBloc, Login ekranı)
+│   ├── call/                   # P2P Video/Sesli Arama modülü
+│   │   ├── bloc/               # CallState durum (state) yönetimi
+│   │   ├── domain/             # Arama arayüzü ve enumlar (Arama boyutları, kalite ön ayarları)
+│   │   ├── presentation/       # Görüntülü arama widget'ları ve ayar sayfaları
+│   │   └── service/            # WebRTCService, SignalingService, MediaDeviceService
+│   ├── chat/                   # Oda içi canlı metin mesajlaşma modülü
+│   ├── home/                   # Pano (Dashboard) modülü
+│   │   └── presentation/       # Ana ekran, derin link (deep link) ile katılma, izin talep iletişim kutuları
+│   ├── room/                   # Temel sanal oda modülü (Son derece karmaşık ve kapsamlı)
+│   │   ├── bloc/               # Oda yaşam döngüsü & İndirme Cubit'i
+│   │   ├── data/               # Firebase Realtime Database repository entegrasyonu
+│   │   ├── domain/             # Oda kullanım senaryoları (Katıl, Çık, Oluştur) & Düzen (Layout) Enumları
+│   │   └── presentation/       # Temel oda arayüzü, Dinamik Düzenler (Koltuk, Sinema, Bölünmüş), Katılımcılar, Kontroller
+│   └── video_player/           # Senkronize video oynatma modülü
+│       ├── bloc/               # Oynatıcı durumu (Oynat/Duraklat/Sar senkronizasyonu)
+│       └── presentation/       # MediaKit arayüz eklentileri, Resim-içinde-Resim (PiP) mantığı
+│
+├── product/                    # Uygulamaya özel UI kitleri, temalar, sabitler ve derlenmiş asset'ler
+│   ├── generated/              # Otomatik oluşturulan asset referansları (flutter_gen)
+│   ├── init/                   # Uygulama başlangıç görevleri (ApplicationInit, Theme, BLoC'lar için ProductScope)
+│   ├── model/                  # Global modeller (örn. Remote Config Verileri)
+│   ├── utility/                # Sabit değerler (ColorsCustom, boşluklar, fontlar) ve eklentiler (extensions)
+│   └── widget/                 # Özel paylaşımlı widget'lar (Diyaloglar, özel butonlar)
+│
+├── firebase_options.dart       # Otomatik oluşturulmuş Firebase konfigürasyon dosyası
+└── main.dart                   # Temiz (Clean) giriş noktası (ApplicationInit ve runApp'i çağırır)
 ```
 
 ### Katman Sorumlulukları:
