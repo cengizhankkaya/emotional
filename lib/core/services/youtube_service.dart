@@ -4,9 +4,7 @@ class YouTubeService {
   YoutubeExplode? _ytInstance;
 
   YoutubeExplode get _yt {
-    if (_ytInstance == null) {
-      _ytInstance = YoutubeExplode();
-    }
+    _ytInstance ??= YoutubeExplode();
     return _ytInstance!;
   }
 

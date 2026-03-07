@@ -361,7 +361,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         ),
         value: isGranted,
         onChanged: onChanged,
-        activeColor: ColorsCustom.skyBlue,
+        activeThumbColor: ColorsCustom.skyBlue,
         activeTrackColor: ColorsCustom.skyBlue.withValues(alpha: 0.3),
       ),
     );

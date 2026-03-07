@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 final class AppEnviroment {
-  AppEnviroment._();
+  const AppEnviroment._();
 
   static late final AppConfiguration config;
 

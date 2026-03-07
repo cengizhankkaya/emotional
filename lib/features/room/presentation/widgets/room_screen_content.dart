@@ -118,6 +118,7 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
           }
 
           return PipWidget(
+            pipChild: Builder(builder: (context) => _buildPiPView()),
             child: Builder(
               builder: (context) {
                 // 2. IMMERSIVE MODE (Fullscreen Share)
@@ -125,8 +126,9 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                     _currentLayoutMode == RoomLayoutMode.immersive) {
                   return BlocBuilder<CallBloc, CallState>(
                     builder: (context, callState) {
-                      if (callState is! CallConnected)
+                      if (callState is! CallConnected) {
                         return const SizedBox.shrink();
+                      }
 
                       return ScreenShareFullscreenView(
                         callState: callState,
@@ -149,8 +151,9 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                     _currentLayoutMode == RoomLayoutMode.split) {
                   return BlocBuilder<CallBloc, CallState>(
                     builder: (context, callState) {
-                      if (callState is! CallConnected)
+                      if (callState is! CallConnected) {
                         return const SizedBox.shrink();
+                      }
 
                       return Stack(
                         children: [
@@ -231,7 +234,7 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                             currentUserId: widget.currentUserId,
                             roomId: widget.roomId,
                             hostId: widget.hostId,
-                            usersState: (state as RoomJoined).usersState,
+                            usersState: (state).usersState,
                           ),
                           const Spacer(),
                           VideoControlSheet(
@@ -250,7 +253,6 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                 );
               },
             ),
-            pipChild: Builder(builder: (context) => _buildPiPView()),
           );
         },
       ),

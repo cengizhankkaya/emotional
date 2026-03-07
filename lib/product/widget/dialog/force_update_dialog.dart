@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ForceUpdateDialog extends StatelessWidget {
   const ForceUpdateDialog({super.key});
@@ -22,9 +21,8 @@ class ForceUpdateDialog extends StatelessWidget {
       actions: [
         ElevatedButton(
           onPressed: () {
-            // Mağaza linkinizi buraya ekleyin
-            // launchUrl(Uri.parse('https://play.google.com/store/apps/details?id=YOUR_APP_ID'));
-            // Örnek olarak bırakıyorum.
+            // TODO: Replace with your actual App Store / Play Store link when published
+            // launchUrl(Uri.parse('https://play.google.com/store/apps/details?id=com.cengizhankkaya.emoti'));
           },
           child: const Text("Güncelle"),
         ),

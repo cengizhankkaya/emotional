@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
-import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet/call_device_menu.dart';

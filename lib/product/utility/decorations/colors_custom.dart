@@ -6,7 +6,7 @@ final class ColorsCustom {
   static const Color backgrounddark = Color(0xFF1A1D21);
   static const Color darkBlue = Color(0xFF1A1D21);
   static const Color darkABlue = Color(0xFF1E2229);
-  static const Color mutedBlue = Color(0xFF65B5D);
+  static const Color mutedBlue = Color(0x0ff65b5d);
   static const Color skyBlue = Color(0xFF69A2B8);
   static const Color cream = Color(0xFFDEBCA4);
 

@@ -205,7 +205,7 @@ class _YouTubeSearchSheetState extends State<YouTubeSearchSheet> {
               width: 120,
               height: 68,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 width: 120,
                 height: 68,
                 color: Colors.white10,

@@ -3,7 +3,7 @@
         "rooms": {
             "$roomId": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": "auth != null && (!data.exists() || data.child('users').hasChild(auth.uid) || newData.child('users').hasChild(auth.uid))",
                 "users": {
                     "$userId": {
                         ".write": "auth != null && auth.uid == $userId"

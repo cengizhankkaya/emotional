@@ -412,13 +412,15 @@ class WebRTCService implements ICallService {
         });
         if (_isDisposed ||
             _sessionToken != token ||
-            _peerConnections[targetUserId] != pc)
+            _peerConnections[targetUserId] != pc) {
           return;
+        }
         await pc.setLocalDescription(offer);
         if (_isDisposed ||
             _sessionToken != token ||
-            _peerConnections[targetUserId] != pc)
+            _peerConnections[targetUserId] != pc) {
           return;
+        }
         await sendOffer(targetUserId, offer);
       } catch (e) {
         print("[WebRTC] connect() createOffer failed for $targetUserId: $e");
@@ -442,13 +444,15 @@ class WebRTCService implements ICallService {
       });
       if (_isDisposed ||
           _sessionToken != token ||
-          _peerConnections[targetUserId] != pc)
+          _peerConnections[targetUserId] != pc) {
         return;
+      }
       await pc.setLocalDescription(offer);
       if (_isDisposed ||
           _sessionToken != token ||
-          _peerConnections[targetUserId] != pc)
+          _peerConnections[targetUserId] != pc) {
         return;
+      }
       await sendOffer(targetUserId, offer);
       print("[WebRTC] ICE Restart offer sent to $targetUserId.");
     } catch (e) {
@@ -510,22 +514,25 @@ class WebRTCService implements ICallService {
     await pc.setRemoteDescription(description);
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
     _remoteDescriptionSet.add(fromUserId);
     print("[WebRTC] Remote description set for offer from $fromUserId.");
 
     await _processQueuedCandidates(fromUserId);
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
 
     await _signalingService?.clearOutgoingToUser(fromUserId);
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
 
     final answer = await pc.createAnswer({
       'offerToReceiveAudio': true,
@@ -533,13 +540,15 @@ class WebRTCService implements ICallService {
     });
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
     await pc.setLocalDescription(answer);
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
 
     await sendAnswer(fromUserId, answer);
     print("[WebRTC] Answer sent to $fromUserId.");
@@ -558,8 +567,9 @@ class WebRTCService implements ICallService {
     final signalingState = await pc.getSignalingState();
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
 
     if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
       print(
@@ -571,8 +581,9 @@ class WebRTCService implements ICallService {
     await pc.setRemoteDescription(description);
     if (_isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc)
+        _peerConnections[fromUserId] != pc) {
       return;
+    }
     _remoteDescriptionSet.add(fromUserId);
     print("[WebRTC] Remote description set for answer from $fromUserId.");
 
@@ -609,8 +620,9 @@ class WebRTCService implements ICallService {
     for (final candidate in queue) {
       if (_isDisposed ||
           _sessionToken != token ||
-          _peerConnections[userId] != pc)
+          _peerConnections[userId] != pc) {
         break;
+      }
       await pc.addCandidate(candidate);
     }
   }

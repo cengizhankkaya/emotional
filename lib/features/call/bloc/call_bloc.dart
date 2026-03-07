@@ -29,9 +29,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   final Map<String, RTCVideoRenderer> _remoteRenderers = {};
   RTCVideoRenderer? _localRenderer;
   Map<String, String> _activeUsers = {};
-  Map<String, bool> _userVideoStates = {};
-  Map<String, bool> _userAudioStates = {};
-  Map<String, bool> _userScreenSharingStates = {};
+  final Map<String, bool> _userVideoStates = {};
+  final Map<String, bool> _userAudioStates = {};
+  final Map<String, bool> _userScreenSharingStates = {};
 
   final Set<String> _connectionInitiated = {};
 
@@ -410,8 +410,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
                   _sessionId != sessionId ||
                   !_connectionInitiated.contains(otherUserId) ||
                   !_activeUsers.containsKey(otherUserId) ||
-                  _callService.isUserPendingBye(otherUserId))
+                  _callService.isUserPendingBye(otherUserId)) {
                 return;
+              }
 
               // FIX: Check consecutive failure limit before attempting.
               // After 3 unanswered offers we stop retrying until the user
@@ -570,9 +571,13 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
     // Cancel all debounce and offer-timeout timers so no stale callbacks
     // fire into the new session after cleanup.
-    for (final t in _leaveDebounceTimers.values) t.cancel();
+    for (final t in _leaveDebounceTimers.values) {
+      t.cancel();
+    }
     _leaveDebounceTimers.clear();
-    for (final t in _offerTimeoutTimers.values) t.cancel();
+    for (final t in _offerTimeoutTimers.values) {
+      t.cancel();
+    }
     _offerTimeoutTimers.clear();
     _offerFailCount.clear();
 

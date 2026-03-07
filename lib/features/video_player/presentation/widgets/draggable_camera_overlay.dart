@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';

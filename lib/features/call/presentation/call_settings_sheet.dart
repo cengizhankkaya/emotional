@@ -139,8 +139,9 @@ class CallSettingsSheet extends StatelessWidget {
     required String Function(T) itemLabelBuilder,
   }) {
     // Basic null check for lists if empty
-    if (items.isEmpty && label != LocaleKeys.call_streamQuality.tr())
+    if (items.isEmpty && label != LocaleKeys.call_streamQuality.tr()) {
       return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

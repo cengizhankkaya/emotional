@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/features/auth/presentation/auth_status_wrapper.dart';
 import 'package:emotional/product/init/application_theme.dart';
-import 'package:emotional/features/video_player/presentation/widgets/mini_player_overlay.dart';
 import 'package:emotional/product/init/version_check_wrapper.dart';
 import 'package:flutter/material.dart';
 

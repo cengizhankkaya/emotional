@@ -31,7 +31,7 @@ class DownloadService {
 
     try {
       // Configure notifications for a professional experience
-      await FileDownloader().configureNotificationForGroup(
+      FileDownloader().configureNotificationForGroup(
         FileDownloader.defaultGroup,
         // For running tasks:
         running: const TaskNotification(
