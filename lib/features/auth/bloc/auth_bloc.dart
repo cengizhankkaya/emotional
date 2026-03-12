@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,11 +14,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
 
+  // iOS Client ID from GoogleService-Info.plist
+  static const _iosClientId =
+      '739508543260-rvk20tdapl68r0ae5vkas3r438peqfuv.apps.googleusercontent.com';
+
   AuthBloc({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
       _googleSignIn =
           googleSignIn ??
-          GoogleSignIn(scopes: [drive.DriveApi.driveReadonlyScope]),
+          GoogleSignIn(
+            scopes: [drive.DriveApi.driveReadonlyScope],
+            clientId: defaultTargetPlatform == TargetPlatform.iOS
+                ? _iosClientId
+                : null,
+          ),
       super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<LoginRequested>(_onLoginRequested);

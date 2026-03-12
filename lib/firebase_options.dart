@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -59,5 +56,17 @@ class DefaultFirebaseOptions {
     projectId: 'emotional-app-b42af',
     databaseURL: 'https://emotional-app-b42af-default-rtdb.firebaseio.com',
     storageBucket: 'emotional-app-b42af.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCKQBpAA5d7G_r7jKk2RantbwLso9a8jdc',
+    appId: '1:739508543260:ios:60b0dd14e09f07d42224d9',
+    messagingSenderId: '739508543260',
+    projectId: 'emotional-app-b42af',
+    databaseURL: 'https://emotional-app-b42af-default-rtdb.firebaseio.com',
+    storageBucket: 'emotional-app-b42af.firebasestorage.app',
+    iosBundleId: 'com.esce.emoti',
+    iosClientId:
+        '739508543260-rvk20tdapl68r0ae5vkas3r438peqfuv.apps.googleusercontent.com',
   );
 }
