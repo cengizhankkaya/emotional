@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 
+
 abstract class VideoPlayerService {
   Future<void> initialize();
   Future<void> dispose();
@@ -45,14 +46,25 @@ class MediaKitVideoPlayerService implements VideoPlayerService {
     return _player!;
   }
 
+  static bool _mediaKitInitialized = false;
+
   @override
   Future<void> initialize() async {
+    // Lazy-initialize MediaKit only when first Player is created.
+    // Doing this at app startup causes mpv to allocate ~4GB virtual memory
+    // on iOS, which crashes the app before any UI is shown.
+    if (!_mediaKitInitialized) {
+      MediaKit.ensureInitialized();
+      _mediaKitInitialized = true;
+    }
+
     // Dispose existing player if already initialized
     if (_player != null) {
       await _player!.dispose();
     }
     _player = Player();
   }
+
 
   @override
   Future<void> dispose() async {

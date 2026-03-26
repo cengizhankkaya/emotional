@@ -12,22 +12,9 @@ part 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final FirebaseAuth _firebaseAuth;
-  final GoogleSignIn _googleSignIn;
 
-  // iOS Client ID from GoogleService-Info.plist
-  static const _iosClientId =
-      '739508543260-rvk20tdapl68r0ae5vkas3r438peqfuv.apps.googleusercontent.com';
-
-  AuthBloc({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
+  AuthBloc({FirebaseAuth? firebaseAuth})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-      _googleSignIn =
-          googleSignIn ??
-          GoogleSignIn(
-            scopes: [drive.DriveApi.driveReadonlyScope],
-            clientId: defaultTargetPlatform == TargetPlatform.iOS
-                ? _iosClientId
-                : null,
-          ),
       super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<LoginRequested>(_onLoginRequested);
@@ -130,7 +117,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     try {
       await _firebaseAuth.signOut();
-      await _googleSignIn.signOut();
+      await GoogleSignIn.instance.signOut();
     } catch (e) {
       // Ignore errors during logout, we want to clear local state anyway
     }
@@ -143,19 +130,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     try {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        emit(AuthUnauthenticated());
-        return;
-      }
+      final googleUser = await GoogleSignIn.instance.authenticate(
+        scopeHint: [drive.DriveApi.driveReadonlyScope],
+      );
+      // Wait, in v7, authenticate() throws if it aborts/fails, it shouldn't return null.
+      // But let's check if we still have access to the old object. 
+      // Actually v7 authenticate returns a non-null GoogleSignInAccount, or throws.
 
-      final googleAuth = await googleUser.authentication;
-      final AuthsCredential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
+
+      final googleAuth = googleUser.authentication;
+      final authz = await GoogleSignIn.instance.authorizationClient.authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+
+      final authsCredential = GoogleAuthProvider.credential(
+        accessToken: authz?.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      await _firebaseAuth.signInWithCredential(AuthsCredential);
+      await _firebaseAuth.signInWithCredential(authsCredential);
       final user = _firebaseAuth.currentUser;
 
       if (user != null) {

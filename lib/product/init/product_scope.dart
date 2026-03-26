@@ -21,9 +21,6 @@ import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
 import 'package:emotional/core/bloc/network/network_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
-
 class ProductScope extends StatelessWidget {
   const ProductScope({super.key, required this.child});
 
@@ -31,10 +28,7 @@ class ProductScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final googleSignIn = GoogleSignIn(
-      scopes: [drive.DriveApi.driveReadonlyScope],
-    );
-    final driveService = DriveService(googleSignIn: googleSignIn);
+    final driveService = DriveService();
 
     return MultiRepositoryProvider(
       providers: [
@@ -80,7 +74,7 @@ class ProductScope extends StatelessWidget {
         providers: [
           BlocProvider<AuthBloc>(
             create: (context) =>
-                AuthBloc(googleSignIn: googleSignIn)..add(AuthCheckRequested()),
+                AuthBloc()..add(AuthCheckRequested()),
           ),
           BlocProvider<RoomBloc>(
             create: (context) => RoomBloc(

@@ -4,8 +4,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:emotional/core/services/download/download_service.dart';
 
@@ -46,13 +46,17 @@ final class ApplicationInit {
 
     // 7. Initialize Background Services (Non-blocking for UI)
     unawaited(backgroundStart());
+
+    // 8. Initialize Google Sign-In singleton
+    GoogleSignIn.instance.initialize(
+      clientId: defaultTargetPlatform == TargetPlatform.iOS
+          ? '739508543260-rvk20tdapl68r0ae5vkas3r438peqfuv.apps.googleusercontent.com'
+          : null,
+    );
   }
 
   /// Initializations that don't need to block the initial UI render
   Future<void> backgroundStart() async {
-    // MediaKit initialization
-    MediaKit.ensureInitialized();
-
     // Download services
     await DownloadService().initialize();
     await DownloadManager().initialize();

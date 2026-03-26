@@ -5,28 +5,27 @@ import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sig
 import 'package:emotional/core/services/download/download_service.dart';
 
 class DriveService {
-  final GoogleSignIn _googleSignIn;
-
-  DriveService({required GoogleSignIn googleSignIn})
-    : _googleSignIn = googleSignIn;
+  DriveService();
 
   Future<GoogleSignInAccount?> signIn() async {
     try {
-      return await _googleSignIn.signIn();
+      return await GoogleSignIn.instance.authenticate(
+        scopeHint: [drive.DriveApi.driveReadonlyScope],
+      );
     } catch (error) {
-      print('DriveService: Error signing in: $error');
+      debugPrint('DriveService: Error signing in: $error');
       return null;
     }
   }
 
   Future<drive.DriveApi?> _getDriveApi({bool silentOnly = false}) async {
-    // Mevcut bir oturum yoksa önce sessizce, sonra (istenirse) etkileşimli giriş dene.
-    var account = _googleSignIn.currentUser;
-    account ??= await _googleSignIn.signInSilently();
-
+    var account = await GoogleSignIn.instance.attemptLightweightAuthentication();
+    
     if (!silentOnly && account == null) {
       try {
-        account = await _googleSignIn.signIn();
+        account = await GoogleSignIn.instance.authenticate(
+          scopeHint: [drive.DriveApi.driveReadonlyScope],
+        );
       } catch (e) {
         debugPrint('DriveService: Error signing in interactively: $e');
       }
@@ -34,9 +33,18 @@ class DriveService {
 
     if (account == null) return null;
 
-    final httpClient = await _googleSignIn.authenticatedClient();
-    if (httpClient == null) return null;
+    GoogleSignInClientAuthorization? authz = await GoogleSignIn.instance.authorizationClient.authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+    if (authz == null && !silentOnly) {
+      try {
+        authz = await GoogleSignIn.instance.authorizationClient.authorizeScopes([drive.DriveApi.driveReadonlyScope]);
+      } catch (e) {
+        debugPrint('DriveService: Error authorizing scopes: $e');
+      }
+    }
 
+    if (authz == null) return null;
+
+    final httpClient = authz.authClient(scopes: [drive.DriveApi.driveReadonlyScope]);
     return drive.DriveApi(httpClient);
   }
 
@@ -76,15 +84,13 @@ class DriveService {
         throw Exception('User not signed in or Drive access denied.');
       }
 
-      final account = _googleSignIn.currentUser;
-      if (account == null) {
-        throw Exception('User not signed in.');
+      final authz = await GoogleSignIn.instance.authorizationClient.authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+      if (authz == null) {
+        throw Exception('User is not authorized for Drive scopes.');
       }
 
-      final authHeaders = await account.authHeaders;
-      final accessToken = authHeaders['Authorization'];
-
-      if (accessToken == null) {
+      final accessToken = authz.accessToken;
+      if (accessToken.isEmpty) {
         throw Exception('Access token could not be retrieved.');
       }
 
