@@ -170,6 +170,8 @@
       "whatCanYouDoContent": "• Watching movies, series, and videos together\n• Simultaneous voice and video chat while watching\n• Share your emotions instantly",
       "privacyTitle": "Privacy and Importance",
       "privacyContent": "User privacy is our top priority. Only people you invite can join your rooms. Data shared during your communication is protected by high security standards.",
+      "openTerms": "Terms of Use",
+      "openPrivacy": "Privacy Policy",
       "close": "Got it, Close"
     },
     "feedback": {
@@ -270,6 +272,7 @@
       "title": "Login",
       "subtitle": "Enjoy watching together",
       "googleButton": "Sign in with Google",
+      "appleButton": "Sign in with Apple",
       "anonymousButton": "Continue as Guest",
       "welcomeBack": "Welcome Back",
       "loginPrompt": "Sign in to continue",
@@ -297,7 +300,21 @@
       "userIsNull": "User is null",
       "authFailed": "Authentication failed",
       "userIsNullAfterSignIn": "User is null after sign in",
-      "googleAuthFailed": "Google authentication failed"
+      "googleAuthFailed": "Google authentication failed",
+      "appleFailed": "Apple sign in failed: {}",
+      "appleAuthFailed": "Apple authentication failed",
+      "deleteFailed": "Account deletion failed: {}",
+      "reauthRequired": "For security, confirm your identity with Apple or Google and try again.",
+      "linkOpenFailed": "Could not open link",
+      "appleTimeout": "Apple sign-in timed out. Please try again."
+    },
+    "deleteAccount": {
+      "title": "Delete account",
+      "message": "Your account and associated sign-in data will be permanently removed. Active rooms will be left.",
+      "confirmMessage": "This action cannot be undone. Do you want to permanently delete your account?",
+      "continue": "Continue",
+      "confirmButton": "Delete permanently",
+      "button": "Delete my account"
     },
     "logout": {
       "title": "Log Out",

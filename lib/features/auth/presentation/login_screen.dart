@@ -1,4 +1,5 @@
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:emotional/product/utility/constants/legal_urls.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -6,29 +7,54 @@ import 'package:emotional/product/generated/assets.gen.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  /// Apple sheet acikken Bloc rebuild ile butonun devre disi kalmasini onler.
+  bool _appleAuthorizing = false;
+
+  Future<void> _launchUrl(String urlString) async {
+    final url = Uri.parse(urlString);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _onAppleSignInPressed() {
+    if (_appleAuthorizing) return;
+    setState(() => _appleAuthorizing = true);
+    context.read<AuthBloc>().add(AppleLoginRequested());
+  }
+
+  void _clearAppleAuthorizing() {
+    if (_appleAuthorizing) {
+      setState(() => _appleAuthorizing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: ColorsCustom.imperilRead,
-              ),
-            );
-          }
-        },
-        child: Container(
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated ||
+            state is AuthFailure ||
+            state is AuthUnauthenticated) {
+          _clearAppleAuthorizing();
+        }
+      },
+      child: Scaffold(
+        body: Container(
           decoration: const BoxDecoration(color: ColorsCustom.darkBlue),
           child: SafeArea(
             child: Center(
@@ -67,73 +93,122 @@ class LoginScreen extends StatelessWidget {
                     SizedBox(height: context.dynamicHeight(0.08)),
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
-                        final isLoading = state is AuthLoading;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: double.infinity,
-                          height: context.dynamicValue(56),
-                          child: ElevatedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () {
-                                    context.read<AuthBloc>().add(
-                                      GoogleLoginRequested(),
-                                    );
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ColorsCustom.cream,
-                              foregroundColor: ColorsCustom.darkBlue,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: ProjectRadius.medium(),
-                              ),
-                              padding: const ProjectPadding.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 24,
-                                    width: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        ColorsCustom.softGray,
-                                      ),
+                        final isFirebaseLoading = state is AuthLoading;
+                        final buttonsDisabled =
+                            isFirebaseLoading || _appleAuthorizing;
+
+                        return Column(
+                          children: [
+                            if (!kIsWeb &&
+                                defaultTargetPlatform ==
+                                    TargetPlatform.iOS) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                height: context.dynamicValue(50),
+                                child: ElevatedButton(
+                                  key: const ValueKey('apple_sign_in_button'),
+                                  onPressed: buttonsDisabled
+                                      ? null
+                                      : _onAppleSignInPressed,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: ProjectRadius.medium(),
                                     ),
-                                  )
-                                : Row(
+                                  ),
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Image.asset(
-                                        'assets/google_logo.png',
-                                        height: 24,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Icon(
-                                                  Icons.login,
-                                                  size: 24,
-                                                ),
-                                      ),
-                                      const SizedBox(width: 16),
+                                      const Icon(Icons.apple, size: 22),
+                                      const SizedBox(width: 8),
                                       Text(
-                                        LocaleKeys.auth_login_googleButton.tr(),
+                                        LocaleKeys.auth_login_appleButton.tr(),
                                         style: TextStyle(
                                           fontSize: context.dynamicValue(16),
                                           fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.5,
                                         ),
                                       ),
                                     ],
                                   ),
-                          ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            SizedBox(
+                              width: double.infinity,
+                              height: context.dynamicValue(56),
+                              child: ElevatedButton(
+                                onPressed: buttonsDisabled
+                                    ? null
+                                    : () {
+                                        context.read<AuthBloc>().add(
+                                          GoogleLoginRequested(),
+                                        );
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: ColorsCustom.cream,
+                                  foregroundColor: ColorsCustom.darkBlue,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: ProjectRadius.medium(),
+                                  ),
+                                  padding: const ProjectPadding.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: isFirebaseLoading
+                                    ? const SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                ColorsCustom.softGray,
+                                              ),
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Image.asset(
+                                            'assets/google_logo.png',
+                                            height: 24,
+                                            errorBuilder:
+                                                (
+                                                  context,
+                                                  error,
+                                                  stackTrace,
+                                                ) => const Icon(
+                                                  Icons.login,
+                                                  size: 24,
+                                                ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Text(
+                                            LocaleKeys.auth_login_googleButton
+                                                .tr(),
+                                            style: TextStyle(
+                                              fontSize: context.dynamicValue(
+                                                16,
+                                              ),
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
                         );
                       },
                     ),
                     const SizedBox(height: 24),
-
-                    // Privacy note
                     RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(
@@ -148,14 +223,8 @@ class LoginScreen extends StatelessWidget {
                           ),
                           WidgetSpan(
                             child: GestureDetector(
-                              onTap: () async {
-                                final url = Uri.parse(
-                                  'https://my-portfolio-1ece9.web.app/#/emoti-privacy-policy',
-                                );
-                                if (await canLaunchUrl(url)) {
-                                  await launchUrl(url);
-                                }
-                              },
+                              onTap: () =>
+                                  _launchUrl(LegalUrls.termsOfService),
                               child: Text(
                                 LocaleKeys.auth_login_terms.tr(),
                                 style: TextStyle(
@@ -170,14 +239,8 @@ class LoginScreen extends StatelessWidget {
                           TextSpan(text: LocaleKeys.auth_login_and.tr()),
                           WidgetSpan(
                             child: GestureDetector(
-                              onTap: () async {
-                                final url = Uri.parse(
-                                  'https://my-portfolio-1ece9.web.app/#/emoti-privacy-policy',
-                                );
-                                if (await canLaunchUrl(url)) {
-                                  await launchUrl(url);
-                                }
-                              },
+                              onTap: () =>
+                                  _launchUrl(LegalUrls.privacyPolicy),
                               child: Text(
                                 LocaleKeys.auth_login_privacyPolicy.tr(),
                                 style: TextStyle(

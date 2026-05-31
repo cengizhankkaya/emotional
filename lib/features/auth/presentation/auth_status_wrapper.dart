@@ -4,6 +4,8 @@ import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/home/presentation/home_screen.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
+import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,10 +14,18 @@ class AuthStatusWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
+    return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
+        if (state is AuthFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: ColorsCustom.imperilRead,
+            ),
+          );
+        }
+
         if (state is AuthUnauthenticated) {
-          // Cleanup call and room when logged out
           context.read<CallBloc>().add(LeaveCall());
 
           final roomState = context.read<RoomBloc>().state;
@@ -38,14 +48,25 @@ class AuthStatusWrapper extends StatelessWidget {
           }
         }
       },
-      child: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, state) {
-          if (state is AuthAuthenticated) {
-            return const HomeScreen();
-          }
-          return const LoginScreen();
-        },
-      ),
+      builder: (context, state) {
+        final user = FirebaseAuth.instance.currentUser;
+        final isDeleting = state is AuthLoading && user != null;
+
+        if (user != null) {
+          return Stack(
+            children: [
+              const HomeScreen(),
+              if (isDeleting)
+                const ColoredBox(
+                  color: Color(0x88000000),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          );
+        }
+
+        return const LoginScreen();
+      },
     );
   }
 }

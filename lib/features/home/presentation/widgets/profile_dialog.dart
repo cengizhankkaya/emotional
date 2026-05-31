@@ -1,10 +1,16 @@
 import 'dart:ui';
+
 import 'package:easy_localization/easy_localization.dart';
-import 'package:emotional/product/init/language/locale_keys.g.dart';
+import 'package:emotional/features/auth/bloc/auth_bloc.dart';
+import 'package:emotional/features/auth/presentation/widgets/delete_account_dialog.dart';
+import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/product/generated/assets.gen.dart';
+import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
+import 'package:emotional/product/widget/dialog/privacy_policy_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ProfileDialog extends StatefulWidget {
   const ProfileDialog({super.key});
@@ -221,7 +227,38 @@ class _ProfileDialogState extends State<ProfileDialog>
                   context,
                   LocaleKeys.home_profile_privacyContent.tr(),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
+                _buildLegalLink(
+                  context,
+                  LocaleKeys.home_profile_openTerms.tr(),
+                  PrivacyPolicyDialog.launchTermsOfService,
+                ),
+                const SizedBox(height: 8),
+                _buildLegalLink(
+                  context,
+                  LocaleKeys.home_profile_openPrivacy.tr(),
+                  PrivacyPolicyDialog.launchPrivacyPolicy,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => _onDeleteAccountPressed(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: ColorsCustom.imperilRead,
+                      side: const BorderSide(color: ColorsCustom.imperilRead),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      LocaleKeys.auth_deleteAccount_button.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -280,5 +317,62 @@ class _ProfileDialogState extends State<ProfileDialog>
         height: 1.6,
       ),
     );
+  }
+
+  Widget _buildLegalLink(
+    BuildContext context,
+    String label,
+    Future<void> Function() onTap,
+  ) {
+    return TextButton(
+      onPressed: () async {
+        try {
+          await onTap();
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(LocaleKeys.auth_error_linkOpenFailed.tr())),
+            );
+          }
+        }
+      },
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: ColorsCustom.skyBlue,
+          decoration: TextDecoration.underline,
+          decorationColor: ColorsCustom.skyBlue,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onDeleteAccountPressed(BuildContext context) async {
+    final step1 = await DeleteAccountDialog.showStep1(context);
+    if (step1 != true || !context.mounted) return;
+
+    final step2 = await DeleteAccountDialog.showStep2(context);
+    if (step2 != true || !context.mounted) return;
+
+    final roomState = context.read<RoomBloc>().state;
+    if (roomState is RoomJoined) {
+      context.read<RoomBloc>().add(
+        LeaveRoomRequested(
+          roomId: roomState.roomId,
+          userId: roomState.userId,
+        ),
+      );
+    } else if (roomState is RoomCreated) {
+      context.read<RoomBloc>().add(
+        LeaveRoomRequested(
+          roomId: roomState.roomId,
+          userId: roomState.userId,
+        ),
+      );
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context);
+    context.read<AuthBloc>().add(DeleteAccountRequested());
   }
 }

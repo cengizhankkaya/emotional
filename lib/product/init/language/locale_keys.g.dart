@@ -156,6 +156,8 @@ abstract class  LocaleKeys {
   static const home_profile_whatCanYouDoContent = 'home.profile.whatCanYouDoContent';
   static const home_profile_privacyTitle = 'home.profile.privacyTitle';
   static const home_profile_privacyContent = 'home.profile.privacyContent';
+  static const home_profile_openTerms = 'home.profile.openTerms';
+  static const home_profile_openPrivacy = 'home.profile.openPrivacy';
   static const home_profile_close = 'home.profile.close';
   static const home_profile = 'home.profile';
   static const home_feedback_roomNotFound = 'home.feedback.roomNotFound';
@@ -242,6 +244,7 @@ abstract class  LocaleKeys {
   static const auth_login_title = 'auth.login.title';
   static const auth_login_subtitle = 'auth.login.subtitle';
   static const auth_login_googleButton = 'auth.login.googleButton';
+  static const auth_login_appleButton = 'auth.login.appleButton';
   static const auth_login_anonymousButton = 'auth.login.anonymousButton';
   static const auth_login_welcomeBack = 'auth.login.welcomeBack';
   static const auth_login_loginPrompt = 'auth.login.loginPrompt';
@@ -268,7 +271,20 @@ abstract class  LocaleKeys {
   static const auth_error_authFailed = 'auth.error.authFailed';
   static const auth_error_userIsNullAfterSignIn = 'auth.error.userIsNullAfterSignIn';
   static const auth_error_googleAuthFailed = 'auth.error.googleAuthFailed';
+  static const auth_error_appleFailed = 'auth.error.appleFailed';
+  static const auth_error_appleAuthFailed = 'auth.error.appleAuthFailed';
+  static const auth_error_deleteFailed = 'auth.error.deleteFailed';
+  static const auth_error_reauthRequired = 'auth.error.reauthRequired';
+  static const auth_error_linkOpenFailed = 'auth.error.linkOpenFailed';
+  static const auth_error_appleTimeout = 'auth.error.appleTimeout';
   static const auth_error = 'auth.error';
+  static const auth_deleteAccount_title = 'auth.deleteAccount.title';
+  static const auth_deleteAccount_message = 'auth.deleteAccount.message';
+  static const auth_deleteAccount_confirmMessage = 'auth.deleteAccount.confirmMessage';
+  static const auth_deleteAccount_continue = 'auth.deleteAccount.continue';
+  static const auth_deleteAccount_confirmButton = 'auth.deleteAccount.confirmButton';
+  static const auth_deleteAccount_button = 'auth.deleteAccount.button';
+  static const auth_deleteAccount = 'auth.deleteAccount';
   static const auth_logout_title = 'auth.logout.title';
   static const auth_logout_message = 'auth.logout.message';
   static const auth_logout_button = 'auth.logout.button';

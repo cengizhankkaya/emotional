@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-/// Uygulama genelinde kullanılan icon'ların merkezi yönetimi
+/// Uygulama genelinde kullanılan Material ikonları ([Icon] ile).
 final class AppIcons {
   AppIcons._();
 
@@ -25,7 +25,6 @@ final class AppIcons {
   static const IconData phone = Icons.phone;
   static const IconData email = Icons.email_outlined;
   static const IconData share = Icons.share_rounded;
-  static const IconData sendMessage = FontAwesomeIcons.whatsapp;
 
   // Konum
   static const IconData location = Icons.location_on;
@@ -64,11 +63,16 @@ final class AppIcons {
   static const IconData videoCall = Icons.video_call_outlined;
   static const IconData chat = Icons.chat_bubble_outline;
   static const IconData chair = Icons.chair;
+}
 
-  // Sosyal Medya (Font Awesome)
-  static const IconData facebook = FontAwesomeIcons.facebook;
-  static const IconData twitter = FontAwesomeIcons.twitter;
-  static const IconData instagram = FontAwesomeIcons.instagram;
-  static const IconData youtube = FontAwesomeIcons.youtube;
-  static const IconData linkedin = FontAwesomeIcons.linkedin;
+/// Font Awesome ikonları ([FaIcon] ile).
+final class AppFaIcons {
+  AppFaIcons._();
+
+  static const FaIconData sendMessage = FontAwesomeIcons.whatsapp;
+  static const FaIconData facebook = FontAwesomeIcons.facebook;
+  static const FaIconData twitter = FontAwesomeIcons.xTwitter;
+  static const FaIconData instagram = FontAwesomeIcons.instagram;
+  static const FaIconData youtube = FontAwesomeIcons.youtube;
+  static const FaIconData linkedin = FontAwesomeIcons.linkedin;
 }

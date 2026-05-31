@@ -9,6 +9,16 @@ abstract class AuthEvent extends Equatable {
 
 class AuthCheckRequested extends AuthEvent {}
 
+/// Firebase [authStateChanges] akışından gelen güncelleme.
+class AuthStateChanged extends AuthEvent {
+  final User? user;
+
+  const AuthStateChanged(this.user);
+
+  @override
+  List<Object?> get props => [user];
+}
+
 class LoginRequested extends AuthEvent {
   final String email;
   final String password;
@@ -24,3 +34,7 @@ class AnonymousLoginRequested extends AuthEvent {}
 class LogoutRequested extends AuthEvent {}
 
 class GoogleLoginRequested extends AuthEvent {}
+
+class AppleLoginRequested extends AuthEvent {}
+
+class DeleteAccountRequested extends AuthEvent {}
