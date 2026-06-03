@@ -64,6 +64,8 @@
 	<string>We need access to your microphone for video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your photo library to select videos to play.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Emoti does not use your location. This notice is required because an included library may reference location APIs for network or analytics services.</string>
 	<key>RTCApplicationGroupIdentifier</key>
 	<string>group.com.esce.emoti</string>
 	<key>UIApplicationSceneManifest</key>
@@ -91,8 +93,6 @@
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
-		<string>processing</string>
 		<string>audio</string>
 		<string>voip</string>
 	</array>

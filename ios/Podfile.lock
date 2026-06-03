@@ -2,16 +2,16 @@ PODS:
   - background_downloader (0.0.1):
     - Flutter
   - Flutter (1.0.0)
-  - flutter_webrtc (1.2.0):
+  - flutter_webrtc (1.4.0):
     - Flutter
-    - WebRTC-SDK (= 137.7151.04)
+    - WebRTC-SDK (= 144.7559.01)
   - media_kit_libs_ios_video (1.0.4):
     - Flutter
   - media_kit_video (0.0.1):
     - Flutter
   - permission_handler_apple (9.3.0):
     - Flutter
-  - WebRTC-SDK (137.7151.04)
+  - WebRTC-SDK (144.7559.01)
 
 DEPENDENCIES:
   - background_downloader (from `.symlinks/plugins/background_downloader/ios`)
@@ -42,12 +42,12 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   background_downloader: b65ccfd816d8600abc29fa264e9d0b0909caaddd
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_webrtc: c3e21fc0dcd9d8eb246ae4d5256fcbeb2f5ecd22
+  flutter_webrtc: ec91d94b484ad49cf191ef93413f64a40ffd3b4c
   media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
   media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  WebRTC-SDK: 40d4f5ba05cadff14e4db5614aec402a633f007e
+  WebRTC-SDK: ab9b5319e458c2bfebdc92b3600740da35d5630d
 
-PODFILE CHECKSUM: 5637642eaa16746d77d1d11d9024abd9c75a38e3
+PODFILE CHECKSUM: d9b284f1da92e1a47baf38e00f6111d80575d76f
 
 COCOAPODS: 1.16.2

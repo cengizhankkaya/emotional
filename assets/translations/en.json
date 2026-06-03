@@ -153,7 +153,7 @@
       "notificationsSubtitle": "To track download status",
       "storageTitle": "Storage",
       "storageSubtitle": "To save videos to your device (Older Devices)",
-      "button": "Grant Permissions",
+      "button": "Continue",
       "settingsTitle": "Permission Required",
       "settingsMessage": "Camera and microphone permissions are permanently denied.\n\nYou need to enable permissions from app settings to create or join a room.",
       "openSettings": "Open Settings"
