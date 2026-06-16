@@ -5,4 +5,8 @@ abstract final class LegalUrls {
 
   static const termsOfService =
       'https://my-portfolio-1ece9.web.app/terms.html';
+
+  /// EULA URL — Apple App Store Guideline 1.2 uyumluluğu için.
+  /// Terms of Service ile aynı sayfayı kullanır (EULA ibareleri içermelidir).
+  static const eula = termsOfService;
 }

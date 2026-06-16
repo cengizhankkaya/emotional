@@ -126,7 +126,10 @@
         "noMessages": "Henüz mesaj yok",
         "newMessages": "Yeni mesajlar",
         "typeMessage": "Mesaj yaz...",
-        "errorPrefix": "Hata: {}"
+        "errorPrefix": "Hata: {}",
+        "copyMessage": "Mesajı Kopyala",
+        "reportMessage": "Mesajı Raporla",
+        "blockUser": "Kullanıcıyı Engelle"
     },
     "home": {
         "welcome": "Merhaba, {}!",
@@ -333,5 +336,39 @@
     "room_error": {
         "syncFailed": "Senkronizasyon hatası (Yetki?): {}",
         "updateVideoFailed": "Oda videosu güncellenirken hata oluştu: {}"
+    },
+    "moderation": {
+        "eula": {
+            "checkbox": "Kullanım Koşullarını ve EULA'yı kabul ediyorum",
+            "required": "Devam etmek için Kullanım Koşullarını kabul etmelisiniz"
+        },
+        "report": {
+            "title": "Raporla",
+            "reportUser": "Kullanıcıyı Raporla",
+            "reportMessage": "Mesajı Raporla",
+            "reason": "Neden",
+            "reasons": {
+                "inappropriate": "Uygunsuz İçerik",
+                "harassment": "Taciz",
+                "spam": "Spam",
+                "other": "Diğer"
+            },
+            "description": "Ek bilgi (isteğe bağlı)",
+            "descriptionHint": "Sorunu açıklayın...",
+            "submit": "Raporu Gönder",
+            "success": "Raporunuz alındı. 24 saat içinde incelenecektir.",
+            "error": "Rapor gönderilemedi. Lütfen tekrar deneyin."
+        },
+        "block": {
+            "title": "Kullanıcıyı Engelle",
+            "confirm": "{} kullanıcısını engellemek istediğinize emin misiniz? Mesajlarını artık göremezsiniz.",
+            "success": "{} engellendi",
+            "unblock": "Engeli Kaldır",
+            "unblockConfirm": "{} kullanıcısının engelini kaldırmak istediğinize emin misiniz?",
+            "unblockSuccess": "{} engeli kaldırıldı"
+        },
+        "filter": {
+            "blocked": "Bu mesaj uygunsuz içerik nedeniyle filtrelendi"
+        }
     }
 }

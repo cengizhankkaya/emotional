@@ -1,7 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
+import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/moderation/bloc/moderation_bloc.dart';
+import 'package:emotional/features/moderation/presentation/block_confirm_dialog.dart';
+import 'package:emotional/features/moderation/presentation/report_dialog.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
+import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -347,16 +352,126 @@ class AvatarParticipantWidget extends StatelessWidget {
       ],
     );
 
-    if (canTransferHost && roomId != null && participantId != null) {
+    if (participantId != null && !isLocal && roomId != null) {
       return GestureDetector(
         onLongPress: () {
-          _showTransferHostDialog(context, roomId!, participantId!, name!);
+          _showParticipantMenu(context, roomId!, participantId!, name!);
         },
         child: avatarContent,
       );
     }
 
     return avatarContent;
+  }
+
+  void _showParticipantMenu(
+    BuildContext context,
+    String roomId,
+    String participantId,
+    String userName,
+  ) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) return;
+    final currentUserId = authState.user.uid;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorsCustom.darkABlue,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                userName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            const Divider(color: Colors.white12),
+            // Transfer host (only if current user is host)
+            if (canTransferHost) ...[
+              ListTile(
+                leading: const Icon(Icons.stars, color: Colors.amber),
+                title: Text(
+                  LocaleKeys.room_transferHost_title.tr(),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showTransferHostDialog(
+                      context, roomId, participantId, userName);
+                },
+              ),
+            ],
+            // Report user
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: Colors.orange),
+              title: Text(
+                LocaleKeys.moderation_report_reportUser.tr(),
+                style: const TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showDialog(
+                  context: context,
+                  builder: (_) => BlocProvider.value(
+                    value: context.read<ModerationBloc>(),
+                    child: ReportDialog(
+                      reporterUserId: currentUserId,
+                      reportedUserId: participantId,
+                      reportedUserName: userName,
+                      roomId: roomId,
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Block user
+            ListTile(
+              leading: const Icon(Icons.block, color: Colors.redAccent),
+              title: Text(
+                LocaleKeys.moderation_block_title.tr(),
+                style: const TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showDialog(
+                  context: context,
+                  builder: (_) => BlocProvider.value(
+                    value: context.read<ModerationBloc>(),
+                    child: BlockConfirmDialog(
+                      currentUserId: currentUserId,
+                      blockedUserId: participantId,
+                      blockedUserName: userName,
+                      roomId: roomId,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showTransferHostDialog(

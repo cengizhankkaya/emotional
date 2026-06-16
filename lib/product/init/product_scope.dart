@@ -3,6 +3,8 @@ import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/chat/repository/chat_repository.dart';
+import 'package:emotional/features/moderation/bloc/moderation_bloc.dart';
+import 'package:emotional/features/moderation/repository/moderation_repository.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/room/data/repositories/room_repository_impl.dart';
 import 'package:emotional/features/room/domain/repositories/room_repository.dart';
@@ -37,6 +39,9 @@ class ProductScope extends StatelessWidget {
         ),
         RepositoryProvider<ChatRepository>(
           create: (context) => ChatRepository(),
+        ),
+        RepositoryProvider<ModerationRepository>(
+          create: (context) => ModerationRepository(),
         ),
         RepositoryProvider<DriveService>.value(value: driveService),
         // UseCases
@@ -103,6 +108,11 @@ class ProductScope extends StatelessWidget {
           ),
           BlocProvider<VideoPlayerBloc>(create: (context) => VideoPlayerBloc()),
           BlocProvider<NetworkBloc>(create: (context) => NetworkBloc()),
+          BlocProvider<ModerationBloc>(
+            create: (context) => ModerationBloc(
+              repository: context.read<ModerationRepository>(),
+            ),
+          ),
         ],
         child: child,
       ),

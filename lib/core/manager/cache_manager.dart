@@ -29,4 +29,18 @@ final class CacheManager {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_hasDeniedBatteryOptimizationKey) ?? false;
   }
+
+  // ─── EULA ──────────────────────────────────────────────────────────
+
+  static const String _eulaAcceptedKey = 'eula_accepted';
+
+  Future<void> setEulaAccepted(bool accepted) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_eulaAcceptedKey, accepted);
+  }
+
+  Future<bool> hasAcceptedEula() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_eulaAcceptedKey) ?? false;
+  }
 }

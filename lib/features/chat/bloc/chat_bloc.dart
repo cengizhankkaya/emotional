@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/core/services/content_filter_service.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:emotional/features/chat/repository/chat_repository.dart';
@@ -54,9 +55,23 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     try {
+      final filter = ContentFilterService.instance;
+      final text = event.text;
+
+      // If the message is entirely profanity, block it
+      if (filter.shouldBlockMessage(text)) {
+        emit(
+          ChatError(LocaleKeys.moderation_filter_blocked.tr()),
+        );
+        return;
+      }
+
+      // Mask partial profanity
+      final filteredText = filter.filterText(text);
+
       await _chatRepository.sendMessage(
         event.roomId,
-        event.text,
+        filteredText,
         event.userId,
         event.userName,
       );

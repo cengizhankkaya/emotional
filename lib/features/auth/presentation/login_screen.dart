@@ -1,3 +1,4 @@
+import 'package:emotional/core/manager/cache_manager.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/product/utility/constants/legal_urls.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
@@ -23,6 +24,28 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   /// Apple sheet acikken Bloc rebuild ile butonun devre disi kalmasini onler.
   bool _appleAuthorizing = false;
+
+  /// EULA kabul durumu — true olana kadar giriş butonları devre dışıdır.
+  bool _eulaAccepted = false;
+  final _cacheManager = CacheManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEulaState();
+  }
+
+  Future<void> _loadEulaState() async {
+    final accepted = await _cacheManager.hasAcceptedEula();
+    if (mounted && accepted) {
+      setState(() => _eulaAccepted = true);
+    }
+  }
+
+  void _onEulaChanged(bool? value) {
+    setState(() => _eulaAccepted = value ?? false);
+    _cacheManager.setEulaAccepted(_eulaAccepted);
+  }
 
   Future<void> _launchUrl(String urlString) async {
     final url = Uri.parse(urlString);
@@ -95,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       builder: (context, state) {
                         final isFirebaseLoading = state is AuthLoading;
                         final buttonsDisabled =
-                            isFirebaseLoading || _appleAuthorizing;
+                            isFirebaseLoading || _appleAuthorizing || !_eulaAccepted;
 
                         return Column(
                           children: [
@@ -208,7 +231,47 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+                    // ── EULA Checkbox ──
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: _eulaAccepted,
+                            onChanged: _onEulaChanged,
+                            activeColor: ColorsCustom.skyBlue,
+                            checkColor: ColorsCustom.darkBlue,
+                            side: BorderSide(
+                              color: ColorsCustom.skyBlue.withValues(alpha: 0.6),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _onEulaChanged(!_eulaAccepted),
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: context.dynamicValue(12),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: LocaleKeys.moderation_eula_checkbox.tr(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(

@@ -3,6 +3,7 @@ import 'package:emotional/features/auth/presentation/login_screen.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/home/presentation/home_screen.dart';
+import 'package:emotional/features/moderation/bloc/moderation_bloc.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -53,6 +54,9 @@ class AuthStatusWrapper extends StatelessWidget {
         final isDeleting = state is AuthLoading && user != null;
 
         if (user != null) {
+          // Load blocked users for the authenticated user
+          context.read<ModerationBloc>().add(LoadBlockedUsers(user.uid));
+
           return Stack(
             children: [
               const HomeScreen(),

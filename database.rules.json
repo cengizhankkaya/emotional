@@ -1,5 +1,19 @@
 {
     "rules": {
+        "reports": {
+            "$reportId": {
+                ".read": false,
+                ".write": "auth != null && newData.child('reporterUserId').val() === auth.uid"
+            }
+        },
+        "users": {
+            "$userId": {
+                "blockedUsers": {
+                    ".read": "auth != null && auth.uid === $userId",
+                    ".write": "auth != null && auth.uid === $userId"
+                }
+            }
+        },
         "rooms": {
             "$roomId": {
                 ".read": "auth != null",
