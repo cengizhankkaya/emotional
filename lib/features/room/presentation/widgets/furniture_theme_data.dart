@@ -232,6 +232,5 @@ class FurnitureThemeData {
     shadowColor: Colors.black12,
     backrestRadius: BorderRadius.circular(20),
     armrestRadius: BorderRadius.circular(15),
-    image: Assets.images.armchair.yesIl,
   );
 }

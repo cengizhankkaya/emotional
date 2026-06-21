@@ -86,9 +86,9 @@ class $AssetsImagesArmchairGen {
   AssetGenImage get uzay =>
       const AssetGenImage('assets/images/armchair/uzay.png');
 
-  /// File path: assets/images/armchair/yeşil.png
-  AssetGenImage get yesIl =>
-      const AssetGenImage('assets/images/armchair/yeşil.png');
+  /// File path: assets/images/armchair/yeşil.png
+  AssetGenImage get yeIl =>
+      const AssetGenImage('assets/images/armchair/yeşil.png');
 
   /// List of all assets
   List<AssetGenImage> get values => [
@@ -100,7 +100,7 @@ class $AssetsImagesArmchairGen {
     unnamed3,
     unnamed6,
     uzay,
-    yesIl,
+    yeIl,
   ];
 }
 

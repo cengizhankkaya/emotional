@@ -59,11 +59,13 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera for video calls.</string>
+	<string>Emoti uses your camera to stream live video to friends during video calls inside a shared watch room. For example, your friends can see you while you watch a movie together.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>We need access to your microphone for video calls.</string>
+	<string>Emoti uses your microphone to transmit your voice to friends during audio and video calls inside a shared watch room. For example, you can talk with friends while watching a video together.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photo library to select videos to play.</string>
+	<string>Emoti accesses your photo library so you can choose a video file from your device to play and share with friends in a watch room.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Emoti uses your local network to establish direct peer-to-peer connections with friends on the same Wi-Fi network. This enables low-latency video calls and synchronized playback without routing your audio and video through external servers.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Emoti does not use your location. This notice is required because an included library may reference location APIs for network or analytics services.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

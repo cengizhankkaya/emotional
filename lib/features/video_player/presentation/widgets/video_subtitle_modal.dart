@@ -45,7 +45,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
 
   Future<void> _pickExternalSubtitle(BuildContext context) async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['srt', 'vtt', 'ass'],
       );
@@ -187,7 +187,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                   ),
                   decoration: BoxDecoration(
                     color: currentTrackId == 'no'
-                        ? Colors.red.withOpacity(0.15)
+                        ? Colors.red.withValues(alpha: 0.15)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
@@ -197,29 +197,31 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                       width: 2,
                     ),
                   ),
-                  child: ListTile(
-                    leading: Radio<String>(
-                      value: 'no',
-                      groupValue: currentTrackId,
-                      activeColor: Colors.red,
-                      onChanged: (_) => _selectNoSubtitle(),
-                    ),
-                    title: Text(
-                      LocaleKeys.video_player_subtitle_none.tr(),
-                      style: TextStyle(
-                        color: currentTrackId == 'no'
-                            ? Colors.red[300]
-                            : Colors.white,
-                        fontWeight: currentTrackId == 'no'
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        fontSize: 16,
+                  child: RadioGroup<String>(
+                    groupValue: currentTrackId,
+                    onChanged: (_) => _selectNoSubtitle(),
+                    child: ListTile(
+                      leading: Radio<String>(
+                        value: 'no',
+                        activeColor: Colors.red,
                       ),
+                      title: Text(
+                        LocaleKeys.video_player_subtitle_none.tr(),
+                        style: TextStyle(
+                          color: currentTrackId == 'no'
+                              ? Colors.red[300]
+                              : Colors.white,
+                          fontWeight: currentTrackId == 'no'
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 16,
+                        ),
+                      ),
+                      trailing: currentTrackId == 'no'
+                          ? Icon(Icons.check_circle, color: Colors.red[300])
+                          : const Icon(Icons.close, color: Colors.grey),
+                      onTap: _selectNoSubtitle,
                     ),
-                    trailing: currentTrackId == 'no'
-                        ? Icon(Icons.check_circle, color: Colors.red[300])
-                        : const Icon(Icons.close, color: Colors.grey),
-                    onTap: _selectNoSubtitle,
                   ),
                 ),
                 // External subtitle option
@@ -301,7 +303,7 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? Colors.blue.withOpacity(0.15)
+                              ? Colors.blue.withValues(alpha: 0.15)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
@@ -311,41 +313,43 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
                             width: 2,
                           ),
                         ),
-                        child: ListTile(
-                          leading: Radio<String>(
-                            value: track.id,
-                            groupValue: currentTrackId,
-                            activeColor: Colors.blue,
-                            onChanged: (_) => _selectTrack(track),
-                          ),
-                          title: Text(
-                            displayName,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.blue[300]
-                                  : Colors.white,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              fontSize: 16,
+                        child: RadioGroup<String>(
+                          groupValue: currentTrackId,
+                          onChanged: (_) => _selectTrack(track),
+                          child: ListTile(
+                            leading: Radio<String>(
+                              value: track.id,
+                              activeColor: Colors.blue,
                             ),
+                            title: Text(
+                              displayName,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.blue[300]
+                                    : Colors.white,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: track.id != displayName
+                                ? Text(
+                                    track.id,
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  )
+                                : null,
+                            trailing: isSelected
+                                ? Icon(
+                                    Icons.check_circle,
+                                    color: Colors.blue[300],
+                                  )
+                                : null,
+                            onTap: () => _selectTrack(track),
                           ),
-                          subtitle: track.id != displayName
-                              ? Text(
-                                  track.id,
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 12,
-                                  ),
-                                )
-                              : null,
-                          trailing: isSelected
-                              ? Icon(
-                                  Icons.check_circle,
-                                  color: Colors.blue[300],
-                                )
-                              : null,
-                          onTap: () => _selectTrack(track),
                         ),
                       );
                     }),
@@ -378,9 +382,9 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
     // Close and reopen settings modal
     Navigator.pop(context);
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (context.mounted) {
-        VideoSettingsModal.show(context, widget.player);
-      }
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      VideoSettingsModal.show(context, widget.player);
     });
   }
 
@@ -404,9 +408,9 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
     // Close and reopen settings modal
     Navigator.pop(context);
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (context.mounted) {
-        VideoSettingsModal.show(context, widget.player);
-      }
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      VideoSettingsModal.show(context, widget.player);
     });
   }
 }

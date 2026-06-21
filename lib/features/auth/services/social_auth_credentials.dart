@@ -20,11 +20,25 @@ abstract final class SocialAuthCredentials {
       scopeHint: [drive.DriveApi.driveReadonlyScope],
     );
     final googleAuth = googleUser.authentication;
-    final authz = await GoogleSignIn.instance.authorizationClient
-        .authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+
+    // Drive authorization is optional for Firebase Auth — only idToken is required.
+    // If the user has not pre-authorized Drive or the authorization call fails
+    // (e.g. in a fresh review/sandbox environment), we fall back gracefully so
+    // that sign-in still succeeds without Drive access.
+    String? driveAccessToken;
+    try {
+      final authz = await GoogleSignIn.instance.authorizationClient
+          .authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+      driveAccessToken = authz?.accessToken;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[GoogleAuth] Drive scope authorization skipped: $e');
+      }
+      // Non-fatal: Firebase sign-in can proceed with idToken alone.
+    }
 
     return GoogleAuthProvider.credential(
-      accessToken: authz?.accessToken,
+      accessToken: driveAccessToken,
       idToken: googleAuth.idToken,
     );
   }
