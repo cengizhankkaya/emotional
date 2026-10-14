@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/core/services/drive_service.dart';
@@ -263,9 +263,34 @@ class _RoomBodyState extends State<_RoomBody>
                       // YouTube Link Check
                       if (driveFileId != null &&
                           YouTubeService().isValidYouTubeUrl(driveFileId)) {
+                        // youtube_explode can't reach YouTube from a
+                        // browser (CORS), so web needs a different player.
+                        if (kIsWeb) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                LocaleKeys.video_webYoutubeUnsupported.tr(),
+                              ),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
                         playVideo(
-                          videoFile: File(''),
                           youtubeUrl: driveFileId,
+                          roomId: roomId,
+                          userId: currentUserId,
+                          savedAudioTrack: roomState.selectedAudioTrack,
+                          savedSubtitleTrack: roomState.selectedSubtitleTrack,
+                        );
+                        return;
+                      }
+
+                      if (kIsWeb &&
+                          driveFileId != null &&
+                          !driveFileId.startsWith('local://')) {
+                        playDriveStream(
+                          fileId: driveFileId,
                           roomId: roomId,
                           userId: currentUserId,
                           savedAudioTrack: roomState.selectedAudioTrack,

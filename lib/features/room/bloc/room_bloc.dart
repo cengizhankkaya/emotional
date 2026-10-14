@@ -151,7 +151,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     try {
       await _leaveRoom(event.roomId, uid);
     } catch (e) {
-      print('RoomBloc: Error leaving room in repository: $e');
+      debugPrint('RoomBloc: Error leaving room in repository: $e');
     }
   }
 
@@ -162,7 +162,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         // Handle room deletion
         if (roomEntity == null) {
           if (_currentUserId != null) {
-            print(
+            debugPrint(
               'RoomBloc: Room node DELETED from database. Kicking out. User ID: $_currentUserId',
             );
             add(LeaveRoomRequested(roomId: roomId, userId: _currentUserId!));
@@ -174,28 +174,28 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         if (_currentUserId != null &&
             !roomEntity.users.containsKey(_currentUserId)) {
           if (state is RoomLoading || state is RoomCreated) {
-            print(
+            debugPrint(
               'RoomBloc: [GRACE] User $_currentUserId not found in usersMap yet. Waiting...',
             );
           } else if (state is RoomJoined) {
             // SESSION RECOVERY
             if (_isAppInBackgrounded) {
-              print(
+              debugPrint(
                 'RoomBloc: User $_currentUserId MISSING from usersMap, but app is in BACKGROUND. Delaying re-join until resumed.',
               );
               return;
             }
             if (_isLeavingRoom) {
-              print(
+              debugPrint(
                 'RoomBloc: User is leaving, ignoring missing member check.',
               );
               return;
             }
             if (_isJoiningRoom) {
-              print('RoomBloc: Re-join already in progress. Ignoring.');
+              debugPrint('RoomBloc: Re-join already in progress. Ignoring.');
               return;
             }
-            print(
+            debugPrint(
               'RoomBloc: User $_currentUserId MISSING from usersMap while joined. Re-joining automatically in 1s...',
             );
             _isJoiningRoom = true;
@@ -210,7 +210,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
                     _currentUserName ?? LocaleKeys.room_someone.tr(),
                   )
                   .catchError((e) {
-                    print('RoomBloc: Failed to auto-rejoin: $e');
+                    debugPrint('RoomBloc: Failed to auto-rejoin: $e');
                   })
                   .whenComplete(() {
                     _isJoiningRoom = false;
@@ -218,7 +218,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
             });
             return;
           } else {
-            print(
+            debugPrint(
               'RoomBloc: User $_currentUserId NOT found in usersMap. State is ${state.runtimeType}. Kicking out.',
             );
             add(LeaveRoomRequested(roomId: roomId, userId: _currentUserId!));
@@ -246,11 +246,11 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
             hostId = newHostId; // Update locally
 
             if (_currentUserId == newHostId) {
-              print(
+              debugPrint(
                 'RoomBloc: Host missing or left. I am the new host: $newHostId',
               );
               _reassignHost(roomId, newHostId).catchError((e) {
-                print('RoomBloc: Failed to reassign host: $e');
+                debugPrint('RoomBloc: Failed to reassign host: $e');
               });
             }
           }
@@ -278,7 +278,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         );
       },
       onError: (error) {
-        print('RoomBloc: Error observing room: $error');
+        debugPrint('RoomBloc: Error observing room: $error');
       },
     );
   }
@@ -350,16 +350,16 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     Emitter<RoomState> emit,
   ) async {
     try {
-      print('RoomBloc: UpdateRoomVideoRequested for ${event.fileName}');
+      debugPrint('RoomBloc: UpdateRoomVideoRequested for ${event.fileName}');
       await _updateRoomVideo(
         roomId: event.roomId,
         fileId: event.fileId,
         fileName: event.fileName,
         fileSize: event.fileSize,
       );
-      print('RoomBloc: UpdateRoomVideoRequested success');
+      debugPrint('RoomBloc: UpdateRoomVideoRequested success');
     } catch (e) {
-      print('RoomBloc: UpdateRoomVideoRequested failed: $e');
+      debugPrint('RoomBloc: UpdateRoomVideoRequested failed: $e');
       emit(
         RoomError(
           LocaleKeys.room_error_updateVideoFailed.tr(args: [e.toString()]),
@@ -380,7 +380,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         userId: event.userId,
       );
     } catch (e) {
-      print('RoomBloc: Error syncing video: $e');
+      debugPrint('RoomBloc: Error syncing video: $e');
       if (state is RoomJoined) {
         final currentState = state as RoomJoined;
         emit(
@@ -407,7 +407,7 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         userId: event.userId,
       );
     } catch (e) {
-      print('RoomBloc: Error syncing settings: $e');
+      debugPrint('RoomBloc: Error syncing settings: $e');
     }
   }
 

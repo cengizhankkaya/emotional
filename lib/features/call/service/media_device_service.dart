@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
+import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
 import 'package:emotional/features/call/domain/services/i_media_device_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:audio_session/audio_session.dart';
 
@@ -15,6 +17,14 @@ class MediaDeviceService implements IMediaDeviceService {
   String? _selectedAudioDeviceId;
   String? _selectedAudioOutputId;
   bool _isBusy = false;
+
+  /// The microphone or camera stopped on its own: unplugged, a Bluetooth
+  /// headset disconnected, or the OS/browser took it away. Our own stop()
+  /// calls don't count.
+  @override
+  void Function()? onMicrophoneLost;
+  @override
+  void Function()? onCameraLost;
 
   @override
   String? get selectedVideoDeviceId => _selectedVideoDeviceId;
@@ -40,7 +50,7 @@ class MediaDeviceService implements IMediaDeviceService {
     try {
       await _tryStartStream(quality, requireVideo: enableVideo);
     } catch (e) {
-      print(
+      debugPrint(
         "CRITICAL: Failed to initialize media stream even after fallback: $e",
       );
     }
@@ -56,7 +66,7 @@ class MediaDeviceService implements IMediaDeviceService {
     CallQualityPreset quality, {
     bool requireVideo = true,
   }) async {
-    print(
+    debugPrint(
       "MediaDeviceService: Attempting to start stream with quality: ${quality.name}",
     );
 
@@ -66,30 +76,9 @@ class MediaDeviceService implements IMediaDeviceService {
       _cameraStream = null;
     }
 
-    final videoConstraints = quality.toConstraints();
+    final videoConstraints = _videoConstraints(quality);
 
-    // Applying device selection
-    if (_selectedVideoDeviceId != null) {
-      videoConstraints['deviceId'] = _selectedVideoDeviceId;
-    } else {
-      videoConstraints['facingMode'] = 'user';
-    }
-
-    // Google-tuned Audio Constraints
-    final audioConstraints = <String, dynamic>{
-      'echoCancellation': true,
-      'noiseSuppression': true,
-      'autoGainControl': true,
-      'googEchoCancellation': true,
-      'googEchoCancellation2': true,
-      'googAutoGainControl': true,
-      'googNoiseSuppression': true,
-      'googHighpassFilter': true,
-    };
-
-    if (_selectedAudioDeviceId != null) {
-      audioConstraints['deviceId'] = _selectedAudioDeviceId;
-    }
+    final audioConstraints = _audioConstraints();
 
     final mediaConstraints = {
       'audio': audioConstraints,
@@ -100,25 +89,26 @@ class MediaDeviceService implements IMediaDeviceService {
       _cameraStream = await navigator.mediaDevices.getUserMedia(
         mediaConstraints,
       );
+      _watch(_cameraStream);
       _currentQuality = quality; // Success, update current quality
-      print(
+      debugPrint(
         "MediaDeviceService: Stream started successfully with ${quality.name}",
       );
     } catch (e) {
-      print(
+      debugPrint(
         "MediaDeviceService: Failed to start with ${quality.name}. Error: $e",
       );
 
       // Fallback Logic
       final nextQuality = _getNextLowerQuality(quality);
       if (nextQuality != null) {
-        print(
+        debugPrint(
           "MediaDeviceService: Fallback -> Retrying with ${nextQuality.name}",
         );
         await _tryStartStream(nextQuality, requireVideo: requireVideo);
       } else {
         // If lowest quality video also fails, try AUDIO ONLY as last resort
-        print(
+        debugPrint(
           "MediaDeviceService: All video qualities failed. Trying Audio Only.",
         );
         try {
@@ -126,12 +116,143 @@ class MediaDeviceService implements IMediaDeviceService {
             'audio': audioConstraints,
             'video': false,
           });
-          print("MediaDeviceService: Audio-only stream started.");
+          _watch(_cameraStream);
+          debugPrint("MediaDeviceService: Audio-only stream started.");
         } catch (audioError) {
-          print("MediaDeviceService: Audio-only also failed. Giving up.");
+          debugPrint("MediaDeviceService: Audio-only also failed. Giving up.");
           rethrow;
         }
       }
+    }
+  }
+
+  /// Google-tuned audio constraints, on the selected microphone if any.
+  Map<String, dynamic> _audioConstraints() => {
+    'echoCancellation': true,
+    'noiseSuppression': true,
+    'autoGainControl': true,
+    'googEchoCancellation': true,
+    'googEchoCancellation2': true,
+    'googAutoGainControl': true,
+    'googNoiseSuppression': true,
+    'googHighpassFilter': true,
+    'deviceId': ?_selectedAudioDeviceId,
+  };
+
+  void _watch(MediaStream? stream) {
+    if (stream == null) return;
+    for (final track in stream.getAudioTracks()) {
+      _watchTrack(track);
+    }
+    for (final track in stream.getVideoTracks()) {
+      _watchTrack(track);
+    }
+  }
+
+  void _watchTrack(MediaStreamTrack track) {
+    track.onEnded = () {
+      // Only tracks still in use; replaced ones are stopped by us anyway.
+      final inUse =
+          _cameraStream?.getTracks().any((t) => t.id == track.id) ?? false;
+      if (!inUse) return;
+      debugPrint('MediaDeviceService: ${track.kind} track ended by itself.');
+      if (track.kind == 'audio') {
+        onMicrophoneLost?.call();
+      } else {
+        onCameraLost?.call();
+      }
+    };
+  }
+
+  /// Replaces a lost microphone with the system default one, keeping the
+  /// camera. Null when no microphone can be opened.
+  @override
+  Future<MediaStreamTrack?> restartMicrophone() async {
+    // The selected device is most likely the one that went away.
+    _selectedAudioDeviceId = null;
+    try {
+      final microphone = await navigator.mediaDevices.getUserMedia({
+        'audio': _audioConstraints(),
+        'video': false,
+      });
+      final track = microphone.getAudioTracks().firstOrNull;
+      if (track == null) return null;
+      final stream = _cameraStream;
+      if (stream == null) {
+        _cameraStream = microphone;
+      } else {
+        for (final old in stream.getAudioTracks().toList()) {
+          await stream.removeTrack(old);
+          await old.stop();
+        }
+        await stream.addTrack(track);
+      }
+      _watchTrack(track);
+      return track;
+    } catch (e) {
+      debugPrint('MediaDeviceService: No microphone to switch to: $e');
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _videoConstraints(CallQualityPreset quality) {
+    final constraints = quality.toConstraints();
+    if (_selectedVideoDeviceId != null) {
+      constraints['deviceId'] = _selectedVideoDeviceId;
+    } else {
+      constraints['facingMode'] = 'user';
+    }
+    return constraints;
+  }
+
+  /// Opens the camera and adds its track to the local stream, keeping the
+  /// microphone running. Null when no camera can be opened (none connected,
+  /// permission denied).
+  @override
+  Future<MediaStreamTrack?> startCamera() async {
+    final existing = _cameraStream?.getVideoTracks().firstOrNull;
+    if (existing != null) {
+      existing.enabled = true;
+      return existing;
+    }
+
+    for (
+      CallQualityPreset? quality = _currentQuality;
+      quality != null;
+      quality = _getNextLowerQuality(quality)
+    ) {
+      try {
+        final camera = await navigator.mediaDevices.getUserMedia({
+          'audio': false,
+          'video': _videoConstraints(quality),
+        });
+        final track = camera.getVideoTracks().firstOrNull;
+        if (track == null) return null;
+        final stream = _cameraStream;
+        if (stream == null) {
+          _cameraStream = camera;
+        } else {
+          await stream.addTrack(track);
+        }
+        _watchTrack(track);
+        return track;
+      } catch (e) {
+        debugPrint(
+          "MediaDeviceService: Camera failed with ${quality.name}: $e",
+        );
+      }
+    }
+    return null;
+  }
+
+  /// Releases the camera (its light goes off); the microphone keeps running.
+  @override
+  Future<void> stopCamera() async {
+    final stream = _cameraStream;
+    if (stream == null) return;
+    for (final track in stream.getVideoTracks().toList()) {
+      await stream.removeTrack(track);
+      await track.stop();
     }
   }
 
@@ -156,22 +277,24 @@ class MediaDeviceService implements IMediaDeviceService {
     final oldQuality = _currentQuality;
     _currentQuality = preset;
 
-    print("[MediaDeviceService] Changing quality to ${preset.name}...");
+    debugPrint("[MediaDeviceService] Changing quality to ${preset.name}...");
 
     try {
       // 1. If camera is active, re-start it
       if (_cameraStream != null) {
         final hasVideo =
-            _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? true;
+            _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? false;
         await _tryStartStream(preset, requireVideo: hasVideo);
       }
 
-      // 2. If screen share is active, re-start it with new constraints
-      if (_screenStream != null) {
-        await _startScreenShareInternal();
+      // 2. If screen share is active, re-start it with new constraints.
+      // On web the share profile owns screen quality, and re-opening the
+      // browser picker needs a fresh user gesture, so leave it running.
+      if (_screenStream != null && !kIsWeb) {
+        await _startScreenShareInternal(null);
       }
     } catch (e) {
-      print(
+      debugPrint(
         "[MediaDeviceService] Failed to set quality: $e. Reverting to ${oldQuality.name}",
       );
       _currentQuality = oldQuality;
@@ -196,7 +319,7 @@ class MediaDeviceService implements IMediaDeviceService {
       final allDevices = await navigator.mediaDevices.enumerateDevices();
       devices = allDevices.where((d) => d.kind == 'audioinput').toList();
     } catch (e) {
-      print("Error enumerating audio inputs: $e");
+      debugPrint("Error enumerating audio inputs: $e");
     }
 
     final Map<String, MediaDeviceInfo> uniqueDevices = {};
@@ -237,7 +360,7 @@ class MediaDeviceService implements IMediaDeviceService {
         }
       }
     } catch (e) {
-      print("Error refining audio inputs with audio_session: $e");
+      debugPrint("Error refining audio inputs with audio_session: $e");
     }
 
     // If audio_session logic didn't populate uniqueDevices, use enumerated ones
@@ -257,7 +380,7 @@ class MediaDeviceService implements IMediaDeviceService {
       final allDevices = await navigator.mediaDevices.enumerateDevices();
       devices = allDevices.where((d) => d.kind == 'audiooutput').toList();
     } catch (e) {
-      print("Error enumerating audio outputs: $e");
+      debugPrint("Error enumerating audio outputs: $e");
     }
 
     final Map<String, MediaDeviceInfo> uniqueDevices = {};
@@ -299,7 +422,7 @@ class MediaDeviceService implements IMediaDeviceService {
         }
       }
     } catch (e) {
-      print("Error getting devices from audio_session: $e");
+      debugPrint("Error getting devices from audio_session: $e");
     }
 
     if (uniqueDevices.isEmpty) {
@@ -334,7 +457,10 @@ class MediaDeviceService implements IMediaDeviceService {
     _isBusy = true;
     try {
       _selectedVideoDeviceId = device.deviceId;
-      await _tryStartStream(_currentQuality, requireVideo: true);
+      // With the camera off, only remember the choice for when it's on.
+      final hasVideo =
+          _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? false;
+      await _tryStartStream(_currentQuality, requireVideo: hasVideo);
     } finally {
       _isBusy = false;
     }
@@ -347,7 +473,7 @@ class MediaDeviceService implements IMediaDeviceService {
     try {
       _selectedAudioDeviceId = device.deviceId;
       final hasVideo =
-          _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? true;
+          _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? false;
       await _tryStartStream(_currentQuality, requireVideo: hasVideo);
     } finally {
       _isBusy = false;
@@ -363,11 +489,11 @@ class MediaDeviceService implements IMediaDeviceService {
       final label = device.label.toLowerCase();
       final isSpeaker = label.contains('speaker') || label.contains('hoparlör');
       await Helper.setSpeakerphoneOn(isSpeaker);
-      print(
+      debugPrint(
         "MediaDeviceService: Selected Audio Output ${device.label} (Speaker=$isSpeaker)",
       );
     } catch (e) {
-      print("Error selecting audio output: $e");
+      debugPrint("Error selecting audio output: $e");
     } finally {
       _isBusy = false;
     }
@@ -408,42 +534,46 @@ class MediaDeviceService implements IMediaDeviceService {
     try {
       await Helper.setSpeakerphoneOn(enabled);
     } catch (e) {
-      print("Error setting speakerphone: $e");
+      debugPrint("Error setting speakerphone: $e");
     }
   }
 
   // --- Screen Share ---
 
   @override
-  Future<void> startScreenShare() async {
-    if (_isBusy) return;
+  Future<void> startScreenShare({ScreenShareOptions? options}) async {
+    // Callers read [screenStream] afterwards; returning quietly would let
+    // them report a share that never started.
+    if (_isBusy) throw StateError('Media devices are busy');
     _isBusy = true;
 
     try {
-      await _startScreenShareInternal();
+      await _startScreenShareInternal(options);
     } catch (e) {
-      print("[MediaDeviceService] Error in startScreenShare: $e");
+      debugPrint("[MediaDeviceService] Error in startScreenShare: $e");
       rethrow;
     } finally {
       _isBusy = false;
     }
   }
 
-  Future<void> _startScreenShareInternal() async {
+  Future<void> _startScreenShareInternal(ScreenShareOptions? options) async {
     // 1. Stop previous if any
     await _stopStream(_screenStream);
     _screenStream = null;
 
-    final mediaConstraints = <String, dynamic>{
-      'audio': false,
-      'video': _currentQuality.toScreenConstraints(),
-    };
+    final mediaConstraints = kIsWeb && options != null
+        ? options.toDisplayMediaConstraints()
+        : <String, dynamic>{
+            'audio': false,
+            'video': _currentQuality.toScreenConstraints(),
+          };
 
     _screenStream = await navigator.mediaDevices.getDisplayMedia(
       mediaConstraints,
     );
 
-    print(
+    debugPrint(
       "MediaDeviceService: Screen share stream started with ${_currentQuality.name}.",
     );
   }
@@ -471,7 +601,7 @@ class MediaDeviceService implements IMediaDeviceService {
       }
       await stream.dispose();
     } catch (e) {
-      print("[MediaDeviceService] Error stopping stream: $e");
+      debugPrint("[MediaDeviceService] Error stopping stream: $e");
     }
   }
 }

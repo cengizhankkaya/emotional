@@ -1,5 +1,7 @@
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/call/domain/enums/call_video_size.dart';
+import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
+import 'package:emotional/features/call/domain/client_platform.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
@@ -28,6 +30,18 @@ class CallConnected extends CallState {
   final Map<String, bool> userVideoStates;
   final Map<String, bool> userAudioStates;
   final Map<String, bool> userScreenSharingStates;
+
+  /// Where each participant joined from, as far as their app says; see
+  /// [platformOf] for one participant, you included.
+  final Map<String, ClientPlatform> userPlatforms;
+
+  /// Sharers' cameras, shown next to their screen (see [shareCameraOf]).
+  final Map<String, RTCVideoRenderer> shareCameraRenderers;
+  final Map<String, bool> userShareCameraStates;
+
+  /// Your own camera while you share your screen ([localRenderer] shows
+  /// the screen then).
+  final RTCVideoRenderer? localShareCameraRenderer;
   final bool isMuted;
   final bool isVideoEnabled;
 
@@ -44,6 +58,41 @@ class CallConnected extends CallState {
   final CallVideoSize videoSize;
   final bool isScreenSharing;
 
+  /// Details of the live share on web; null when not sharing or on mobile.
+  final ActiveScreenShare? activeScreenShare;
+
+  /// The last camera/microphone problem to tell the user about; with
+  /// [mediaIssueCount] so the same issue twice is reported twice.
+  final MediaIssue? mediaIssue;
+  final int mediaIssueCount;
+
+  /// During a share [isVideoEnabled] means "sending video" (the screen) and
+  /// stays true, as peers and older app versions expect; this is whether the
+  /// camera comes back when the share ends.
+  final bool cameraAfterShare;
+
+  /// Where [userId] joined from; this device for [localUserId].
+  ClientPlatform? platformOf(String userId, {required String localUserId}) =>
+      userId == localUserId ? ClientPlatform.current : userPlatforms[userId];
+
+  /// [userId]'s camera while they share their screen, if it's on.
+  RTCVideoRenderer? shareCameraOf(
+    String userId, {
+    required String localUserId,
+  }) {
+    if (userId == localUserId) {
+      return isScreenSharing && cameraAfterShare
+          ? localShareCameraRenderer
+          : null;
+    }
+    if (userShareCameraStates[userId] != true) return null;
+    if (userScreenSharingStates[userId] != true) return null;
+    return shareCameraRenderers[userId];
+  }
+
+  /// What camera buttons show: the camera now, or after the share.
+  bool get isCameraOn => isScreenSharing ? cameraAfterShare : isVideoEnabled;
+
   const CallConnected({
     required this.localRenderer,
     this.remoteRenderers = const {},
@@ -51,6 +100,10 @@ class CallConnected extends CallState {
     this.userVideoStates = const {},
     this.userAudioStates = const {},
     this.userScreenSharingStates = const {},
+    this.userPlatforms = const {},
+    this.shareCameraRenderers = const {},
+    this.userShareCameraStates = const {},
+    this.localShareCameraRenderer,
     this.isMuted = false,
     this.isVideoEnabled = false,
     this.videoInputs = const [],
@@ -63,6 +116,10 @@ class CallConnected extends CallState {
     this.activeSpeakerId, // Added to constructor
     this.videoSize = CallVideoSize.medium,
     this.isScreenSharing = false,
+    this.activeScreenShare,
+    this.mediaIssue,
+    this.mediaIssueCount = 0,
+    this.cameraAfterShare = false,
   });
 
   CallConnected copyWith({
@@ -72,6 +129,10 @@ class CallConnected extends CallState {
     Map<String, bool>? userVideoStates,
     Map<String, bool>? userAudioStates,
     Map<String, bool>? userScreenSharingStates,
+    Map<String, ClientPlatform>? userPlatforms,
+    Map<String, RTCVideoRenderer>? shareCameraRenderers,
+    Map<String, bool>? userShareCameraStates,
+    Object? localShareCameraRenderer = _sentinel,
     bool? isMuted,
     bool? isVideoEnabled,
     List<MediaDeviceInfo>? videoInputs,
@@ -84,6 +145,10 @@ class CallConnected extends CallState {
     Object? activeSpeakerId = _sentinel,
     CallVideoSize? videoSize,
     bool? isScreenSharing,
+    Object? activeScreenShare = _sentinel,
+    MediaIssue? mediaIssue,
+    int? mediaIssueCount,
+    bool? cameraAfterShare,
   }) {
     return CallConnected(
       localRenderer: localRenderer ?? this.localRenderer,
@@ -93,6 +158,13 @@ class CallConnected extends CallState {
       userAudioStates: userAudioStates ?? this.userAudioStates,
       userScreenSharingStates:
           userScreenSharingStates ?? this.userScreenSharingStates,
+      userPlatforms: userPlatforms ?? this.userPlatforms,
+      shareCameraRenderers: shareCameraRenderers ?? this.shareCameraRenderers,
+      userShareCameraStates:
+          userShareCameraStates ?? this.userShareCameraStates,
+      localShareCameraRenderer: localShareCameraRenderer == _sentinel
+          ? this.localShareCameraRenderer
+          : localShareCameraRenderer as RTCVideoRenderer?,
       isMuted: isMuted ?? this.isMuted,
       isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,
       videoInputs: videoInputs ?? this.videoInputs,
@@ -113,6 +185,12 @@ class CallConnected extends CallState {
           : activeSpeakerId as String?,
       videoSize: videoSize ?? this.videoSize,
       isScreenSharing: isScreenSharing ?? this.isScreenSharing,
+      activeScreenShare: activeScreenShare == _sentinel
+          ? this.activeScreenShare
+          : activeScreenShare as ActiveScreenShare?,
+      mediaIssue: mediaIssue ?? this.mediaIssue,
+      mediaIssueCount: mediaIssueCount ?? this.mediaIssueCount,
+      cameraAfterShare: cameraAfterShare ?? this.cameraAfterShare,
     );
   }
 
@@ -124,6 +202,10 @@ class CallConnected extends CallState {
     userVideoStates,
     userAudioStates,
     userScreenSharingStates,
+    userPlatforms,
+    shareCameraRenderers,
+    userShareCameraStates,
+    localShareCameraRenderer,
     isMuted,
     isVideoEnabled,
     videoInputs,
@@ -136,7 +218,28 @@ class CallConnected extends CallState {
     activeSpeakerId, // Added to props
     videoSize,
     isScreenSharing,
+    activeScreenShare,
+    mediaIssue,
+    mediaIssueCount,
+    cameraAfterShare,
   ];
+}
+
+enum MediaIssue {
+  /// The app was refused camera access (phones).
+  cameraPermissionDenied,
+
+  /// No camera, it's busy, or the browser blocked it.
+  cameraUnavailable,
+
+  /// The camera went away mid-call (unplugged); it's now off.
+  cameraLost,
+
+  /// The microphone went away; the call moved to the default one.
+  microphoneSwitched,
+
+  /// The microphone went away and there is no other one.
+  microphoneLost,
 }
 
 class CallError extends CallState {

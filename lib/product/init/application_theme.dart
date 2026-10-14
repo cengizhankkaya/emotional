@@ -1,3 +1,4 @@
+import 'package:emotional/product/utility/responsiveness/web_layout.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,9 +14,15 @@ final class ApplicationTheme {
         dayPeriodColor: Colors.black,
         dialHandColor: Colors.black,
       ),
-      dialogTheme: const DialogThemeData(backgroundColor: ColorsCustom.white),
+      // Width caps keep dialogs and sheets readable on wide (browser,
+      // tablet) screens; phones are narrower than the caps anyway.
+      dialogTheme: const DialogThemeData(
+        backgroundColor: ColorsCustom.white,
+        constraints: WebLayout.dialogConstraints,
+      ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: ColorsCustom.white,
+        constraints: WebLayout.bottomSheetConstraints,
       ),
       scaffoldBackgroundColor: ColorsCustom.white,
       floatingActionButtonTheme: const FloatingActionButtonThemeData(

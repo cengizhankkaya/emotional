@@ -7,12 +7,26 @@ class UserMediaState extends Equatable {
   final bool isWatchingVideo; // New field for video watching status
   final int lastUpdatedAt;
 
+  /// `ClientPlatform.name` the user joined from; null for older versions.
+  final String? platform;
+
+  /// Sharing their screen with the camera on: the camera goes out as a
+  /// second video, to those who [acceptsShareCamera].
+  final bool isShareCameraOn;
+
+  /// Can show a sharer's camera next to the share. Older versions show one
+  /// video per person and would swap the screen for the camera.
+  final bool acceptsShareCamera;
+
   const UserMediaState({
     required this.isVideoEnabled,
     required this.isAudioEnabled,
     this.isScreenSharing = false, // Default to false
     this.isWatchingVideo = false, // Default to false
     required this.lastUpdatedAt,
+    this.platform,
+    this.isShareCameraOn = false,
+    this.acceptsShareCamera = false,
   });
 
   @override
@@ -22,6 +36,9 @@ class UserMediaState extends Equatable {
     isScreenSharing,
     isWatchingVideo,
     lastUpdatedAt,
+    platform,
+    isShareCameraOn,
+    acceptsShareCamera,
   ];
 }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 class YouTubeService {
@@ -39,7 +40,7 @@ class YouTubeService {
 
       return streamInfo.url.toString();
     } catch (e) {
-      print('Error getting YouTube stream URL: $e');
+      debugPrint('Error getting YouTube stream URL: $e');
       return null;
     }
   }
@@ -52,7 +53,7 @@ class YouTubeService {
 
       return await _yt.videos.get(videoId);
     } catch (e) {
-      print('Error getting YouTube video metadata: $e');
+      debugPrint('Error getting YouTube video metadata: $e');
       return null;
     }
   }
@@ -66,7 +67,7 @@ class YouTubeService {
       // We only return the videos (ignoring playlists/channels for now)
       return searchList.whereType<Video>().toList();
     } catch (e) {
-      print('Error searching YouTube videos: $e');
+      debugPrint('Error searching YouTube videos: $e');
       return [];
     }
   }

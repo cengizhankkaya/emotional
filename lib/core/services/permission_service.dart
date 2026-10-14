@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
@@ -66,7 +68,7 @@ class PermissionService {
 
   /// Requests storage permission (for Android < 10)
   Future<bool> requestStoragePermission() async {
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       final deviceInfo = await DeviceInfoPlugin().androidInfo;
       if (deviceInfo.version.sdkInt >= 33) {
         return true;
@@ -114,19 +116,14 @@ class PermissionService {
   Future<bool> get isMicrophoneGranted async =>
       await ph.Permission.microphone.isGranted;
 
-  /// Both camera AND microphone are granted
-  Future<bool> get areCallPermissionsGranted async {
-    final cam = await ph.Permission.camera.isGranted;
-    final mic = await ph.Permission.microphone.isGranted;
-    return cam && mic;
-  }
+  /// What a call needs: the microphone. The camera is optional and asked
+  /// for when the user turns it on.
+  Future<bool> get areCallPermissionsGranted async =>
+      await ph.Permission.microphone.isGranted;
 
-  /// Kamera veya mikrofon kalıcı olarak reddedilmiş mi?
-  Future<bool> get isCameraOrMicPermanentlyDenied async {
-    final cam = await ph.Permission.camera.isPermanentlyDenied;
-    final mic = await ph.Permission.microphone.isPermanentlyDenied;
-    return cam || mic;
-  }
+  /// Mikrofon kalıcı olarak reddedilmiş mi? (Kamera görüşme için şart değil.)
+  Future<bool> get isCallPermissionPermanentlyDenied async =>
+      await ph.Permission.microphone.isPermanentlyDenied;
 
   /// Batarya optimizasyon izni isteği devre dışı bırakıldı.
   /// Kullanıcıya sistem diyalogu gösterilmez.
@@ -136,7 +133,7 @@ class PermissionService {
 
   /// Requests video permission (Android 13+)
   Future<bool> requestVideoPermission() async {
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       await _waitForLock();
       try {
         final status = await ph.Permission.videos.request();
@@ -150,7 +147,7 @@ class PermissionService {
 
   /// Requests photo permission (Android 13+)
   Future<bool> requestPhotoPermission() async {
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       await _waitForLock();
       try {
         final status = await ph.Permission.photos.request();

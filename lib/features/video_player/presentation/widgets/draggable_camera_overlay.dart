@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:flutter/material.dart';
+import 'package:emotional/features/call/presentation/participant_video.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class DraggableCameraOverlay extends StatefulWidget {
@@ -145,11 +146,13 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
             builder: (context) => Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.all(12),
+              // Enlarged video: use the whole window, not the dialog cap.
+              constraints: const BoxConstraints(),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9, // Or calculate based on stream size
+                  VideoAspectRatio(
+                    renderer: renderer,
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.black,
@@ -158,10 +161,8 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: RTCVideoView(
-                          renderer,
-                          objectFit: RTCVideoViewObjectFit
-                              .RTCVideoViewObjectFitContain,
+                        child: ParticipantVideo(
+                          renderer: renderer,
                           mirror: isLocal,
                         ),
                       ),
@@ -227,11 +228,7 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
             fit: StackFit.expand,
             children: [
               if (hasVideo && renderer != null)
-                RTCVideoView(
-                  renderer,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                  mirror: isLocal,
-                )
+                ParticipantVideo(renderer: renderer, mirror: isLocal)
               else
                 Container(
                   color: Colors.grey[900],
@@ -288,13 +285,12 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                                 builder: (context) => Dialog(
                                   backgroundColor: Colors.transparent,
                                   insetPadding: const EdgeInsets.all(12),
+                                  constraints: const BoxConstraints(),
                                   child: Stack(
                                     alignment: Alignment.center,
                                     children: [
-                                      AspectRatio(
-                                        aspectRatio:
-                                            16 /
-                                            9, // Or calculate based on stream size
+                                      VideoAspectRatio(
+                                        renderer: renderer,
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: Colors.black,
@@ -309,10 +305,8 @@ class _DraggableCameraOverlayState extends State<DraggableCameraOverlay>
                                             borderRadius: BorderRadius.circular(
                                               16,
                                             ),
-                                            child: RTCVideoView(
-                                              renderer,
-                                              objectFit: RTCVideoViewObjectFit
-                                                  .RTCVideoViewObjectFitContain,
+                                            child: ParticipantVideo(
+                                              renderer: renderer,
                                               mirror: isLocal,
                                             ),
                                           ),

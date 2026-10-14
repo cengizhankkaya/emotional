@@ -15,12 +15,14 @@ import 'package:emotional/features/video_player/presentation/widgets/video_playe
 import 'package:emotional/features/video_player/presentation/widgets/video_player_portrait_view.dart';
 import 'package:emotional/features/video_player/presentation/widgets/video_player_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
-  final File videoFile;
+  final File? videoFile;
   final String? youtubeUrl;
+  final String? streamUrl;
   final String roomId;
   final String userId;
   final String? savedAudioTrack;
@@ -28,8 +30,9 @@ class VideoPlayerScreen extends StatefulWidget {
 
   const VideoPlayerScreen({
     super.key,
-    required this.videoFile,
+    this.videoFile,
     this.youtubeUrl,
+    this.streamUrl,
     required this.roomId,
     required this.userId,
     this.savedAudioTrack,
@@ -51,6 +54,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       InitializePlayer(
         file: widget.videoFile,
         url: widget.youtubeUrl,
+        streamUrl: widget.streamUrl,
         savedAudioTrack: widget.savedAudioTrack,
         savedSubtitleTrack: widget.savedSubtitleTrack,
       ),
@@ -261,23 +265,51 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 current.localRenderer !=
                                     previous.localRenderer ||
                                 current.remoteRenderers !=
-                                    previous.remoteRenderers);
+                                    previous.remoteRenderers ||
+                                current.shareCameraRenderers !=
+                                    previous.shareCameraRenderers ||
+                                current.userShareCameraStates !=
+                                    previous.userShareCameraStates ||
+                                current.localShareCameraRenderer !=
+                                    previous.localShareCameraRenderer ||
+                                current.cameraAfterShare !=
+                                    previous.cameraAfterShare);
                       },
                       builder: (context, callState) {
                         if (callState is! CallConnected) {
                           return const SizedBox.shrink();
                         }
 
+                        // Cameras only: a sharer's main video is their
+                        // screen; their camera, if on, comes separately.
+                        final me = context.read<CallBloc>().userId ?? '';
+                        RTCVideoRenderer? cameraOf(String id) =>
+                            callState.shareCameraOf(id, localUserId: me);
+                        bool isSharing(String id) => id == me
+                            ? callState.isScreenSharing
+                            : callState.userScreenSharingStates[id] ?? false;
+
                         return DraggableCameraOverlay(
                           key: const ValueKey('draggable_camera_overlay'),
                           constraints: constraints,
                           initialOffset: _camerasOffset,
-                          isVideoEnabled: callState.isVideoEnabled,
-                          localRenderer: callState.localRenderer,
-                          remoteRenderers: callState.remoteRenderers,
+                          isVideoEnabled: isSharing(me)
+                              ? cameraOf(me) != null
+                              : callState.isVideoEnabled,
+                          localRenderer:
+                              cameraOf(me) ?? callState.localRenderer,
+                          remoteRenderers: {
+                            for (final MapEntry(key: id, value: renderer)
+                                in callState.remoteRenderers.entries)
+                              id: cameraOf(id) ?? renderer,
+                          },
                           activeUsers: callState.activeUsers,
-                          userVideoStates: callState.userVideoStates,
-                          currentUserId: context.read<CallBloc>().userId ?? '',
+                          userVideoStates: {
+                            for (final MapEntry(key: id, value: on)
+                                in callState.userVideoStates.entries)
+                              id: isSharing(id) ? cameraOf(id) != null : on,
+                          },
+                          currentUserId: me,
                           onPositionChanged: (newOffset) {
                             // No need to setState periodically if internal widget handles drag,
                             // but we keep track of it if we need to persist or handle orientation changes.

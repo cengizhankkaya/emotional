@@ -35,9 +35,11 @@ class SignalingService {
   final Map<String, StreamSubscription> _candidateSubscriptions = {};
 
   Future<void> initialize() async {
-    // Kendi sinyal node'umuzu temizle: önceki oturumdan kalan
-    // eski offer/answer/candidate'ların yeni oturuma karışmasını önler.
-    await clearSignal();
+    // Offers waiting here come from peers who saw us join the room before
+    // our call started; deleting them left both sides waiting. The room
+    // join and leaveRoom() already wipe this inbox, so only drop byes, which
+    // would otherwise close the fresh connections they arrive next to.
+    await _roomSignalRef.child(userId).child('bye').remove();
     listenForIncomingSignals();
   }
 

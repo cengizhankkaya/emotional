@@ -49,6 +49,7 @@
     "joined": "{} joined the room",
     "left": "{} left the room",
     "inviteTitle": "Emoti Room Invitation",
+    "inviteLinkCopied": "Invite link copied.",
     "inviteMessage": "Join my Emoti room!\n\nRoom ID: {}\n\nQuick Join Link: https://emotional-app-b42af.web.app/join/{}\n\nYou can click the link to join the room directly.",
     "tooltips": {
       "invite": "Invite",
@@ -73,10 +74,31 @@
     "localFileMissing": "Local File (Missing)",
     "showControls": "Show Controls",
     "youtube": "YouTube Video",
-    "youtubeSearch": "Search on YouTube"
+    "youtubeSearch": "Search on YouTube",
+    "webYoutubeUnsupported": "YouTube videos are not supported on the web version yet.",
+    "webUnplayable": "Not playable on web",
+    "driveRenewSoon": "Your Google Drive access ends in a few minutes. Renew it so the video keeps playing.",
+    "driveRenewExpired": "Google Drive access has expired. Renew it to keep watching.",
+    "driveRenewAction": "Renew",
+    "webStreamFailed": "Could not start the video: {}"
   },
   "call": {
     "settings": "Settings",
+    "platform": {
+      "web": "Web",
+      "android": "Android",
+      "ios": "iPhone",
+      "macos": "Mac",
+      "windows": "Windows",
+      "linux": "Linux",
+      "connectedFrom": "Connected from {}"
+    },
+    "cameraLost": "The camera disconnected; your camera is now off.",
+    "microphoneSwitched": "The microphone disconnected; switched to the default one.",
+    "microphoneLost": "The microphone disconnected and there's no other one. Nobody can hear you right now.",
+    "cameraPermissionDenied": "Camera access was denied. You can allow it in Settings.",
+    "cameraUnavailable": "The camera couldn't be turned on. Check that it's connected, allowed and not in use by another app.",
+    "openSettings": "Settings",
     "mute": "Mute",
     "unmute": "Unmute",
     "cameraOff": "Turn Off",
@@ -119,7 +141,43 @@
       "earpieceHeadset": "Earpiece / Headset",
       "cameraIndex": "Camera {}",
       "micIndex": "Microphone {}"
-    }
+    },
+    "screenShare": {
+      "title": "Share your screen",
+      "subtitle": "Pick what you're sharing so it looks its best.",
+      "contentType": "Content",
+      "profileDetail": "Text & slides",
+      "profileDetailDesc": "Keeps text sharp. For documents, code and slides.",
+      "profileMotion": "Video & motion",
+      "profileMotionDesc": "Smooth playback. For videos, games and animation.",
+      "profileBalanced": "Balanced",
+      "profileBalancedDesc": "A bit of both. Works for most things.",
+      "source": "Source",
+      "sourceAny": "Choose in browser",
+      "sourceBrowser": "Tab",
+      "sourceWindow": "Window",
+      "sourceMonitor": "Entire screen",
+      "shareAudio": "Share audio",
+      "shareAudioDesc": "Friends hear the tab's sound. Pick a tab and tick \"Also share tab audio\" in the browser dialog.",
+      "shareAudioUnsupported": "This browser can't share audio. Use Chrome or Edge.",
+      "start": "Start sharing",
+      "sharingNow": "Sharing: {}",
+      "withAudio": "with audio",
+      "audioMissing": "Audio not shared",
+      "notSupported": "This browser doesn't support screen sharing.",
+      "qualityMeasuring": "Measuring quality…",
+      "qualityGood": "Your share is going out at full quality.",
+      "qualityBandwidth": "Slow connection: the browser is lowering quality. Try a faster network or the \"Balanced\" profile.",
+      "qualityCpu": "Your computer is struggling: the browser is lowering quality. Try closing other tabs and apps.",
+      "qualityOther": "The browser lowered quality for a moment.",
+      "qualityEncoder": "Encoder: {}"
+    },
+    "settingsAudio": "Audio",
+    "settingsVideo": "Video",
+    "settingsScreenShare": "Screen sharing",
+    "qualityHint": "Quality of your camera image. Lower it on slow connections.",
+    "screenShareDefaultsHint": "These choices are preselected whenever you start sharing.",
+    "currentShare": "Current share"
   },
   "chat": {
     "title": "Chat",
@@ -187,6 +245,7 @@
   },
   "drive": {
     "apiNotEnabled": "Google Drive API is not enabled.\nPlease enable it from the Cloud Console.",
+    "mayNotPlay": "May not play in browser",
     "deleteTitle": "Delete File",
     "deleteMessage": "Are you sure you want to delete {}?",
     "fileDeleted": "File deleted.",
@@ -195,7 +254,19 @@
     "gallery": "Gallery",
     "drive": "Drive",
     "noVideosFound": "No videos found.",
-    "noDownloadedVideos": "No downloaded videos."
+    "noDownloadedVideos": "No downloaded videos.",
+    "webTitle": "Pick a video from Drive",
+    "webSubtitle": "The video you pick plays for everyone in the room at the same time.",
+    "searchHint": "Search your videos",
+    "connectTitle": "Connect Google Drive",
+    "connectDesc": "Allow Drive access to list your videos. Just pick your account in the Google window that opens.",
+    "connectButton": "Connect Drive",
+    "googleOnly": "Sign in with Google to use Drive videos.",
+    "popupBlocked": "The Google window couldn't open. Allow pop-ups for this site and try again.",
+    "loadFailed": "Couldn't reach Drive. Check your connection and try again.",
+    "noSearchResults": "No videos found for \"{}\".",
+    "nowPlaying": "Playing",
+    "refresh": "Refresh"
   },
   "youtube": {
     "hint": "Search video...",
@@ -326,7 +397,7 @@
     }
   },
   "call_error": {
-    "permissionRequired": "Camera and microphone permissions are required.",
+    "permissionRequired": "Microphone permission is required.",
     "joinFailed": "Failed to join call: {}"
   },
   "chat_error": {
@@ -369,5 +440,59 @@
     "filter": {
       "blocked": "This message was filtered due to inappropriate content"
     }
+  },
+  "web": {
+    "loginTitle": "Welcome",
+    "loginSubtitle": "Sign in to start watching together.",
+    "featureWatchTitle": "Watch together",
+    "featureWatchDesc": "Videos from Drive play in sync for everyone in the room.",
+    "featureCallTitle": "Video chat",
+    "featureCallDesc": "See and hear each other while you watch.",
+    "featureShareTitle": "Share your screen",
+    "featureShareDesc": "Stream a tab to the room, sound included.",
+    "homeSubtitle": "Create a room, or join one with the code a friend sent you.",
+    "stepsTitle": "How it works",
+    "step1Title": "Create a room",
+    "step1Desc": "You get a private room in seconds.",
+    "step2Title": "Invite friends",
+    "step2Desc": "Send them the room code or link.",
+    "step3Title": "Watch together",
+    "step3Desc": "Pick a video; it plays in sync for everyone.",
+    "tabChat": "Chat",
+    "tabVideo": "Video",
+    "tabPeople": "People",
+    "host": "Host",
+    "sharingScreen": "Sharing screen",
+    "permTitle": "Camera and microphone",
+    "permSubtitle": "To video chat while you watch together, we need access to your browser's camera and microphone.",
+    "permCameraTitle": "Camera",
+    "permCameraDesc": "Let the room see you",
+    "permMicTitle": "Microphone",
+    "permMicDesc": "Talk while you watch",
+    "permBrowserHint": "Your browser will ask next to the address bar; choose \"Allow\".",
+    "permPrivacy": "Your camera and microphone are only on while you're in a room, and you can turn them off at any time.",
+    "permAllow": "Allow",
+    "permLater": "Not now",
+    "permWaiting": "Confirm the browser's permission prompt…",
+    "permDeniedTitle": "Camera and microphone are blocked",
+    "permDeniedDesc": "Access is turned off for this site. To turn it on:",
+    "permDeniedStep1": "Click the site settings icon on the left of the address bar.",
+    "permDeniedSafariStep1": "In the menu bar, open Safari › \"Settings for This Website\".",
+    "permDeniedStep2": "Choose \"Allow\" for Camera and Microphone.",
+    "permDeniedStep3": "Reload the page.",
+    "permReload": "Reload page",
+    "permNoDevice": "No camera or microphone found; you can still join the room.",
+    "showCameras": "Show cameras",
+    "hideCameras": "Hide cameras",
+    "cameraOffWhileSharing": "Camera isn't visible while sharing"
+  },
+  "update": {
+    "title": "Update required",
+    "requiredStore": "Install the new version of the app to continue.",
+    "requiredManual": "Update the app from the App Store to continue.",
+    "requiredWeb": "Reload the page to get the new version and continue.",
+    "update": "Update",
+    "reload": "Reload",
+    "available": "A new version is out. Reloading briefly drops you from a call."
   }
 }

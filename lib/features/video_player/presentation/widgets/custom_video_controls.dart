@@ -226,7 +226,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls>
                     tooltip: LocaleKeys.video_player_controls_joinRoom.tr(),
                   );
                 } else {
-                  final isVideoEnabled = callState.isVideoEnabled;
+                  final isVideoEnabled = callState.isCameraOn;
                   final isMuted = callState.isMuted;
                   return Row(
                     mainAxisSize: MainAxisSize.min,

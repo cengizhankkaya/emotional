@@ -20,7 +20,15 @@ class ChatWidget extends StatefulWidget {
   final String roomId;
   final VoidCallback? onClose;
 
-  const ChatWidget({super.key, required this.roomId, this.onClose});
+  /// Hidden when the host already labels the chat (web side panel tabs).
+  final bool showHeader;
+
+  const ChatWidget({
+    super.key,
+    required this.roomId,
+    this.onClose,
+    this.showHeader = true,
+  });
 
   @override
   State<ChatWidget> createState() => _ChatWidgetState();
@@ -33,12 +41,16 @@ class _ChatWidgetState extends State<ChatWidget> {
   final ScrollController _scrollController = ScrollController();
   bool _isAtBottom = true;
   bool _hasNewMessages = false;
+  String? _lastMessageId;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
-    context.read<ChatBloc>().add(LoadMessages(widget.roomId));
+    final chatBloc = context.read<ChatBloc>();
+    final current = chatBloc.state;
+    if (current is ChatLoaded) _lastMessageId = current.messages.lastOrNull?.id;
+    chatBloc.add(LoadMessages(widget.roomId));
   }
 
   @override
@@ -50,10 +62,12 @@ class _ChatWidgetState extends State<ChatWidget> {
     super.dispose();
   }
 
+  // The list is reversed, so the newest message sits at offset 0 and new
+  // ones stay in view without measuring the list.
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
@@ -64,7 +78,7 @@ class _ChatWidgetState extends State<ChatWidget> {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
     // Kullanıcı alta yakınsa (ör. son 50 px içinde) "en alttayız" kabul et.
-    final bool isNowAtBottom = position.maxScrollExtent - position.pixels <= 50;
+    final bool isNowAtBottom = position.pixels <= 50;
     if (isNowAtBottom != _isAtBottom) {
       setState(() {
         _isAtBottom = isNowAtBottom;
@@ -91,7 +105,7 @@ class _ChatWidgetState extends State<ChatWidget> {
         ),
       );
       _textController.clear();
-      Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+      _scrollToBottom();
     }
   }
 
@@ -139,9 +153,9 @@ class _ChatWidgetState extends State<ChatWidget> {
               onTap: () {
                 Clipboard.setData(ClipboardData(text: msg.text));
                 Navigator.pop(sheetContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Copied')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Copied')));
               },
             ),
             // Don't show report/block for own messages
@@ -206,7 +220,7 @@ class _ChatWidgetState extends State<ChatWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.5)),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5)),
       child: SafeArea(
         bottom: true,
         top: false,
@@ -220,62 +234,51 @@ class _ChatWidgetState extends State<ChatWidget> {
           child: Column(
             children: [
               // Header
-              Padding(
-                padding: const ProjectPadding.symmetric(
-                  horizontal: 12.0,
-                  vertical: 8.0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      LocaleKeys.chat_title.tr(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: context.dynamicValue(16),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (widget.onClose != null)
-                      IconButton(
-                        icon: Icon(
-                          Icons.close,
+              if (widget.showHeader) ...[
+                Padding(
+                  padding: const ProjectPadding.symmetric(
+                    horizontal: 12.0,
+                    vertical: 8.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        LocaleKeys.chat_title.tr(),
+                        style: TextStyle(
                           color: Colors.white,
-                          size: context.dynamicValue(20),
+                          fontSize: context.dynamicValue(16),
+                          fontWeight: FontWeight.bold,
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: widget.onClose,
                       ),
-                  ],
+                      if (widget.onClose != null)
+                        IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: context.dynamicValue(20),
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: widget.onClose,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const Divider(color: Colors.white24, height: 1),
+                const Divider(color: Colors.white24, height: 1),
+              ],
               // Messages List
               Expanded(
                 child: BlocConsumer<ChatBloc, ChatState>(
-                  listener: (context, state) {
-                    if (state is ChatLoaded) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (_isAtBottom) {
-                          // WhatsApp davranışı: zaten alttaysak otomatik kaydır.
-                          _scrollToBottom();
-                        } else {
-                          // Kullanıcı yukarıdaysa sadece "yeni mesaj" göstergesi aç.
-                          setState(() {
-                            _hasNewMessages = true;
-                          });
-                        }
-                      });
-                    }
-                  },
+                  listener: _onChatState,
                   builder: (context, state) {
                     if (state is ChatLoading) {
                       return const Center(child: CircularProgressIndicator());
                     } else if (state is ChatLoaded) {
                       // Filter out blocked users' messages
-                      final moderationState =
-                          context.watch<ModerationBloc>().state;
+                      final moderationState = context
+                          .watch<ModerationBloc>()
+                          .state;
                       final blockedIds = moderationState is BlockedUsersLoaded
                           ? moderationState.blockedUserIds
                           : <String>[];
@@ -294,14 +297,28 @@ class _ChatWidgetState extends State<ChatWidget> {
                       }
                       return Stack(
                         children: [
-                          ListView.builder(
-                            controller: _scrollController,
-                            padding: const ProjectPadding.allMedium(),
-                            itemCount: messages.length,
-                            itemBuilder: (context, index) {
-                              final msg = messages[index];
-                              return _buildMessageItem(msg);
-                            },
+                          LayoutBuilder(
+                            builder: (context, constraints) => ListView.builder(
+                              controller: _scrollController,
+                              reverse: true,
+                              padding: const ProjectPadding.allMedium(),
+                              itemCount: messages.length,
+                              itemBuilder: (context, index) {
+                                final position = messages.length - 1 - index;
+                                final msg = messages[position];
+                                final previous = position > 0
+                                    ? messages[position - 1]
+                                    : null;
+                                return _buildMessageItem(
+                                  msg,
+                                  // Consecutive messages from one sender form
+                                  // a group with a single name label.
+                                  startsGroup:
+                                      previous?.senderId != msg.senderId,
+                                  maxBubbleWidth: constraints.maxWidth * 0.78,
+                                );
+                              },
+                            ),
                           ),
                           if (_hasNewMessages && !_isAtBottom)
                             Positioned(
@@ -373,7 +390,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                           hintText: LocaleKeys.chat_typeMessage.tr(),
                           hintStyle: const TextStyle(color: Colors.white54),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.1),
+                          fillColor: Colors.white.withValues(alpha: 0.1),
                           border: OutlineInputBorder(
                             borderRadius: ProjectRadius.large(),
                             borderSide: BorderSide.none,
@@ -401,21 +418,57 @@ class _ChatWidgetState extends State<ChatWidget> {
     );
   }
 
-  Widget _buildMessageItem(ChatMessage msg) {
+  void _onChatState(BuildContext context, ChatState state) {
+    if (state is! ChatLoaded) return;
+
+    final sendError = state.sendError;
+    if (sendError != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(sendError),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
+
+    final last = state.messages.lastOrNull;
+    if (last == null || last.id == _lastMessageId) return;
+    final isFirstLoad = _lastMessageId == null;
+    _lastMessageId = last.id;
+
+    final authState = context.read<AuthBloc>().state;
+    final isMine =
+        authState is AuthAuthenticated && authState.user.uid == last.senderId;
+    if (isFirstLoad || isMine || _isAtBottom) return;
+    // Reading older messages: offer a jump instead of moving the list.
+    setState(() => _hasNewMessages = true);
+  }
+
+  Widget _buildMessageItem(
+    ChatMessage msg, {
+    required bool startsGroup,
+    required double maxBubbleWidth,
+  }) {
     final authState = context.read<AuthBloc>().state;
     final isMe =
         authState is AuthAuthenticated && authState.user.uid == msg.senderId;
 
     return GestureDetector(
       onLongPress: () => _showMessageContextMenu(context, msg, isMe),
+      // Desktop browsers have no long press.
+      onSecondaryTap: () => _showMessageContextMenu(context, msg, isMe),
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 12.0),
+        padding: EdgeInsets.only(top: startsGroup ? 10 : 3),
         child: Column(
           crossAxisAlignment: isMe
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            if (!isMe)
+            if (!isMe && startsGroup)
               Padding(
                 padding: const EdgeInsets.only(left: 4.0, bottom: 2),
                 child: Text(
@@ -428,6 +481,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                 ),
               ),
             Container(
+              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
               padding: const ProjectPadding.symmetric(
                 horizontal: 12,
                 vertical: 8,

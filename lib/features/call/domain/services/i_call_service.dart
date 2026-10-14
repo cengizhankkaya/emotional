@@ -1,3 +1,4 @@
+import 'package:emotional/features/call/domain/screen_share/outgoing_video_stats.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 abstract class ICallService {
@@ -34,6 +35,16 @@ abstract class ICallService {
 
   /// Replace audio track for all active peer connections
   Future<void> replaceLocalAllAudioTrack(MediaStreamTrack newTrack);
+
+  Future<void> removeLocalVideoTrack();
+
+  /// Caps outgoing video for all current and future peer connections.
+  /// Passing no limits restores the default encoder behaviour.
+  Future<void> setVideoSenderLimits({int? maxBitrate, int? maxFramerate});
+
+  /// What the video senders currently transmit, for the weakest peer; null
+  /// when there is no connection to measure.
+  Future<OutgoingVideoStats?> getOutgoingVideoStats();
 
   /// Get the current audio level for a remote user (0.0 to 1.0)
   Future<double> getRemoteAudioLevel(String userId);

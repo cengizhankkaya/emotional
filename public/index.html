@@ -229,6 +229,7 @@
       </div>
 
       <a id="join-btn" href="#" class="btn btn-primary">Odaya Katıl</a>
+      <a id="web-join-btn" href="https://emoti-izle.web.app/" class="btn btn-secondary">Tarayıcıda Katıl</a>
       <a href="https://play.google.com/store/apps/details?id=com.esce.emoti" class="btn btn-secondary">Uygulamayı
         İndir</a>
 
@@ -247,14 +248,26 @@
       // URL Analizi
       const path = window.location.pathname;
 
-      // Oda ID'sini bulma
+      // Oda ID'sini bulma: /join/12345 ya da /12345 (sondaki / olsa da)
       let roomId = null;
-      if (path.includes('/join/')) {
-        roomId = path.split('/join/')[1];
+      const joinMatch = path.match(/\/join\/([^/]+)/);
+      if (joinMatch) {
+        try {
+          roomId = decodeURIComponent(joinMatch[1]);
+        } catch (e) {
+          roomId = null; // Bozuk %-kodlaması
+        }
       } else if (path !== '/' && path.length > 1) {
-        // Eğer /12345 gibiyse
-        roomId = path.substring(1).replace(/^\/+/, '');
+        roomId = path.replace(/^\/+|\/+$/g, '').split('/')[0];
       }
+      // Uygulamanın kabul ettiği biçim; favicon.ico gibi yollar oda değildir.
+      if (roomId && !/^[A-Za-z0-9_-]{1,64}$/.test(roomId)) {
+        roomId = null;
+      }
+
+      // Uygulaması olmayanlar (masaüstü, iPhone) web sürümünden katılır.
+      document.getElementById('web-join-btn').href =
+        'https://emoti-izle.web.app/' + (roomId ? 'join/' + encodeURIComponent(roomId) : '');
 
       // Derin Bağlantı (Deep Link) Oluşturma
       let deepLink = "emotional://";

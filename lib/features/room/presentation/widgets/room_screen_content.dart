@@ -15,6 +15,8 @@ import 'package:emotional/features/room/presentation/widgets/room_seating_widget
 import 'package:emotional/features/room/presentation/widgets/room_top_bar.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
 import 'package:emotional/features/room/presentation/widgets/split_media_layout.dart';
+import 'package:emotional/features/room/presentation/widgets/web/web_room_layout.dart';
+import 'package:emotional/product/utility/responsiveness/web_layout.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
@@ -61,7 +63,6 @@ class RoomScreenContent extends StatefulWidget {
 
 class _RoomScreenContentState extends State<RoomScreenContent> {
   RoomLayoutMode _currentLayoutMode = RoomLayoutMode.normal;
-  String? _lastSharingUserId;
 
   @override
   void dispose() {
@@ -146,6 +147,32 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                   );
                 }
 
+                // 3. WIDE BROWSER WINDOW (stage + side panel)
+                if (WebLayout.isWide(context)) {
+                  return WebRoomLayout(
+                    roomId: widget.roomId,
+                    participants: widget.participants,
+                    userNames: widget.userNames,
+                    usersState: state.usersState,
+                    hostId: widget.hostId,
+                    currentUserId: widget.currentUserId,
+                    isHost: widget.isHost,
+                    sharingUserId: sharingUserEntry?.key,
+                    driveFileName: widget.driveFileName,
+                    driveFileId: widget.driveFileId,
+                    scaffoldKey: widget.scaffoldKey,
+                    onLeave: widget.onLeave,
+                    onPickVideo: widget.onPickVideo,
+                    onSelectVideo: widget.onSelectVideo,
+                    onPlayVideo: widget.onPlayVideo,
+                    onEnterFullscreen: () {
+                      setState(() {
+                        _currentLayoutMode = RoomLayoutMode.immersive;
+                      });
+                    },
+                  );
+                }
+
                 // 2. SPLIT MODE (Share top, Room controls bottom)
                 if (isAnyoneSharing &&
                     _currentLayoutMode == RoomLayoutMode.split) {
@@ -155,52 +182,31 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                         return const SizedBox.shrink();
                       }
 
-                      return Stack(
-                        children: [
-                          SplitMediaLayout(
-                            callState: callState,
-                            sharingUserId: sharingUserEntry.key,
-                            currentUserId: widget.currentUserId,
-                            userNames: widget.userNames,
-                            roomId: widget.roomId,
-                            participants: widget.participants,
-                            hostId: widget.hostId,
-                            isHost: widget.isHost,
-                            usersState: state.usersState,
-                            driveFileName: widget.driveFileName,
-                            driveFileId: widget.driveFileId,
-                            onPickVideo: widget.onPickVideo,
-                            onSelectVideo: widget.onSelectVideo,
-                            onPlayVideo: widget.onPlayVideo,
-                          ),
-                          SafeArea(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: RoomTopBar(
-                                roomId: widget.roomId,
-                                scaffoldKey: widget.scaffoldKey,
-                                onLeave: widget.onLeave,
-                              ),
-                            ),
-                          ),
-                          // Layout switcher button overlay (back to immersive)
-                          Positioned(
-                            top: 100, // Below TopBar
-                            right: 16,
-                            child: FloatingActionButton.small(
-                              backgroundColor: Colors.black54,
-                              child: const Icon(
-                                Icons.fullscreen,
-                                color: Colors.white,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _currentLayoutMode = RoomLayoutMode.immersive;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
+                      return SplitMediaLayout(
+                        callState: callState,
+                        sharingUserId: sharingUserEntry.key,
+                        currentUserId: widget.currentUserId,
+                        userNames: widget.userNames,
+                        roomId: widget.roomId,
+                        participants: widget.participants,
+                        hostId: widget.hostId,
+                        isHost: widget.isHost,
+                        usersState: state.usersState,
+                        driveFileName: widget.driveFileName,
+                        driveFileId: widget.driveFileId,
+                        onPickVideo: widget.onPickVideo,
+                        onSelectVideo: widget.onSelectVideo,
+                        onPlayVideo: widget.onPlayVideo,
+                        topBar: RoomTopBar(
+                          roomId: widget.roomId,
+                          scaffoldKey: widget.scaffoldKey,
+                          onLeave: widget.onLeave,
+                        ),
+                        onEnterFullscreen: () {
+                          setState(() {
+                            _currentLayoutMode = RoomLayoutMode.immersive;
+                          });
+                        },
                       );
                     },
                   );
@@ -237,14 +243,17 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                             usersState: (state).usersState,
                           ),
                           const Spacer(),
-                          VideoControlSheet(
-                            isHost: widget.isHost,
-                            roomId: widget.roomId,
-                            fileName: widget.driveFileName,
-                            fileId: widget.driveFileId,
-                            onPickVideo: widget.onPickVideo,
-                            onSelectVideo: widget.onSelectVideo,
-                            onPlay: widget.onPlayVideo,
+                          WebContentWidth(
+                            maxWidth: 640,
+                            child: VideoControlSheet(
+                              isHost: widget.isHost,
+                              roomId: widget.roomId,
+                              fileName: widget.driveFileName,
+                              fileId: widget.driveFileId,
+                              onPickVideo: widget.onPickVideo,
+                              onSelectVideo: widget.onSelectVideo,
+                              onPlay: widget.onPlayVideo,
+                            ),
                           ),
                         ],
                       ),
@@ -302,7 +311,7 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0.4),
+                            Colors.black.withValues(alpha: 0.4),
                             Colors.transparent,
                           ],
                         ),
@@ -362,10 +371,10 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                               ),
                               const SizedBox(width: 6),
                               _PipButton(
-                                icon: state.isVideoEnabled
+                                icon: state.isCameraOn
                                     ? Icons.videocam
                                     : Icons.videocam_off,
-                                color: state.isVideoEnabled
+                                color: state.isCameraOn
                                     ? Colors.blue
                                     : Colors.red,
                                 onPressed: () =>
@@ -528,9 +537,9 @@ class _PipButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Icon(icon, color: color, size: 20),
       ),

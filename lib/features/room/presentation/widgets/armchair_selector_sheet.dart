@@ -100,8 +100,8 @@ class ArmchairSelectorSheet extends StatelessWidget {
                             if (isSelected)
                               Positioned.fill(
                                 child: Container(
-                                  color: Colors.deepPurpleAccent.withOpacity(
-                                    0.1,
+                                  color: Colors.deepPurpleAccent.withValues(
+                                    alpha: 0.1,
                                   ),
                                 ),
                               ),
@@ -120,7 +120,7 @@ class ArmchairSelectorSheet extends StatelessWidget {
                                     begin: Alignment.bottomCenter,
                                     end: Alignment.topCenter,
                                     colors: [
-                                      Colors.black.withOpacity(0.8),
+                                      Colors.black.withValues(alpha: 0.8),
                                       Colors.transparent,
                                     ],
                                   ),

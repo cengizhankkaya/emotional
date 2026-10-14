@@ -5,6 +5,7 @@ import 'package:emotional/features/auth/services/social_auth_credentials.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -144,6 +145,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     try {
+      if (kIsWeb) {
+        await SocialAuthCredentials.signInWithGoogleWeb(_firebaseAuth);
+        final user = _firebaseAuth.currentUser;
+        if (user != null) {
+          emit(AuthAuthenticated(user));
+        } else {
+          emit(
+            AuthFailure(
+              LocaleKeys.auth_error_googleFailed.tr(
+                args: [LocaleKeys.auth_error_userIsNull.tr()],
+              ),
+            ),
+          );
+        }
+        return;
+      }
       final credential = await SocialAuthCredentials.googleSignInCredential();
       await _signInWithCredential(credential, emit, isApple: false);
     } on FirebaseAuthException catch (e) {
@@ -190,9 +207,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
       if (SocialAuthCredentials.isAppleSignInTimeout(e)) {
-        emit(
-          AuthFailure(LocaleKeys.auth_error_appleTimeout.tr()),
-        );
+        emit(AuthFailure(LocaleKeys.auth_error_appleTimeout.tr()));
         return;
       }
       emit(
@@ -204,9 +219,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } catch (e) {
       emit(
-        AuthFailure(
-          LocaleKeys.auth_error_appleFailed.tr(args: [e.toString()]),
-        ),
+        AuthFailure(LocaleKeys.auth_error_appleFailed.tr(args: [e.toString()])),
       );
     }
   }
@@ -238,7 +251,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     try {
       await _firebaseAuth.signOut();
-      await GoogleSignIn.instance.signOut();
+      SocialAuthCredentials.clearWebDriveToken();
+      if (!kIsWeb) await GoogleSignIn.instance.signOut();
     } catch (_) {
       // Yerel durumu yine de temizle.
     }
@@ -260,8 +274,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await SocialAuthCredentials.reauthenticateCurrentUser(_firebaseAuth);
       await user.delete();
 
+      SocialAuthCredentials.clearWebDriveToken();
       try {
-        await GoogleSignIn.instance.signOut();
+        if (!kIsWeb) await GoogleSignIn.instance.signOut();
       } catch (_) {}
 
       emit(AuthUnauthenticated());
@@ -275,9 +290,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
       if (SocialAuthCredentials.isAppleSignInTimeout(e)) {
         final current = _firebaseAuth.currentUser;
-        emit(
-          AuthFailure(LocaleKeys.auth_error_appleTimeout.tr()),
-        );
+        emit(AuthFailure(LocaleKeys.auth_error_appleTimeout.tr()));
         if (current != null) {
           emit(AuthAuthenticated(current));
         } else {
@@ -286,11 +299,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
       if (e.code == 'requires-recent-login') {
-        emit(
-          AuthFailure(
-            LocaleKeys.auth_error_reauthRequired.tr(),
-          ),
-        );
+        emit(AuthFailure(LocaleKeys.auth_error_reauthRequired.tr()));
         return;
       }
       emit(

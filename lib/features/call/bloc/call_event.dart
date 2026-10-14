@@ -1,5 +1,6 @@
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/call/domain/enums/call_video_size.dart';
+import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
@@ -36,12 +37,34 @@ class InternalIncomingStream extends CallEvent {
   const InternalIncomingStream(this.userId, this.stream);
 }
 
+/// A sharer's camera, sent next to their screen.
+class InternalShareCameraStream extends CallEvent {
+  final String userId;
+  final MediaStream stream;
+  const InternalShareCameraStream(this.userId, this.stream);
+}
+
 class InternalStreamRemoved extends CallEvent {
   final String userId;
   const InternalStreamRemoved(this.userId);
 }
 
 class InternalUpdateState extends CallEvent {}
+
+/// The microphone stopped on its own (unplugged, headset disconnected).
+class InternalMicrophoneLost extends CallEvent {
+  const InternalMicrophoneLost();
+}
+
+/// The camera stopped on its own.
+class InternalCameraLost extends CallEvent {
+  const InternalCameraLost();
+}
+
+/// A camera, microphone or speaker was plugged in or removed.
+class InternalDevicesChanged extends CallEvent {
+  const InternalDevicesChanged();
+}
 
 // Device and Quality Management Events
 class ChangeVideoInput extends CallEvent {
@@ -84,8 +107,18 @@ class ResumeMedia extends CallEvent {}
 
 class ToggleScreenShare extends CallEvent {
   final bool fromNotification;
-  const ToggleScreenShare({this.fromNotification = false});
+
+  /// Capture options picked in the web share sheet; ignored when stopping.
+  final ScreenShareOptions? options;
+
+  const ToggleScreenShare({this.fromNotification = false, this.options});
 
   @override
-  List<Object?> get props => [fromNotification];
+  List<Object?> get props => [fromNotification, options];
+}
+
+/// The browser ended the share on its own, e.g. the user clicked the
+/// browser's "Stop sharing" bar or closed the shared tab.
+class ScreenShareEnded extends CallEvent {
+  const ScreenShareEnded();
 }

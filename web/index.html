@@ -18,21 +18,57 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Arkadaşlarınla aynı anda video izle, görüntülü konuş ve ekranını paylaş.">
+  <meta name="theme-color" content="#1A1D21">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="emotional">
+  <meta name="apple-mobile-web-app-title" content="Emoti">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>emotional</title>
+  <title>Emoti</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // Drive video streaming worker (see drive_stream_sw.js). Resolves once the
+    // worker controls this page, so stream URLs are intercepted.
+    window.emotiDriveStreamReady = (function () {
+      if (!('serviceWorker' in navigator)) {
+        return Promise.reject(new Error('Service workers are not supported'));
+      }
+      return navigator.serviceWorker
+        .register('drive_stream_sw.js', { scope: './' })
+        .then(function () {
+          if (navigator.serviceWorker.controller) return;
+          var controlled = new Promise(function (resolve) {
+            navigator.serviceWorker.addEventListener('controllerchange', function () {
+              resolve();
+            }, { once: true });
+          });
+          // After a hard reload the worker is already active but doesn't
+          // control the page, and no controllerchange follows on its own.
+          return navigator.serviceWorker.ready.then(function (registration) {
+            if (!navigator.serviceWorker.controller) {
+              registration.active.postMessage('claim');
+            }
+            return controlled;
+          });
+        })
+        .then(function () {
+          if (!navigator.serviceWorker.controller) {
+            throw new Error('Service worker did not take control');
+          }
+        });
+    })();
+    window.emotiDriveStreamReady.catch(function (e) {
+      console.warn('Drive streaming unavailable:', e);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

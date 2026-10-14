@@ -45,13 +45,13 @@ class _VideoSubtitleModalState extends State<VideoSubtitleModal> {
 
   Future<void> _pickExternalSubtitle(BuildContext context) async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['srt', 'vtt', 'ass'],
       );
 
-      if (result != null && result.files.single.path != null) {
-        final path = result.files.single.path!;
+      if (file != null && file.path != null) {
+        final path = file.path!;
         final uri = Uri.file(path).toString();
 
         await widget.player.setSubtitleTrack(SubtitleTrack.uri(uri));

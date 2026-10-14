@@ -3,9 +3,16 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import 'package:emotional/core/services/download/download_service.dart';
+import 'package:emotional/core/services/drive_stream/drive_stream.dart';
+import 'package:emotional/features/auth/services/social_auth_credentials.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DriveService {
   DriveService();
+
+  /// Renewal during playback is offered a few minutes before expiry; this
+  /// keeps that prompt from showing right after the video starts.
+  static const Duration _webStreamMinTokenValidity = Duration(minutes: 10);
 
   Future<GoogleSignInAccount?> signIn() async {
     try {
@@ -19,8 +26,22 @@ class DriveService {
   }
 
   Future<drive.DriveApi?> _getDriveApi({bool silentOnly = false}) async {
-    var account = await GoogleSignIn.instance.attemptLightweightAuthentication();
-    
+    if (kIsWeb) {
+      final token = await SocialAuthCredentials.webDriveAccessToken(
+        FirebaseAuth.instance,
+        silentOnly: silentOnly,
+      );
+      if (token == null) return null;
+      return drive.DriveApi(
+        GoogleSignInClientAuthorization(
+          accessToken: token,
+        ).authClient(scopes: [drive.DriveApi.driveReadonlyScope]),
+      );
+    }
+
+    var account = await GoogleSignIn.instance
+        .attemptLightweightAuthentication();
+
     if (!silentOnly && account == null) {
       try {
         account = await GoogleSignIn.instance.authenticate(
@@ -33,10 +54,15 @@ class DriveService {
 
     if (account == null) return null;
 
-    GoogleSignInClientAuthorization? authz = await GoogleSignIn.instance.authorizationClient.authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+    GoogleSignInClientAuthorization? authz = await GoogleSignIn
+        .instance
+        .authorizationClient
+        .authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
     if (authz == null && !silentOnly) {
       try {
-        authz = await GoogleSignIn.instance.authorizationClient.authorizeScopes([drive.DriveApi.driveReadonlyScope]);
+        authz = await GoogleSignIn.instance.authorizationClient.authorizeScopes(
+          [drive.DriveApi.driveReadonlyScope],
+        );
       } catch (e) {
         debugPrint('DriveService: Error authorizing scopes: $e');
       }
@@ -44,7 +70,9 @@ class DriveService {
 
     if (authz == null) return null;
 
-    final httpClient = authz.authClient(scopes: [drive.DriveApi.driveReadonlyScope]);
+    final httpClient = authz.authClient(
+      scopes: [drive.DriveApi.driveReadonlyScope],
+    );
     return drive.DriveApi(httpClient);
   }
 
@@ -52,24 +80,88 @@ class DriveService {
     String? pageToken,
     int pageSize = 10,
     bool silentOnly = false,
+    String? search,
   }) async {
     final driveApi = await _getDriveApi(silentOnly: silentOnly);
     if (driveApi == null) return null;
 
+    final query = search?.trim() ?? '';
+    // Drive query strings quote with ' and escape with \.
+    final nameFilter = query.isEmpty
+        ? ''
+        : " and name contains '${query.replaceAll(r'\', r'\\').replaceAll("'", r"\'")}'";
+
     try {
       final response = await driveApi.files.list(
-        q: "mimeType contains 'video/' and trashed = false",
+        q: "mimeType contains 'video/' and trashed = false$nameFilter",
         $fields:
-            'nextPageToken, files(id, name, mimeType, size, thumbnailLink)',
+            'nextPageToken, files(id, name, mimeType, size, thumbnailLink, '
+            'modifiedTime, videoMediaMetadata(durationMillis))',
+        orderBy: 'modifiedTime desc',
         pageSize: pageSize,
         pageToken: pageToken,
       );
       return response;
     } catch (e) {
       debugPrint('DriveService: Error listing files: $e');
+      if (kIsWeb && _isRejectedToken(e)) {
+        // Revoked, or granted without the Drive scope: the cached token
+        // looks valid until it expires, so drop it to offer reconnecting.
+        SocialAuthCredentials.clearWebDriveToken();
+      }
       return null;
     }
   }
+
+  static bool _isRejectedToken(Object error) {
+    if (error is! drive.DetailedApiRequestError) return false;
+    if (error.status == 401) return true;
+    return error.status == 403 &&
+        error.errors.any(
+          (e) =>
+              e.reason == 'insufficientPermissions' || e.reason == 'authError',
+        );
+  }
+
+  /// Web only: a same-origin URL that `drive_stream_sw.js` forwards to Drive
+  /// with the token in the Authorization header, so the browser can stream
+  /// (and seek in) the video without downloading it first.
+  Future<String> webStreamUrl(String fileId) async {
+    // The URL token only starts the stream; renewed tokens reach
+    // drive_stream_sw.js directly while the video plays.
+    final token = await SocialAuthCredentials.webDriveAccessToken(
+      FirebaseAuth.instance,
+      minValidity: _webStreamMinTokenValidity,
+    );
+    if (token == null) {
+      throw Exception('Google Drive access requires signing in with Google.');
+    }
+    await ensureDriveStreamReady();
+    return buildWebStreamUrl(
+      documentBaseUri,
+      fileId,
+      token,
+      SocialAuthCredentials.webDriveTokenExpiry,
+    );
+  }
+
+  /// `<base>drive-stream/<fileId>?t=<token>&e=<expiry ms>`, the address
+  /// drive_stream_sw.js intercepts.
+  @visibleForTesting
+  static String buildWebStreamUrl(
+    Uri base,
+    String fileId,
+    String token,
+    DateTime? expiry,
+  ) => base
+      .resolve('drive-stream/${Uri.encodeComponent(fileId)}')
+      .replace(
+        queryParameters: {
+          't': token,
+          if (expiry != null) 'e': '${expiry.millisecondsSinceEpoch}',
+        },
+      )
+      .toString();
 
   Future<String?> downloadVideoInBackground(
     String fileId,
@@ -84,7 +176,8 @@ class DriveService {
         throw Exception('User not signed in or Drive access denied.');
       }
 
-      final authz = await GoogleSignIn.instance.authorizationClient.authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
+      final authz = await GoogleSignIn.instance.authorizationClient
+          .authorizationForScopes([drive.DriveApi.driveReadonlyScope]);
       if (authz == null) {
         throw Exception('User is not authorized for Drive scopes.');
       }
@@ -131,7 +224,7 @@ class DriveService {
 
       return taskId;
     } catch (e) {
-      print('DriveService: Error enqueuing background download: $e');
+      debugPrint('DriveService: Error enqueuing background download: $e');
       rethrow;
     }
   }

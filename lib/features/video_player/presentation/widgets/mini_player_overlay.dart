@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:emotional/features/app.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
 import 'package:emotional/features/video_player/bloc/video_player_bloc.dart';
@@ -186,8 +185,9 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                     MyApp.navigatorKey.currentState?.push(
                       MaterialPageRoute(
                         builder: (_) => VideoPlayerScreen(
-                          videoFile: state.videoFile ?? File(''),
+                          videoFile: state.videoFile,
                           youtubeUrl: state.youtubeUrl,
+                          streamUrl: state.streamUrl,
                           roomId: roomId,
                           userId: userId,
                         ),

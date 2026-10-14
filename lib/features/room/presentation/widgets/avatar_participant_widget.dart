@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/auth/bloc/auth_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/call/presentation/participant_video.dart';
 import 'package:emotional/features/moderation/bloc/moderation_bloc.dart';
 import 'package:emotional/features/moderation/presentation/block_confirm_dialog.dart';
 import 'package:emotional/features/moderation/presentation/report_dialog.dart';
@@ -68,27 +69,44 @@ class AvatarParticipantWidget extends StatelessWidget {
     }
 
     final isLocal = participantId == currentUserId;
+    final platform = callState is CallConnected && participantId != null
+        ? (callState as CallConnected).platformOf(
+            participantId!,
+            localUserId: currentUserId,
+          )
+        : null;
     bool hasVideo = false;
     bool isMuted = false;
     RTCVideoRenderer? renderer;
 
     if (callState is CallConnected) {
       final connectedState = callState as CallConnected;
+      // A sharer's main video is their screen (shown elsewhere); this tile
+      // shows their camera, sent next to it, if it's on.
+      final shareCamera = participantId == null
+          ? null
+          : connectedState.shareCameraOf(
+              participantId!,
+              localUserId: currentUserId,
+            );
       if (isLocal) {
         final isSharing = connectedState.isScreenSharing;
-        // Don't show video in this tile if screen sharing is active
-        hasVideo = showVideo && connectedState.isVideoEnabled && !isSharing;
-        renderer = connectedState.localRenderer;
+        hasVideo =
+            showVideo &&
+            (isSharing ? shareCamera != null : connectedState.isVideoEnabled);
+        renderer = isSharing ? shareCamera : connectedState.localRenderer;
       } else if (participantId != null) {
         final isSharing =
             connectedState.userScreenSharingStates[participantId] ?? false;
-        // Don't show video in this tile if remote user is screen sharing
         hasVideo =
             showVideo &&
-            (connectedState.userVideoStates[participantId] ?? false) &&
-            !isSharing;
+            (isSharing
+                ? shareCamera != null
+                : connectedState.userVideoStates[participantId] ?? false);
         isMuted = !(connectedState.userAudioStates[participantId] ?? true);
-        renderer = connectedState.remoteRenderers[participantId];
+        renderer = isSharing
+            ? shareCamera
+            : connectedState.remoteRenderers[participantId];
       }
     }
 
@@ -114,14 +132,14 @@ class AvatarParticipantWidget extends StatelessWidget {
                       builder: (context) => Dialog(
                         backgroundColor: Colors.black,
                         insetPadding: EdgeInsets.zero, // Full screen
+                        constraints: const BoxConstraints(),
                         child: Stack(
                           children: [
-                            // 1. Main Video (Full Screen)
+                            // 1. Main Video (Full Screen): a laptop's wide
+                            // picture on a tall phone screen is shown whole.
                             Positioned.fill(
-                              child: RTCVideoView(
-                                renderer!,
-                                objectFit: RTCVideoViewObjectFit
-                                    .RTCVideoViewObjectFitCover,
+                              child: ParticipantVideo(
+                                renderer: renderer!,
                                 mirror: isLocal,
                               ),
                             ),
@@ -196,10 +214,8 @@ class AvatarParticipantWidget extends StatelessWidget {
                                   ),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(11),
-                                    child: RTCVideoView(
-                                      localRenderer,
-                                      objectFit: RTCVideoViewObjectFit
-                                          .RTCVideoViewObjectFitCover,
+                                    child: ParticipantVideo(
+                                      renderer: localRenderer,
                                       mirror: true, // Local is always mirrored
                                     ),
                                   ),
@@ -246,12 +262,20 @@ class AvatarParticipantWidget extends StatelessWidget {
                         ? Stack(
                             fit: StackFit.expand,
                             children: [
-                              RTCVideoView(
-                                renderer,
-                                objectFit: RTCVideoViewObjectFit
-                                    .RTCVideoViewObjectFitCover,
-                                mirror: isLocal,
-                              ),
+                              // A face fills a round seat best; square-ish
+                              // seats adapt to wide and tall cameras.
+                              if (shape == BoxShape.circle)
+                                RTCVideoView(
+                                  renderer,
+                                  objectFit: RTCVideoViewObjectFit
+                                      .RTCVideoViewObjectFitCover,
+                                  mirror: isLocal,
+                                )
+                              else
+                                ParticipantVideo(
+                                  renderer: renderer,
+                                  mirror: isLocal,
+                                ),
                               // Maximize Icon Overlay
                               Positioned(
                                 bottom: 4,
@@ -336,6 +360,15 @@ class AvatarParticipantWidget extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                   ],
+                  // Long press opens the participant menu here.
+                  if (platform != null) ...[
+                    PlatformBadge(
+                      platform: platform,
+                      size: 10,
+                      showTooltip: false,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   Text(
                     name!,
                     style: TextStyle(
@@ -417,7 +450,11 @@ class AvatarParticipantWidget extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(sheetContext);
                   _showTransferHostDialog(
-                      context, roomId, participantId, userName);
+                    context,
+                    roomId,
+                    participantId,
+                    userName,
+                  );
                 },
               ),
             ],

@@ -49,6 +49,7 @@
         "joined": "{} odaya katıldı",
         "left": "{} odadan ayrıldı",
         "inviteTitle": "Emoti Oda Daveti",
+        "inviteLinkCopied": "Davet bağlantısı kopyalandı.",
         "inviteMessage": "Emoti odama katıl!\n\nOda Kimliği: {}\n\nHızlı Katılma Linki: https://emotional-app-b42af.web.app/join/{}\n\nLinki tıklayarak direkt odaya katılabilirsin.",
         "tooltips": {
             "invite": "Davet Et",
@@ -73,10 +74,31 @@
         "localFileMissing": "Yerel Dosya (Eksik)",
         "showControls": "Kontrolleri Göster",
         "youtube": "YouTube Video",
-        "youtubeSearch": "YouTube'da Ara"
+        "youtubeSearch": "YouTube'da Ara",
+        "webYoutubeUnsupported": "YouTube videoları web sürümünde henüz desteklenmiyor.",
+        "webUnplayable": "Web'de oynatılamaz",
+        "driveRenewSoon": "Google Drive erişimin birkaç dakika içinde sona erecek. Videonun durmaması için yenile.",
+        "driveRenewExpired": "Google Drive erişiminin süresi doldu. İzlemeye devam etmek için yenile.",
+        "driveRenewAction": "Yenile",
+        "webStreamFailed": "Video başlatılamadı: {}"
     },
     "call": {
         "settings": "Ayarlar",
+        "platform": {
+            "web": "Web",
+            "android": "Android",
+            "ios": "iPhone",
+            "macos": "Mac",
+            "windows": "Windows",
+            "linux": "Linux",
+            "connectedFrom": "{} üzerinden bağlandı"
+        },
+        "cameraLost": "Kamera bağlantısı koptu, kameran kapatıldı.",
+        "microphoneSwitched": "Mikrofon bağlantısı koptu; varsayılan mikrofona geçildi.",
+        "microphoneLost": "Mikrofon bağlantısı koptu ve başka mikrofon bulunamadı. Seni şu an kimse duymuyor.",
+        "cameraPermissionDenied": "Kamera izni verilmedi. Ayarlardan izin verebilirsin.",
+        "cameraUnavailable": "Kamera açılamadı. Kameranın bağlı olduğunu, izin verildiğini ve başka bir uygulamanın kullanmadığını kontrol et.",
+        "openSettings": "Ayarlar",
         "mute": "Sustur",
         "unmute": "Sesi Aç",
         "cameraOff": "Kapat",
@@ -119,7 +141,43 @@
             "earpieceHeadset": "Ahize / Kulaklık",
             "cameraIndex": "Kamera {}",
             "micIndex": "Mikrofon {}"
-        }
+        },
+        "screenShare": {
+            "title": "Ekranını paylaş",
+            "subtitle": "Paylaşacağın içeriğe göre en iyi görüntü ayarını seç.",
+            "contentType": "İçerik türü",
+            "profileDetail": "Metin ve sunum",
+            "profileDetailDesc": "Yazılar net kalır. Doküman, kod ve slaytlar için.",
+            "profileMotion": "Video ve hareket",
+            "profileMotionDesc": "Akıcı görüntü. Video, oyun ve animasyon için.",
+            "profileBalanced": "Dengeli",
+            "profileBalancedDesc": "İkisinin dengesi. Çoğu durum için uygun.",
+            "source": "Kaynak",
+            "sourceAny": "Tarayıcıda seç",
+            "sourceBrowser": "Sekme",
+            "sourceWindow": "Pencere",
+            "sourceMonitor": "Tüm ekran",
+            "shareAudio": "Sesi de paylaş",
+            "shareAudioDesc": "Arkadaşların sekmenin sesini duyar. Bir sekme seç ve tarayıcı penceresinde \"Sekme sesini de paylaş\" kutusunu işaretle.",
+            "shareAudioUnsupported": "Bu tarayıcı ses paylaşımını desteklemiyor. Chrome veya Edge kullan.",
+            "start": "Paylaşmaya başla",
+            "sharingNow": "Paylaşılıyor: {}",
+            "withAudio": "sesli",
+            "audioMissing": "Ses paylaşılmadı",
+            "notSupported": "Bu tarayıcı ekran paylaşımını desteklemiyor.",
+            "qualityMeasuring": "Kalite ölçülüyor…",
+            "qualityGood": "Paylaşım tam kalitede gidiyor.",
+            "qualityBandwidth": "Bağlantı yavaş: tarayıcı kaliteyi düşürüyor. Daha hızlı bir ağ dene ya da \"Dengeli\" profile geç.",
+            "qualityCpu": "Bilgisayar zorlanıyor: tarayıcı kaliteyi düşürüyor. Diğer sekmeleri ve uygulamaları kapatmayı dene.",
+            "qualityOther": "Tarayıcı kaliteyi geçici olarak düşürdü.",
+            "qualityEncoder": "Kodlayıcı: {}"
+        },
+        "settingsAudio": "Ses",
+        "settingsVideo": "Video",
+        "settingsScreenShare": "Ekran paylaşımı",
+        "qualityHint": "Kamera görüntünün kalitesi. Bağlantın yavaşsa düşür.",
+        "screenShareDefaultsHint": "Paylaşımı başlattığında bu seçimler hazır gelir.",
+        "currentShare": "Şu anki paylaşım"
     },
     "chat": {
         "title": "Sohbet",
@@ -187,6 +245,7 @@
     },
     "drive": {
         "apiNotEnabled": "Google Drive API etkin değil.\nLütfen Cloud Console'dan etkinleştirin.",
+        "mayNotPlay": "Tarayıcıda oynatılamayabilir",
         "deleteTitle": "Dosyayı Sil",
         "deleteMessage": "{} dosyasını silmek istediğinize emin misiniz?",
         "fileDeleted": "Dosya silindi.",
@@ -195,7 +254,19 @@
         "gallery": "Galeri",
         "drive": "Drive",
         "noVideosFound": "Video bulunamadı.",
-        "noDownloadedVideos": "İndirilmiş video yok."
+        "noDownloadedVideos": "İndirilmiş video yok.",
+        "webTitle": "Drive'dan video seç",
+        "webSubtitle": "Seçtiğin video odadaki herkes için aynı anda oynatılır.",
+        "searchHint": "Videolarında ara",
+        "connectTitle": "Google Drive'ı bağla",
+        "connectDesc": "Videolarını listelemek için Drive erişimine izin ver. Açılan Google penceresinde hesabını seçmen yeterli.",
+        "connectButton": "Drive'ı bağla",
+        "googleOnly": "Drive videoları için Google hesabıyla giriş yapmalısın.",
+        "popupBlocked": "Google penceresi açılamadı. Tarayıcının açılır pencere engelini kapatıp tekrar dene.",
+        "loadFailed": "Drive'a ulaşılamadı. Bağlantını kontrol edip tekrar dene.",
+        "noSearchResults": "\"{}\" için video bulunamadı.",
+        "nowPlaying": "Oynatılıyor",
+        "refresh": "Yenile"
     },
     "youtube": {
         "hint": "Video ara...",
@@ -327,7 +398,7 @@
         }
     },
     "call_error": {
-        "permissionRequired": "Kamera ve mikrofon izinleri gerekli.",
+        "permissionRequired": "Mikrofon izni gerekli.",
         "joinFailed": "Görüşmeye katılma başarısız: {}"
     },
     "chat_error": {
@@ -370,5 +441,59 @@
         "filter": {
             "blocked": "Bu mesaj uygunsuz içerik nedeniyle filtrelendi"
         }
+    },
+    "web": {
+        "loginTitle": "Hoş geldin",
+        "loginSubtitle": "Birlikte izlemeye başlamak için giriş yap.",
+        "featureWatchTitle": "Birlikte izle",
+        "featureWatchDesc": "Drive'daki videolar odadaki herkeste aynı anda oynar.",
+        "featureCallTitle": "Görüntülü sohbet",
+        "featureCallDesc": "İzlerken birbirinizi görün ve duyun.",
+        "featureShareTitle": "Ekranını paylaş",
+        "featureShareDesc": "Bir sekmeyi sesiyle birlikte odaya yayınla.",
+        "homeSubtitle": "Bir oda oluştur ya da arkadaşının gönderdiği kodla katıl.",
+        "stepsTitle": "Nasıl çalışır?",
+        "step1Title": "Oda oluştur",
+        "step1Desc": "Saniyeler içinde sana özel bir oda açılır.",
+        "step2Title": "Arkadaşlarını davet et",
+        "step2Desc": "Oda kodunu ya da linkini gönder.",
+        "step3Title": "Birlikte izle",
+        "step3Desc": "Bir video seç; herkeste senkron oynar.",
+        "tabChat": "Sohbet",
+        "tabVideo": "Video",
+        "tabPeople": "Kişiler",
+        "host": "Oda sahibi",
+        "sharingScreen": "Ekran paylaşıyor",
+        "permTitle": "Kamera ve mikrofon",
+        "permSubtitle": "Birlikte izlerken görüntülü konuşabilmen için tarayıcının kamera ve mikrofonuna erişmemiz gerekiyor.",
+        "permCameraTitle": "Kamera",
+        "permCameraDesc": "Odadakiler seni görsün",
+        "permMicTitle": "Mikrofon",
+        "permMicDesc": "İzlerken sohbet edin",
+        "permBrowserHint": "Tarayıcın adres çubuğunun yanında izin isteyecek; \"İzin Ver\"i seç.",
+        "permPrivacy": "Kamera ve mikrofonun yalnızca bir odadayken açılır; odada istediğin an kapatabilirsin.",
+        "permAllow": "İzin ver",
+        "permLater": "Şimdi değil",
+        "permWaiting": "Tarayıcıdaki izin penceresini onayla…",
+        "permDeniedTitle": "Kamera ve mikrofon engellendi",
+        "permDeniedDesc": "Bu site için izin kapalı. Açmak için:",
+        "permDeniedStep1": "Adres çubuğunun solundaki site ayarları simgesine tıkla.",
+        "permDeniedSafariStep1": "Menü çubuğunda Safari › \"Bu Web Sitesi İçin Ayarlar\"ı aç.",
+        "permDeniedStep2": "Kamera ve Mikrofon için \"İzin Ver\"i seç.",
+        "permDeniedStep3": "Sayfayı yenile.",
+        "permReload": "Sayfayı yenile",
+        "permNoDevice": "Kamera veya mikrofon bulunamadı; odaya yine de katılabilirsin.",
+        "showCameras": "Kameraları göster",
+        "hideCameras": "Kameraları gizle",
+        "cameraOffWhileSharing": "Paylaşım sırasında kamerası görünmez"
+    },
+    "update": {
+        "title": "Güncelleme gerekli",
+        "requiredStore": "Devam etmek için uygulamanın yeni sürümünü yükle.",
+        "requiredManual": "Devam etmek için uygulamayı App Store'dan güncelle.",
+        "requiredWeb": "Devam etmek için sayfayı yenileyip yeni sürümü yükle.",
+        "update": "Güncelle",
+        "reload": "Yenile",
+        "available": "Yeni bir sürüm yayınlandı. Görüşmedeysen yenilemek seni kısa süreliğine düşürür."
     }
 }

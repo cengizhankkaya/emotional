@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -68,5 +65,15 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.esce.emoti',
     iosClientId:
         '739508543260-rvk20tdapl68r0ae5vkas3r438peqfuv.apps.googleusercontent.com',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyCupGZwlLbjo-3__fvwded1gxCjDf-TmGQ',
+    appId: '1:739508543260:web:73b8c3a2152de86e2224d9',
+    messagingSenderId: '739508543260',
+    projectId: 'emotional-app-b42af',
+    authDomain: 'emotional-app-b42af.firebaseapp.com',
+    databaseURL: 'https://emotional-app-b42af-default-rtdb.firebaseio.com',
+    storageBucket: 'emotional-app-b42af.firebasestorage.app',
   );
 }

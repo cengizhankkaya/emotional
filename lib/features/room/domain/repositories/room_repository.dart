@@ -42,6 +42,9 @@ abstract class RoomRepository {
     required bool isAudioEnabled,
     required bool isScreenSharing, // New parameter
     bool? isWatchingVideo, // Optional parameter for watching status
+    String? platform, // ClientPlatform.name, written when joining the call
+    bool? isShareCameraOn, // camera sent next to a screen share
+    bool? acceptsShareCamera, // can show a sharer's camera, set when joining
   });
 
   Future<void> updateArmchairStyle(String roomId, String styleName);

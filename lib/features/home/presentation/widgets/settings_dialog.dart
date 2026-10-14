@@ -6,6 +6,7 @@ import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -55,10 +56,17 @@ class _SettingsDialogState extends State<SettingsDialog>
     setState(() => _isLoading = true);
 
     final statuses = {
-      'camera': await _permissionService.isCameraGranted,
-      'microphone': await _permissionService.isMicrophoneGranted,
-      'notification': await Permission.notification.isGranted,
-      'gallery': await Permission.photos.isGranted,
+      'camera': await _safeCheck(() => _permissionService.isCameraGranted),
+      'microphone': await _safeCheck(
+        () => _permissionService.isMicrophoneGranted,
+      ),
+      // Notification and gallery access are mobile concepts.
+      if (!kIsWeb) ...{
+        'notification': await _safeCheck(
+          () => Permission.notification.isGranted,
+        ),
+        'gallery': await _safeCheck(() => Permission.photos.isGranted),
+      },
     };
 
     if (mounted) {
@@ -66,6 +74,17 @@ class _SettingsDialogState extends State<SettingsDialog>
         _permissionStatuses = statuses;
         _isLoading = false;
       });
+    }
+  }
+
+  /// Some platforms (browsers in particular) can't report every permission;
+  /// treat failures as "not granted" instead of spinning forever.
+  Future<bool> _safeCheck(Future<bool> Function() check) async {
+    try {
+      return await check().timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint('SettingsDialog: permission check failed: $e');
+      return false;
     }
   }
 
@@ -101,7 +120,7 @@ class _SettingsDialogState extends State<SettingsDialog>
           : key == 'notification'
           ? Permission.notification
           : Permission.photos;
-      if (await permission.isPermanentlyDenied && mounted) {
+      if (await _safeCheck(() => permission.isPermanentlyDenied) && mounted) {
         _showSettingsSnackBar();
       }
     }
@@ -112,10 +131,12 @@ class _SettingsDialogState extends State<SettingsDialog>
       SnackBar(
         content: Text(LocaleKeys.home_feedback_revokeTitle.tr()),
         duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: LocaleKeys.home_permissions_openSettings.tr(),
-          onPressed: () => _permissionService.openAppSettings(),
-        ),
+        action: kIsWeb
+            ? null
+            : SnackBarAction(
+                label: LocaleKeys.home_permissions_openSettings.tr(),
+                onPressed: () => _permissionService.openAppSettings(),
+              ),
       ),
     );
   }
@@ -124,10 +145,12 @@ class _SettingsDialogState extends State<SettingsDialog>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(LocaleKeys.home_feedback_permanentlyDenied.tr()),
-        action: SnackBarAction(
-          label: LocaleKeys.home_permissions_openSettings.tr(),
-          onPressed: () => _permissionService.openAppSettings(),
-        ),
+        action: kIsWeb
+            ? null
+            : SnackBarAction(
+                label: LocaleKeys.home_permissions_openSettings.tr(),
+                onPressed: () => _permissionService.openAppSettings(),
+              ),
       ),
     );
   }
@@ -187,21 +210,26 @@ class _SettingsDialogState extends State<SettingsDialog>
                               (val) =>
                                   _handlePermissionChange('microphone', val),
                             ),
-                            _buildPermissionTile(
-                              LocaleKeys.settings_notifications.tr(),
-                              LocaleKeys.settings_notificationsSubtitle.tr(),
-                              Icons.notifications_active_rounded,
-                              _permissionStatuses['notification'] ?? false,
-                              (val) =>
-                                  _handlePermissionChange('notification', val),
-                            ),
-                            _buildPermissionTile(
-                              LocaleKeys.settings_gallery.tr(),
-                              LocaleKeys.settings_gallerySubtitle.tr(),
-                              Icons.photo_library_rounded,
-                              _permissionStatuses['gallery'] ?? false,
-                              (val) => _handlePermissionChange('gallery', val),
-                            ),
+                            if (!kIsWeb) ...[
+                              _buildPermissionTile(
+                                LocaleKeys.settings_notifications.tr(),
+                                LocaleKeys.settings_notificationsSubtitle.tr(),
+                                Icons.notifications_active_rounded,
+                                _permissionStatuses['notification'] ?? false,
+                                (val) => _handlePermissionChange(
+                                  'notification',
+                                  val,
+                                ),
+                              ),
+                              _buildPermissionTile(
+                                LocaleKeys.settings_gallery.tr(),
+                                LocaleKeys.settings_gallerySubtitle.tr(),
+                                Icons.photo_library_rounded,
+                                _permissionStatuses['gallery'] ?? false,
+                                (val) =>
+                                    _handlePermissionChange('gallery', val),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -370,21 +398,24 @@ class _SettingsDialogState extends State<SettingsDialog>
   Widget _buildFooterActions(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => _permissionService.openAppSettings(),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white70,
-              side: const BorderSide(color: Colors.white24),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        // Browsers have no app settings page to open.
+        if (!kIsWeb) ...[
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _permissionService.openAppSettings(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                side: const BorderSide(color: Colors.white24),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              child: Text(LocaleKeys.settings_systemSettings.tr()),
             ),
-            child: Text(LocaleKeys.settings_systemSettings.tr()),
           ),
-        ),
-        const SizedBox(width: 12),
+          const SizedBox(width: 12),
+        ],
         Expanded(
           child: ElevatedButton(
             onPressed: () => Navigator.pop(context),

@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final class CacheManager {
@@ -42,5 +45,27 @@ final class CacheManager {
   Future<bool> hasAcceptedEula() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_eulaAcceptedKey) ?? false;
+  }
+
+  // ─── Screen share ──────────────────────────────────────────────────
+
+  static const String _screenShareOptionsKey = 'screen_share_options';
+
+  Future<void> saveScreenShareOptions(ScreenShareOptions options) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_screenShareOptionsKey, jsonEncode(options.toJson()));
+  }
+
+  Future<ScreenShareOptions> getScreenShareOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_screenShareOptionsKey);
+    if (raw == null) return const ScreenShareOptions();
+    try {
+      return ScreenShareOptions.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return const ScreenShareOptions();
+    }
   }
 }

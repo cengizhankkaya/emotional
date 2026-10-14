@@ -1,7 +1,9 @@
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:firebase_database/firebase_database.dart';
 import '../../domain/entities/room_entity.dart';
 import '../../domain/repositories/room_repository.dart';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 class RoomRepositoryImpl implements RoomRepository {
   final FirebaseDatabase _database;
@@ -14,14 +16,38 @@ class RoomRepositoryImpl implements RoomRepository {
     await signalRef.remove();
   }
 
+  /// Fresh IDs to try when the generated one is already taken.
+  static const int _createRoomAttempts = 3;
+
   @override
   Future<String> createRoom(String userId, String userName) async {
-    final roomId = _generateRoomId();
+    for (var attempt = 1; ; attempt++) {
+      final roomId = _generateRoomId();
+      try {
+        await _createRoomWithId(roomId, userId, userName);
+        return roomId;
+      } on FirebaseException catch (e) {
+        // The rules only allow creating a room that doesn't exist yet, so a
+        // taken ID is rejected instead of overwriting someone else's room.
+        if (e.code != 'permission-denied' || attempt >= _createRoomAttempts) {
+          rethrow;
+        }
+        debugPrint(
+          'RoomRepository: Room ID $roomId is taken, trying another...',
+        );
+      }
+    }
+  }
 
+  Future<void> _createRoomWithId(
+    String roomId,
+    String userId,
+    String userName,
+  ) async {
     // Clear any residual signals for this user before creating/joining
     await _clearUserSignals(roomId, userId);
 
-    print(
+    debugPrint(
       'RoomRepository: Generated room ID $roomId. Attempting to set data in DB...',
     );
     final roomRef = _database.ref('rooms/$roomId');
@@ -38,20 +64,17 @@ class RoomRepositoryImpl implements RoomRepository {
       });
 
       // Set up onDisconnect to remove the user if the app crashes/disconnects
-      // Set up onDisconnect to remove the user if the app crashes/disconnects
       await roomRef.child('users/$userId').onDisconnect().remove();
 
       // Cleanup signaling paths on disconnect
       final signalRef = _database.ref('rooms/$roomId/signal/$userId');
       await signalRef.onDisconnect().remove();
 
-      print('RoomRepository: Data written to DB successfully.');
+      debugPrint('RoomRepository: Data written to DB successfully.');
     } catch (e) {
-      print('RoomRepository: Failed to write to DB: $e');
+      debugPrint('RoomRepository: Failed to write to DB: $e');
       rethrow;
     }
-
-    return roomId;
   }
 
   @override
@@ -61,57 +84,23 @@ class RoomRepositoryImpl implements RoomRepository {
 
     final roomRef = _database.ref('rooms/$roomId');
 
-    try {
-      final result = await roomRef.runTransaction((Object? post) {
-        if (post == null) {
-          return Transaction.abort();
-        }
-
-        final Map<dynamic, dynamic> roomData = post as Map<dynamic, dynamic>;
-        final users = roomData['users'] as Map<dynamic, dynamic>? ?? {};
-
-        // Check if user is already in the room (avoid redundant joins)
-        if (users.containsKey(userId)) {
-          return Transaction.success(roomData);
-        }
-
-        users[userId] = userName;
-        roomData['users'] = users;
-        return Transaction.success(roomData);
-      });
-
-      if (!result.committed) {
-        final snapshot = await roomRef.get();
-        if (!snapshot.exists) {
-          throw Exception('Oda bulunamadı');
-        }
-        // Fallback: If transaction wasn't committed but room exists, force an update
-        print(
-          'RoomRepository: joinRoom transaction uncommitted, forcing update...',
-        );
-        await roomRef.child('users').update({userId: userName});
-      }
-    } catch (e) {
-      print(
-        'RoomRepository: joinRoom transaction failed ($e), falling back to force update...',
-      );
-      // Direct update fallback in case of "too many retries" or "overridden"
-      final snapshot = await roomRef.get();
-      if (!snapshot.exists) {
-        throw Exception('Oda bulunamadı');
-      }
-      await roomRef.child('users').update({userId: userName});
+    // Only touch our own entry: the rules don't let a non-member rewrite the
+    // whole room, which the old join transaction did.
+    final host = await roomRef.child('host').get();
+    if (!host.exists) {
+      throw Exception('Oda bulunamadı');
     }
+    await roomRef.child('users/$userId').set(userName);
 
-    // Set up onDisconnect ONLY after successful transaction
+    // Set up onDisconnect ONLY after joining
     await roomRef.child('users/$userId').onDisconnect().remove();
 
     // Cleanup signaling paths on disconnect
     final signalRef = _database.ref('rooms/$roomId/signal/$userId');
     await signalRef.onDisconnect().remove();
 
-    print(
-      'RoomRepository: User $userId successfully joined via transaction and onDisconnect setup.',
+    debugPrint(
+      'RoomRepository: User $userId successfully joined and onDisconnect setup.',
     );
   }
 
@@ -119,7 +108,9 @@ class RoomRepositoryImpl implements RoomRepository {
   Future<void> leaveRoom(String roomId, String userId) async {
     final roomRef = _database.ref('rooms/$roomId');
 
-    print('RoomRepository: User $userId is leaving room $roomId manually.');
+    debugPrint(
+      'RoomRepository: User $userId is leaving room $roomId manually.',
+    );
     // Cancel the onDisconnect listener since we are leaving manually
     await roomRef.child('users/$userId').onDisconnect().cancel();
 
@@ -155,18 +146,18 @@ class RoomRepositoryImpl implements RoomRepository {
         roomData['users'] = users;
         return Transaction.success(roomData);
       });
-      print(
+      debugPrint(
         'RoomRepository: LeaveRoom transaction finished for $userId with result: ${result.committed}',
       );
 
       if (!result.committed) {
-        print(
+        debugPrint(
           'RoomRepository: leaveRoom transaction uncommitted, forcing remove...',
         );
         await roomRef.child('users/$userId').remove();
       }
     } catch (e) {
-      print(
+      debugPrint(
         'RoomRepository: leaveRoom transaction failed ($e), falling back to force remove...',
       );
       await roomRef.child('users/$userId').remove();
@@ -234,6 +225,9 @@ class RoomRepositoryImpl implements RoomRepository {
     required bool isAudioEnabled,
     required bool isScreenSharing,
     bool? isWatchingVideo,
+    String? platform,
+    bool? isShareCameraOn,
+    bool? acceptsShareCamera,
   }) async {
     final userStateRef = _database.ref('rooms/$roomId/usersState/$userId');
     final Map<String, dynamic> updates = {
@@ -245,6 +239,11 @@ class RoomRepositoryImpl implements RoomRepository {
 
     if (isWatchingVideo != null) {
       updates['watching'] = isWatchingVideo;
+    }
+    if (platform != null) updates['platform'] = platform;
+    if (isShareCameraOn != null) updates['shareCamera'] = isShareCameraOn;
+    if (acceptsShareCamera != null) {
+      updates['acceptsShareCamera'] = acceptsShareCamera;
     }
 
     await userStateRef.update(updates);
@@ -295,6 +294,9 @@ class RoomRepositoryImpl implements RoomRepository {
         isScreenSharing: valMap['screen'] as bool? ?? false,
         isWatchingVideo: valMap['watching'] as bool? ?? false,
         lastUpdatedAt: valMap['updatedAt'] as int? ?? 0,
+        platform: valMap['platform'] as String?,
+        isShareCameraOn: valMap['shareCamera'] as bool? ?? false,
+        acceptsShareCamera: valMap['acceptsShareCamera'] as bool? ?? false,
       );
     });
 
@@ -351,6 +353,9 @@ class RoomRepositoryImpl implements RoomRepository {
           isScreenSharing: valMap['screen'] as bool? ?? false,
           isWatchingVideo: valMap['watching'] as bool? ?? false,
           lastUpdatedAt: valMap['updatedAt'] as int? ?? 0,
+          platform: valMap['platform'] as String?,
+          isShareCameraOn: valMap['shareCamera'] as bool? ?? false,
+          acceptsShareCamera: valMap['acceptsShareCamera'] as bool? ?? false,
         );
       });
 

@@ -36,12 +36,7 @@ class _ReportDialogState extends State<ReportDialog> {
   final TextEditingController _descriptionController = TextEditingController();
   bool _isSubmitting = false;
 
-  static const _reasons = [
-    'inappropriate',
-    'harassment',
-    'spam',
-    'other',
-  ];
+  static const _reasons = ['inappropriate', 'harassment', 'spam', 'other'];
 
   String _getReasonLabel(String reason) {
     switch (reason) {
@@ -129,7 +124,7 @@ class _ReportDialogState extends State<ReportDialog> {
               Container(
                 padding: const ProjectPadding.allMedium(),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: ProjectRadius.medium(),
                 ),
                 child: Text(
@@ -151,20 +146,31 @@ class _ReportDialogState extends State<ReportDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            ..._reasons.map((reason) => RadioListTile<String>(
-                  title: Text(
-                    _getReasonLabel(reason),
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                  value: reason,
-                  groupValue: _selectedReason,
-                  activeColor: ColorsCustom.skyBlue,
-                  onChanged: (value) {
-                    setState(() => _selectedReason = value!);
-                  },
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                )),
+            RadioGroup<String>(
+              groupValue: _selectedReason,
+              onChanged: (value) {
+                setState(() => _selectedReason = value!);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final reason in _reasons)
+                    RadioListTile<String>(
+                      title: Text(
+                        _getReasonLabel(reason),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                      value: reason,
+                      activeColor: ColorsCustom.skyBlue,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             // Description
             Text(
@@ -180,7 +186,7 @@ class _ReportDialogState extends State<ReportDialog> {
                 hintText: LocaleKeys.moderation_report_descriptionHint.tr(),
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
+                fillColor: Colors.white.withValues(alpha: 0.08),
                 border: OutlineInputBorder(
                   borderRadius: ProjectRadius.medium(),
                   borderSide: BorderSide.none,
@@ -211,9 +217,7 @@ class _ReportDialogState extends State<ReportDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.orange,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: ProjectRadius.medium(),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: ProjectRadius.medium()),
           ),
         ),
       ],

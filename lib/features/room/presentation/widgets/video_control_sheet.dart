@@ -20,6 +20,10 @@ class VideoControlSheet extends StatefulWidget {
   final void Function(drive.File) onSelectVideo;
   final VoidCallback onPlay;
 
+  /// Web side panel: no card chrome, no collapse handle and no call
+  /// controls (the web layout has its own control dock).
+  final bool embedded;
+
   const VideoControlSheet({
     super.key,
     required this.isHost,
@@ -29,6 +33,7 @@ class VideoControlSheet extends StatefulWidget {
     required this.onPickVideo,
     required this.onSelectVideo,
     required this.onPlay,
+    this.embedded = false,
   });
 
   @override
@@ -83,6 +88,32 @@ class _VideoControlSheetState extends State<VideoControlSheet> {
         debugPrint(
           'VideoControlSheet: Rebuild. fileName: ${widget.fileName}, isVideoDownloaded: ${state.isVideoDownloaded}',
         );
+        if (widget.embedded) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.fileName != null) ...[
+                SelectedVideoCard(fileName: widget.fileName!, state: state),
+                const SizedBox(height: 12),
+              ],
+              VideoActionButtons(
+                isHost: widget.isHost,
+                fileName: widget.fileName,
+                fileId: widget.fileId,
+                onPickVideo: widget.onPickVideo,
+                onPlay: widget.onPlay,
+              ),
+              const SizedBox(height: 16),
+              if (widget.isHost)
+                YoutubeInputSection(onSelectVideo: widget.onSelectVideo),
+              if (widget.fileName == null && !widget.isHost) ...[
+                const SizedBox(height: 24),
+                _WaitingMessage(),
+              ],
+            ],
+          );
+        }
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           width: double.infinity,

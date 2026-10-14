@@ -1,10 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:emotional/features/call/domain/enums/peer_status.dart';
 import 'package:emotional/features/call/domain/services/i_call_service.dart';
 import 'package:emotional/features/call/service/signaling_service.dart';
+import 'package:emotional/product/model/enum/firebase_remote_enums.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
+import 'package:emotional/features/call/domain/screen_share/outgoing_video_stats.dart';
+import 'package:emotional/features/call/service/outgoing_video_stats_sampler.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class WebRTCService implements ICallService {
+  WebRTCService({
+    @visibleForTesting
+    SignalingService Function(String roomId, String userId)? signalingFactory,
+  }) : _signalingFactory =
+           signalingFactory ??
+           ((roomId, userId) =>
+               SignalingService(roomId: roomId, userId: userId));
+
+  final SignalingService Function(String roomId, String userId)
+  _signalingFactory;
   SignalingService? _signalingService;
   final Map<String, RTCPeerConnection> _peerConnections = {};
 
@@ -20,16 +36,39 @@ class WebRTCService implements ICallService {
   /// Incremented on every joinRoom() — invalidates callbacks from previous sessions.
   int _sessionToken = 0;
 
-  final Map<String, dynamic> _configuration = {
-    'iceServers': [
-      {
-        'urls': [
-          'stun:stun1.l.google.com:19302',
-          'stun:stun2.l.google.com:19302',
-        ],
-      },
-    ],
+  /// SDP calls on a connection that gets closed meanwhile never complete
+  /// (per the WebRTC spec), which would leave connect() hanging forever.
+  static const Duration _sdpTimeout = Duration(seconds: 10);
+
+  static const List<Map<String, dynamic>> _defaultIceServers = [
+    {
+      'urls': [
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+      ],
+    },
+  ];
+
+  /// STUN alone fails behind symmetric NATs (corporate, campus and some
+  /// mobile networks); TURN relays come from Remote Config so their
+  /// credentials can be rotated without a release.
+  Map<String, dynamic> get _configuration => {
+    'iceServers': _remoteIceServers() ?? _defaultIceServers,
   };
+
+  static List<Map<String, dynamic>>? _remoteIceServers() {
+    try {
+      final raw = FirebaseRemoteEnums.webrtcIceServers.valueString.trim();
+      if (raw.isEmpty) return null;
+      final servers = (jsonDecode(raw) as List)
+          .map((server) => Map<String, dynamic>.from(server as Map))
+          .toList();
+      return servers.isEmpty ? null : servers;
+    } catch (e) {
+      debugPrint('[WebRTC] Using default ICE servers ($e)');
+      return null;
+    }
+  }
 
   // Audio level fallback (energy calculation)
   final Map<String, double> _lastTotalAudioEnergy = {};
@@ -50,6 +89,14 @@ class WebRTCService implements ICallService {
   // the 2s timeout, whichever comes first.
   final Set<String> _pendingByeUsers = {};
 
+  /// Last connection state per peer and since when, so CallBloc can tell
+  /// a healthy connection from one that is stuck or gone.
+  final Map<String, RTCPeerConnectionState> _peerStates = {};
+  final Map<String, DateTime> _peerStateSince = {};
+
+  /// A peer left the call (sent bye) but may still be in the room.
+  void Function(String userId)? onRemoteBye;
+
   @override
   Function(MediaStream stream, String userId)? onRemoteStream;
 
@@ -61,7 +108,7 @@ class WebRTCService implements ICallService {
   @override
   void updateLocalStream(webrtc.MediaStream? stream) {
     _localStream = stream;
-    print("[WebRTC] localStream updated. New StreamID: ${stream?.id}");
+    debugPrint("[WebRTC] localStream updated. New StreamID: ${stream?.id}");
   }
 
   // ─── Track replacement ────────────────────────────────────────────────────
@@ -88,7 +135,7 @@ class WebRTCService implements ICallService {
         for (var t in transceivers) {
           if (t.sender.track?.kind == 'video' ||
               t.receiver.track?.kind == 'video') {
-            print(
+            debugPrint(
               "[WebRTC] Replacing video track for $userId. NewTrackID: ${newTrack.id}",
             );
             await t.sender.replaceTrack(newTrack);
@@ -98,7 +145,7 @@ class WebRTCService implements ICallService {
         }
 
         if (!replaced) {
-          print(
+          debugPrint(
             "[WebRTC] No video sender for $userId, adding a new transceiver.",
           );
 
@@ -117,7 +164,30 @@ class WebRTCService implements ICallService {
           await connect(userId);
         }
       } catch (e) {
-        print("[WebRTC] Error replacing video track for $userId: $e");
+        debugPrint("[WebRTC] Error replacing video track for $userId: $e");
+      }
+    }
+  }
+
+  /// Camera off: stop sending video but keep the transceiver, so turning the
+  /// camera back on needs no renegotiation.
+  @override
+  Future<void> removeLocalVideoTrack() async {
+    if (_isDisposed) return;
+    final token = _sessionToken;
+    for (final entry in _peerConnections.entries.toList()) {
+      final pc = entry.value;
+      try {
+        final transceivers = await pc.getTransceivers();
+        if (_isDisposed || _sessionToken != token) return;
+        for (final t in transceivers) {
+          if (t.sender.track?.kind == 'video' ||
+              t.receiver.track?.kind == 'video') {
+            await t.sender.replaceTrack(null);
+          }
+        }
+      } catch (e) {
+        debugPrint("[WebRTC] Error removing video track for ${entry.key}: $e");
       }
     }
   }
@@ -148,7 +218,7 @@ class WebRTCService implements ICallService {
       }
 
       if (!replaced) {
-        print(
+        debugPrint(
           "[WebRTC] No audio sender for $userId, adding a new transceiver.",
         );
 
@@ -167,6 +237,61 @@ class WebRTCService implements ICallService {
         await connect(userId);
       }
     }
+  }
+
+  // ─── Sender tuning ────────────────────────────────────────────────────────
+
+  /// Outgoing video caps; null keeps the encoder defaults. Kept so peers that
+  /// join mid-share get the same limits.
+  ({int? maxBitrate, int? maxFramerate})? _videoSenderLimits;
+
+  @override
+  Future<void> setVideoSenderLimits({
+    int? maxBitrate,
+    int? maxFramerate,
+  }) async {
+    if (_isDisposed) return;
+    _videoSenderLimits = maxBitrate == null && maxFramerate == null
+        ? null
+        : (maxBitrate: maxBitrate, maxFramerate: maxFramerate);
+    for (final pc in _peerConnections.values.toList()) {
+      await _applyVideoSenderLimits(pc);
+    }
+  }
+
+  Future<void> _applyVideoSenderLimits(RTCPeerConnection pc) async {
+    try {
+      // Find the video sender by its transceiver, not its track: dart_webrtc
+      // doesn't wait for replaceTrack, so right after a track switch (as at
+      // the start of a screen share) the sender may not show it yet and the
+      // limits were skipped.
+      for (final transceiver in await pc.getTransceivers()) {
+        final sender = transceiver.sender;
+        final isVideo =
+            sender.track?.kind == 'video' ||
+            transceiver.receiver.track?.kind == 'video';
+        if (!isVideo) continue;
+        final parameters = sender.parameters;
+        final encodings = parameters.encodings;
+        if (encodings == null || encodings.isEmpty) continue;
+        for (final encoding in encodings) {
+          encoding.maxBitrate = _videoSenderLimits?.maxBitrate;
+          encoding.maxFramerate = _videoSenderLimits?.maxFramerate;
+        }
+        await sender.setParameters(parameters);
+      }
+    } catch (e) {
+      debugPrint("[WebRTC] Failed to apply video sender limits: $e");
+    }
+  }
+
+  final OutgoingVideoStatsSampler _outgoingVideoStats =
+      OutgoingVideoStatsSampler();
+
+  @override
+  Future<OutgoingVideoStats?> getOutgoingVideoStats() async {
+    if (_isDisposed) return null;
+    return _outgoingVideoStats.sample(_peerConnections);
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
@@ -192,9 +317,11 @@ class WebRTCService implements ICallService {
     _lastRemoteStreamId.clear();
     _pendingByeUsers.clear();
     _connectingPeers.clear();
-    _signalingService = SignalingService(roomId: roomId, userId: userId);
-    await _signalingService!.initialize();
+    _signalingService = _signalingFactory(roomId, userId);
+    // Before initialize(): it starts listening, and offers already waiting
+    // in the inbox fire right away.
     _setupSignalingListeners();
+    await _signalingService!.initialize();
     _startLocalAudioMonitor();
   }
 
@@ -203,23 +330,43 @@ class WebRTCService implements ICallService {
 
     _signalingService!.onRemoteOffer = (description, fromUserId) async {
       if (_isDisposed) return;
-      await _handleRemoteOffer(description, fromUserId);
+      await _guard(
+        'offer from $fromUserId',
+        () => _handleRemoteOffer(description, fromUserId),
+      );
     };
 
     _signalingService!.onRemoteAnswer = (description, fromUserId) async {
       if (_isDisposed) return;
-      await _handleRemoteAnswer(description, fromUserId);
+      await _guard(
+        'answer from $fromUserId',
+        () => _handleRemoteAnswer(description, fromUserId),
+      );
     };
 
     _signalingService!.onRemoteIceCandidate = (candidate, fromUserId) async {
       if (_isDisposed) return;
-      await _handleRemoteIceCandidate(candidate, fromUserId);
+      await _guard(
+        'ICE candidate from $fromUserId',
+        () => _handleRemoteIceCandidate(candidate, fromUserId),
+      );
     };
 
     _signalingService!.onRemoteBye = (fromUserId) async {
       if (_isDisposed) return;
-      await _handleRemoteBye(fromUserId);
+      await _guard('bye from $fromUserId', () => _handleRemoteBye(fromUserId));
     };
+  }
+
+  /// Signaling arrives from database listeners; a failure here (e.g. the
+  /// connection was replaced meanwhile) must not become an unhandled error.
+  /// The reconcile loop in CallBloc retries what didn't work out.
+  Future<void> _guard(String what, Future<void> Function() handle) async {
+    try {
+      await handle();
+    } catch (e) {
+      debugPrint("[WebRTC] Handling $what failed: $e");
+    }
   }
 
   @override
@@ -250,6 +397,14 @@ class WebRTCService implements ICallService {
     _localAudioTimer = null;
     _localAudioLevel = 0.0;
     _peerConnections.clear();
+    _shareCameraTransceivers.clear();
+    _lastShareCameraStreamId.clear();
+    _shareCameraTrack = null;
+    _shareCameraPeers = {};
+    await _shareCameraStream?.dispose();
+    _shareCameraStream = null;
+    _peerStates.clear();
+    _peerStateSince.clear();
     _remoteCandidateQueues.clear();
     _remoteDescriptionSet.clear();
     _lastRemoteStreamId.clear();
@@ -282,18 +437,31 @@ class WebRTCService implements ICallService {
     bool hasAudio = senders.any((s) => s.track?.kind == 'audio');
     bool hasVideo = senders.any((s) => s.track?.kind == 'video');
 
+    // Tie the empty transceivers to our stream too: peers then get every
+    // track in one stream from the start, and a camera turned on later just
+    // fills the existing video track (no renegotiation). Without a stream,
+    // peers drop the track (onTrack with no streams) and never show video.
+    final streams = [?_localStream];
     if (!hasAudio) {
       await pc.addTransceiver(
         kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: RTCRtpTransceiverInit(direction: TransceiverDirection.SendRecv),
+        init: RTCRtpTransceiverInit(
+          direction: TransceiverDirection.SendRecv,
+          streams: streams,
+        ),
       );
     }
     if (!hasVideo) {
       await pc.addTransceiver(
         kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
-        init: RTCRtpTransceiverInit(direction: TransceiverDirection.SendRecv),
+        init: RTCRtpTransceiverInit(
+          direction: TransceiverDirection.SendRecv,
+          streams: streams,
+        ),
       );
     }
+
+    if (_videoSenderLimits != null) await _applyVideoSenderLimits(pc);
 
     pc.onIceCandidate = (candidate) {
       if (_isDisposed || _sessionToken != token) return;
@@ -306,14 +474,27 @@ class WebRTCService implements ICallService {
     pc.onTrack = (event) {
       if (_isDisposed || _sessionToken != token) return;
       if (event.streams.isEmpty) {
-        print("[WebRTC] onTrack from $targetUserId — streams are EMPTY.");
+        debugPrint("[WebRTC] onTrack from $targetUserId — streams are EMPTY.");
         return;
       }
       final stream = event.streams.first;
+      // A second, video-only stream next to the main one (which always has
+      // the microphone) is the sharer's camera.
+      final main = _lastRemoteStreamId[targetUserId];
+      if (event.track.kind == 'video' &&
+          main != null &&
+          stream.id != main &&
+          stream.getAudioTracks().isEmpty) {
+        if (_lastShareCameraStreamId[targetUserId] == stream.id) return;
+        _lastShareCameraStreamId[targetUserId] = stream.id;
+        debugPrint("[WebRTC] Share camera from $targetUserId.");
+        onRemoteShareCamera?.call(stream, targetUserId);
+        return;
+      }
       // Skip if we already reported this stream (e.g. second track event)
       if (_lastRemoteStreamId[targetUserId] == stream.id) return;
       _lastRemoteStreamId[targetUserId] = stream.id;
-      print("[WebRTC] onTrack from $targetUserId. StreamID: ${stream.id}");
+      debugPrint("[WebRTC] onTrack from $targetUserId. StreamID: ${stream.id}");
       onRemoteStream?.call(stream, targetUserId);
     };
 
@@ -323,20 +504,32 @@ class WebRTCService implements ICallService {
     // onAddStream is legacy and redundant here.
 
     pc.onConnectionState = (state) async {
-      print("[WebRTC] Connection state with $targetUserId: $state");
+      debugPrint("[WebRTC] Connection state with $targetUserId: $state");
       if (_isDisposed) return;
+      if (_peerConnections[targetUserId] == pc) {
+        _peerStates[targetUserId] = state;
+        _peerStateSince[targetUserId] = DateTime.now();
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          // A camera shared before this connection existed goes out now.
+          unawaited(_syncShareCamera(targetUserId));
+        }
+      }
       final cbToken = _sessionToken;
 
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
-        print("[WebRTC] Connection failed with $targetUserId. Reconnecting...");
+        debugPrint(
+          "[WebRTC] Connection failed with $targetUserId. Reconnecting...",
+        );
         if (_peerConnections[targetUserId] != pc) return;
         if (!_isDisposed && _sessionToken == cbToken) {
           await connect(targetUserId);
         }
       } else if (state ==
           RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        print("[WebRTC] Disconnected from $targetUserId. ICE Restart in 3s...");
+        debugPrint(
+          "[WebRTC] Disconnected from $targetUserId. ICE Restart in 3s...",
+        );
         if (_peerConnections[targetUserId] != pc) return;
 
         await Future.delayed(const Duration(seconds: 3));
@@ -349,14 +542,164 @@ class WebRTCService implements ICallService {
 
         if (currentState ==
             RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-          print("[WebRTC] Still disconnected from $targetUserId. ICE Restart.");
+          debugPrint(
+            "[WebRTC] Still disconnected from $targetUserId. ICE Restart.",
+          );
           await _triggerIceRestart(targetUserId);
         }
       }
     };
 
     _peerConnections[targetUserId] = pc;
+    _peerStates.remove(targetUserId);
+    _peerStateSince[targetUserId] = DateTime.now();
     return pc;
+  }
+
+  @visibleForTesting
+  RTCPeerConnection? peerConnectionFor(String userId) =>
+      _peerConnections[userId];
+
+  /// Where the connection to [userId] stands, and since when.
+  ({PeerStatus status, Duration since}) peerStatus(String userId) {
+    final since = _peerStateSince[userId];
+    final age = since == null
+        ? Duration.zero
+        : DateTime.now().difference(since);
+    if (!_peerConnections.containsKey(userId)) {
+      return (status: PeerStatus.none, since: age);
+    }
+    return switch (_peerStates[userId]) {
+      RTCPeerConnectionState.RTCPeerConnectionStateConnected => (
+        status: PeerStatus.connected,
+        since: age,
+      ),
+      RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+      RTCPeerConnectionState.RTCPeerConnectionStateClosed => (
+        status: PeerStatus.none,
+        since: age,
+      ),
+      _ => (status: PeerStatus.negotiating, since: age),
+    };
+  }
+
+  /// Closes our connection to [userId] and forgets its per-connection state.
+  Future<void> _closePeer(String userId, RTCPeerConnection pc) async {
+    if (_peerConnections[userId] == pc) {
+      _peerConnections.remove(userId);
+      _peerStates.remove(userId);
+      _peerStateSince.remove(userId);
+    }
+    _connectingPeers.remove(userId);
+    _remoteDescriptionSet.remove(userId);
+    _remoteCandidateQueues.remove(userId);
+    // A new connection may carry the same remote stream; let onTrack report
+    // it again so the renderer doesn't keep the dead one.
+    _lastRemoteStreamId.remove(userId);
+    _lastShareCameraStreamId.remove(userId);
+    _shareCameraTransceivers.remove(userId);
+    await pc.close();
+    await pc.dispose();
+  }
+
+  // ─── Camera next to a screen share ────────────────────────────────────────
+
+  /// While sharing with the camera on, the camera goes out as a second
+  /// video in its own stream, only to [_shareCameraPeers]: older app
+  /// versions show one video per person and would replace the screen.
+  MediaStreamTrack? _shareCameraTrack;
+  MediaStream? _shareCameraStream;
+  Set<String> _shareCameraPeers = {};
+  final Map<String, RTCRtpTransceiver> _shareCameraTransceivers = {};
+  final Map<String, String> _lastShareCameraStreamId = {};
+
+  /// A sharer's camera arrived (see [setShareCamera]).
+  void Function(MediaStream stream, String userId)? onRemoteShareCamera;
+
+  /// Sends [track] next to the screen share; null stops sending it (the
+  /// transceiver stays, so turning it back on needs no renegotiation).
+  Future<void> setShareCamera(MediaStreamTrack? track) async {
+    if (_isDisposed) return;
+    _shareCameraTrack = track;
+    if (track != null) {
+      final stream = _shareCameraStream ??= await createLocalMediaStream(
+        'share-camera',
+      );
+      for (final old in stream.getVideoTracks().toList()) {
+        if (old.id != track.id) await stream.removeTrack(old);
+      }
+      if (!stream.getVideoTracks().any((t) => t.id == track.id)) {
+        await stream.addTrack(track);
+      }
+    }
+    for (final peer in _peerConnections.keys.toList()) {
+      await _syncShareCamera(peer);
+    }
+  }
+
+  /// Who can show a sharer's camera; from the room's usersState.
+  Future<void> setShareCameraPeers(Set<String> peers) async {
+    if (setEquals(peers, _shareCameraPeers)) return;
+    _shareCameraPeers = {...peers};
+    for (final peer in _peerConnections.keys.toList()) {
+      await _syncShareCamera(peer);
+    }
+  }
+
+  Future<void> _syncShareCamera(String peer) async {
+    final pc = _peerConnections[peer];
+    if (pc == null || _isDisposed) return;
+    final track = _shareCameraPeers.contains(peer) ? _shareCameraTrack : null;
+    try {
+      final existing = _shareCameraTransceivers[peer];
+      if (existing != null) {
+        await existing.sender.replaceTrack(track);
+        return;
+      }
+      final stream = _shareCameraStream;
+      if (track == null || stream == null) return;
+      // An answer can't add a video the offer lacks, so add it to a
+      // connection that is up and offer again.
+      if (peerStatus(peer).status != PeerStatus.connected) return;
+      _shareCameraTransceivers[peer] = await pc.addTransceiver(
+        track: track,
+        kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: RTCRtpTransceiverInit(
+          direction: TransceiverDirection.SendOnly,
+          streams: [stream],
+        ),
+      );
+      await _renegotiate(peer);
+    } catch (e) {
+      debugPrint("[WebRTC] Share camera for $peer failed: $e");
+    }
+  }
+
+  /// Offers again on the existing connection, e.g. after adding a video.
+  Future<void> _renegotiate(String userId) async {
+    final pc = _peerConnections[userId];
+    if (pc == null) return;
+    final token = _sessionToken;
+    bool isStale() =>
+        _isDisposed || _sessionToken != token || _peerConnections[userId] != pc;
+
+    // Let an offer/answer already in flight finish first.
+    for (
+      var i = 0;
+      i < 20 &&
+          await pc.getSignalingState() !=
+              RTCSignalingState.RTCSignalingStateStable;
+      i++
+    ) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (isStale()) return;
+    }
+    final offer = await pc.createOffer({}).timeout(_sdpTimeout);
+    if (isStale()) return;
+    await pc.setLocalDescription(offer).timeout(_sdpTimeout);
+    if (isStale()) return;
+    await sendOffer(userId, offer);
+    debugPrint("[WebRTC] Renegotiation offer sent to $userId.");
   }
 
   @override
@@ -365,7 +708,7 @@ class WebRTCService implements ICallService {
     final token = _sessionToken;
 
     if (_connectingPeers.contains(targetUserId)) {
-      print("[WebRTC] connect() for $targetUserId already in progress.");
+      debugPrint("[WebRTC] connect() for $targetUserId already in progress.");
       return;
     }
     _connectingPeers.add(targetUserId);
@@ -378,18 +721,19 @@ class WebRTCService implements ICallService {
         if (_peerConnections[targetUserId] != pc) return;
 
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-          print("[WebRTC] Already connected to $targetUserId.");
+          debugPrint("[WebRTC] Already connected to $targetUserId.");
           return;
         }
-        print("[WebRTC] Connection to $targetUserId is $state. Restarting...");
-        await pc?.close();
-        await pc?.dispose();
-        _peerConnections.remove(targetUserId);
+        debugPrint(
+          "[WebRTC] Connection to $targetUserId is $state. Restarting...",
+        );
+        if (pc != null) await _closePeer(targetUserId, pc);
+        _connectingPeers.add(targetUserId);
       }
 
       if (_isDisposed || _sessionToken != token) return;
 
-      print("[WebRTC] Creating peer connection for $targetUserId.");
+      debugPrint("[WebRTC] Creating peer connection for $targetUserId.");
       final pc = await createPeerConnection(targetUserId);
 
       await _signalingService?.clearOutgoingToUser(targetUserId);
@@ -406,16 +750,18 @@ class WebRTCService implements ICallService {
       }
 
       try {
-        final offer = await pc.createOffer({
-          'offerToReceiveAudio': true,
-          'offerToReceiveVideo': true,
-        });
+        final offer = await pc
+            .createOffer({
+              'offerToReceiveAudio': true,
+              'offerToReceiveVideo': true,
+            })
+            .timeout(_sdpTimeout);
         if (_isDisposed ||
             _sessionToken != token ||
             _peerConnections[targetUserId] != pc) {
           return;
         }
-        await pc.setLocalDescription(offer);
+        await pc.setLocalDescription(offer).timeout(_sdpTimeout);
         if (_isDisposed ||
             _sessionToken != token ||
             _peerConnections[targetUserId] != pc) {
@@ -423,12 +769,18 @@ class WebRTCService implements ICallService {
         }
         await sendOffer(targetUserId, offer);
       } catch (e) {
-        print("[WebRTC] connect() createOffer failed for $targetUserId: $e");
+        debugPrint(
+          "[WebRTC] connect() createOffer failed for $targetUserId: $e",
+        );
       }
     } finally {
       _connectingPeers.remove(targetUserId);
     }
   }
+
+  @visibleForTesting
+  Future<void> restartIce(String targetUserId) =>
+      _triggerIceRestart(targetUserId);
 
   Future<void> _triggerIceRestart(String targetUserId) async {
     if (_isDisposed) return;
@@ -437,26 +789,28 @@ class WebRTCService implements ICallService {
     if (pc == null) return;
 
     try {
-      final offer = await pc.createOffer({
-        'offerToReceiveAudio': true,
-        'offerToReceiveVideo': true,
-        'iceRestart': true,
-      });
+      final offer = await pc
+          .createOffer({
+            'offerToReceiveAudio': true,
+            'offerToReceiveVideo': true,
+            'iceRestart': true,
+          })
+          .timeout(_sdpTimeout);
       if (_isDisposed ||
           _sessionToken != token ||
           _peerConnections[targetUserId] != pc) {
         return;
       }
-      await pc.setLocalDescription(offer);
+      await pc.setLocalDescription(offer).timeout(_sdpTimeout);
       if (_isDisposed ||
           _sessionToken != token ||
           _peerConnections[targetUserId] != pc) {
         return;
       }
       await sendOffer(targetUserId, offer);
-      print("[WebRTC] ICE Restart offer sent to $targetUserId.");
+      debugPrint("[WebRTC] ICE Restart offer sent to $targetUserId.");
     } catch (e) {
-      print("[WebRTC] ICE Restart failed for $targetUserId: $e");
+      debugPrint("[WebRTC] ICE Restart failed for $targetUserId: $e");
       if (!_isDisposed &&
           _sessionToken == token &&
           _peerConnections[targetUserId] == pc) {
@@ -476,27 +830,44 @@ class WebRTCService implements ICallService {
   ) async {
     if (_isDisposed) return;
     final token = _sessionToken;
-    print("[WebRTC] Received offer from $fromUserId.");
-    final stalePc = _peerConnections[fromUserId];
+    debugPrint("[WebRTC] Received offer from $fromUserId.");
+    final existing = _peerConnections[fromUserId];
 
-    if (stalePc != null) {
-      if (_isHost) {
-        print(
-          "[WebRTC] GLARE: HOST (impolite). Ignoring offer from $fromUserId.",
+    if (existing != null) {
+      final signalingState = await existing.getSignalingState();
+      if (_isDisposed ||
+          _sessionToken != token ||
+          _peerConnections[fromUserId] != existing) {
+        return;
+      }
+
+      if (signalingState == RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        // Glare: both sides offered at once. The host keeps its offer and
+        // the guest answers, matching older app versions.
+        if (_isHost) {
+          debugPrint(
+            "[WebRTC] GLARE: HOST (impolite). Ignoring offer from $fromUserId.",
+          );
+          return;
+        }
+        debugPrint(
+          "[WebRTC] GLARE: GUEST (polite). Dropping own offer to $fromUserId.",
         );
+        await _closePeer(fromUserId, existing);
+      } else if (await _isSameRemotePeer(existing, description)) {
+        // Renegotiation or ICE restart on the connection we already share.
+        debugPrint("[WebRTC] Renegotiating with $fromUserId.");
+        await _answerOffer(existing, description, fromUserId, token);
         return;
       } else {
-        print(
-          "[WebRTC] GLARE: GUEST (polite). Closing stale PC for $fromUserId.",
+        // The peer came back with a new connection (rejoin, reload); ours
+        // talks to one that no longer exists.
+        debugPrint(
+          "[WebRTC] $fromUserId started a new connection. Replacing ours.",
         );
-        _peerConnections.remove(fromUserId);
-        _connectingPeers.remove(fromUserId); // Fix: allow new connection
-        await stalePc.close();
-        await stalePc.dispose();
-        if (_isDisposed || _sessionToken != token) return;
-        _remoteDescriptionSet.remove(fromUserId);
-        _remoteCandidateQueues.remove(fromUserId);
+        await _closePeer(fromUserId, existing);
       }
+      if (_isDisposed || _sessionToken != token) return;
     }
 
     final pc = await createPeerConnection(fromUserId);
@@ -510,49 +881,64 @@ class WebRTCService implements ICallService {
       await pc.dispose();
       return;
     }
+    await _answerOffer(pc, description, fromUserId, token);
+  }
 
-    await pc.setRemoteDescription(description);
-    if (_isDisposed ||
+  Future<void> _answerOffer(
+    RTCPeerConnection pc,
+    RTCSessionDescription description,
+    String fromUserId,
+    int token,
+  ) async {
+    bool isStale() =>
+        _isDisposed ||
         _sessionToken != token ||
-        _peerConnections[fromUserId] != pc) {
-      return;
-    }
+        _peerConnections[fromUserId] != pc;
+
+    await pc.setRemoteDescription(description).timeout(_sdpTimeout);
+    if (isStale()) return;
     _remoteDescriptionSet.add(fromUserId);
-    print("[WebRTC] Remote description set for offer from $fromUserId.");
+    debugPrint("[WebRTC] Remote description set for offer from $fromUserId.");
 
     await _processQueuedCandidates(fromUserId);
-    if (_isDisposed ||
-        _sessionToken != token ||
-        _peerConnections[fromUserId] != pc) {
-      return;
-    }
+    if (isStale()) return;
 
     await _signalingService?.clearOutgoingToUser(fromUserId);
-    if (_isDisposed ||
-        _sessionToken != token ||
-        _peerConnections[fromUserId] != pc) {
-      return;
-    }
+    if (isStale()) return;
 
-    final answer = await pc.createAnswer({
-      'offerToReceiveAudio': true,
-      'offerToReceiveVideo': true,
-    });
-    if (_isDisposed ||
-        _sessionToken != token ||
-        _peerConnections[fromUserId] != pc) {
-      return;
-    }
-    await pc.setLocalDescription(answer);
-    if (_isDisposed ||
-        _sessionToken != token ||
-        _peerConnections[fromUserId] != pc) {
-      return;
-    }
+    final answer = await pc
+        .createAnswer({
+          'offerToReceiveAudio': true,
+          'offerToReceiveVideo': true,
+        })
+        .timeout(_sdpTimeout);
+    if (isStale()) return;
+    await pc.setLocalDescription(answer).timeout(_sdpTimeout);
+    if (isStale()) return;
 
     await sendAnswer(fromUserId, answer);
-    print("[WebRTC] Answer sent to $fromUserId.");
+    debugPrint("[WebRTC] Answer sent to $fromUserId.");
   }
+
+  /// Whether [offer] comes from the same remote connection as [pc]'s
+  /// current remote description; a new connection has a new DTLS
+  /// certificate and so a new fingerprint.
+  Future<bool> _isSameRemotePeer(
+    RTCPeerConnection pc,
+    RTCSessionDescription offer,
+  ) async {
+    final current = _fingerprint((await pc.getRemoteDescription())?.sdp);
+    return current != null && current == _fingerprint(offer.sdp);
+  }
+
+  static final RegExp _fingerprintPattern = RegExp(
+    r'^a=fingerprint:(.+)$',
+    multiLine: true,
+  );
+
+  static String? _fingerprint(String? sdp) => sdp == null
+      ? null
+      : _fingerprintPattern.firstMatch(sdp)?.group(1)?.trim();
 
   Future<void> _handleRemoteAnswer(
     RTCSessionDescription description,
@@ -560,7 +946,7 @@ class WebRTCService implements ICallService {
   ) async {
     if (_isDisposed) return;
     final token = _sessionToken;
-    print("[WebRTC] Received answer from $fromUserId.");
+    debugPrint("[WebRTC] Received answer from $fromUserId.");
     final pc = _peerConnections[fromUserId];
     if (pc == null) return;
 
@@ -572,20 +958,20 @@ class WebRTCService implements ICallService {
     }
 
     if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
-      print(
+      debugPrint(
         "[WebRTC] Ignoring stale answer from $fromUserId. State: $signalingState.",
       );
       return;
     }
 
-    await pc.setRemoteDescription(description);
+    await pc.setRemoteDescription(description).timeout(_sdpTimeout);
     if (_isDisposed ||
         _sessionToken != token ||
         _peerConnections[fromUserId] != pc) {
       return;
     }
     _remoteDescriptionSet.add(fromUserId);
-    print("[WebRTC] Remote description set for answer from $fromUserId.");
+    debugPrint("[WebRTC] Remote description set for answer from $fromUserId.");
 
     await _processQueuedCandidates(fromUserId);
   }
@@ -600,10 +986,10 @@ class WebRTCService implements ICallService {
     if (pc == null) return;
 
     if (_remoteDescriptionSet.contains(fromUserId)) {
-      print("[WebRTC] Adding ICE candidate from $fromUserId.");
+      debugPrint("[WebRTC] Adding ICE candidate from $fromUserId.");
       await pc.addCandidate(candidate);
     } else {
-      print(
+      debugPrint(
         "[WebRTC] Queuing ICE candidate from $fromUserId (no remote desc yet).",
       );
       _remoteCandidateQueues.putIfAbsent(fromUserId, () => []).add(candidate);
@@ -616,7 +1002,9 @@ class WebRTCService implements ICallService {
     final queue = _remoteCandidateQueues.remove(userId);
     if (pc == null || queue == null) return;
 
-    print("[WebRTC] Processing ${queue.length} queued candidates for $userId.");
+    debugPrint(
+      "[WebRTC] Processing ${queue.length} queued candidates for $userId.",
+    );
     for (final candidate in queue) {
       if (_isDisposed ||
           _sessionToken != token ||
@@ -628,7 +1016,7 @@ class WebRTCService implements ICallService {
   }
 
   Future<void> _handleRemoteBye(String fromUserId) async {
-    print("[WebRTC] Received bye from $fromUserId.");
+    debugPrint("[WebRTC] Received bye from $fromUserId.");
 
     // FIX: Mark as pending-bye so CallBloc's delayed connect() won't fire
     // while the room-update confirming the user left is still in transit.
@@ -639,17 +1027,9 @@ class WebRTCService implements ICallService {
     });
 
     final pc = _peerConnections[fromUserId];
-    if (pc != null) {
-      if (_peerConnections[fromUserId] == pc) {
-        _peerConnections.remove(fromUserId);
-      }
-      await pc.close();
-      await pc.dispose();
-    }
-    _remoteDescriptionSet.remove(fromUserId);
-    _remoteCandidateQueues.remove(fromUserId);
-    _lastRemoteStreamId.remove(fromUserId);
+    if (pc != null) await _closePeer(fromUserId, pc);
     onRemoteStreamRemoved?.call(fromUserId);
+    onRemoteBye?.call(fromUserId);
     await _signalingService?.clearIncomingFromUser(fromUserId);
   }
 
@@ -683,23 +1063,14 @@ class WebRTCService implements ICallService {
 
   @override
   Future<void> forgetUser(String userId) async {
-    print("[WebRTC] Forgetting user $userId.");
+    debugPrint("[WebRTC] Forgetting user $userId.");
 
     // FIX: Clear pending-bye flag immediately — room-update confirmed the
     // user left, no longer need the reconnect-suppression window.
     _pendingByeUsers.remove(userId);
 
     final pcToForget = _peerConnections[userId];
-    if (pcToForget != null) {
-      if (_peerConnections[userId] == pcToForget) {
-        _peerConnections.remove(userId);
-      }
-      await pcToForget.close();
-      await pcToForget.dispose();
-    }
-    _remoteDescriptionSet.remove(userId);
-    _remoteCandidateQueues.remove(userId);
-    _lastRemoteStreamId.remove(userId);
+    if (pcToForget != null) await _closePeer(userId, pcToForget);
     _connectingPeers.remove(userId);
     await _signalingService?.clearIncomingFromUser(userId);
     onRemoteStreamRemoved?.call(userId);
@@ -722,7 +1093,7 @@ class WebRTCService implements ICallService {
   /// stays correct even after a host transfer or host rejoin.
   void updateHostStatus(bool isHost) {
     if (_isHost != isHost) {
-      print("[WebRTC] Host status updated: isHost=$isHost");
+      debugPrint("[WebRTC] Host status updated: isHost=$isHost");
       _isHost = isHost;
     }
   }
@@ -737,8 +1108,7 @@ class WebRTCService implements ICallService {
     try {
       final stats = await pc.getStats();
       for (final report in stats) {
-        if (report.type == 'inbound-rtp' &&
-            report.values['mediaType'] == 'audio') {
+        if (report.type == 'inbound-rtp' && _isAudio(report.values)) {
           final level = report.values['audioLevel'];
           if (level != null) return (level is num) ? level.toDouble() : 0.0;
 
@@ -775,7 +1145,7 @@ class WebRTCService implements ICallService {
         // to the PeerConnection, causing local audio to trigger remote-active-speaker.
       }
     } catch (e) {
-      print("[WebRTC] Error getting remote stats: $e");
+      debugPrint("[WebRTC] Error getting remote stats: $e");
     }
     return 0.0;
   }
@@ -793,10 +1163,19 @@ class WebRTCService implements ICallService {
       try {
         final pc = _peerConnections.values.first;
         final stats = await pc.getStats();
+        // Current Chrome and libwebrtc report the microphone's level on
+        // its media-source; outbound-rtp only carried it in older versions.
         for (final report in stats) {
-          if (report.type == 'outbound-rtp' &&
-              (report.values['mediaType'] == 'audio' ||
-                  report.values['kind'] == 'audio')) {
+          if (report.type == 'media-source' && _isAudio(report.values)) {
+            final level = report.values['audioLevel'];
+            if (level is num) {
+              _localAudioLevel = level.toDouble().clamp(0.0, 1.0);
+              return;
+            }
+          }
+        }
+        for (final report in stats) {
+          if (report.type == 'outbound-rtp' && _isAudio(report.values)) {
             final e = (report.values['totalAudioEnergy'] as num?)?.toDouble();
             final d = (report.values['totalSamplesDuration'] as num?)
                 ?.toDouble();
@@ -824,4 +1203,9 @@ class WebRTCService implements ICallService {
 
   @override
   Future<double> getLocalAudioLevel() async => _localAudioLevel;
+
+  /// `kind` in current stats; `mediaType` was dropped from Chrome and
+  /// libwebrtc, which left speaking levels stuck at zero.
+  static bool _isAudio(Map<dynamic, dynamic> values) =>
+      values['kind'] == 'audio' || values['mediaType'] == 'audio';
 }

@@ -40,8 +40,8 @@ class DriveFileListItem extends StatelessWidget {
                 height: context.dynamicValue(50),
                 decoration: BoxDecoration(
                   color: isLocal
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.deepPurple.withOpacity(0.1),
+                      ? Colors.green.withValues(alpha: 0.1)
+                      : Colors.deepPurple.withValues(alpha: 0.1),
                   borderRadius: ProjectRadius.small(),
                 ),
                 child: Icon(

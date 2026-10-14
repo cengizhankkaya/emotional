@@ -2,6 +2,9 @@ import 'package:emotional/features/chat/data/message_model.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class ChatRepository {
+  /// How many of the latest messages a room keeps on screen.
+  static const int historyLimit = 200;
+
   final FirebaseDatabase _database;
 
   ChatRepository({FirebaseDatabase? database})
@@ -26,15 +29,21 @@ class ChatRepository {
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
 
-    await newMessageRef.set(message.toJson());
+    // Server time, so devices with skewed clocks still agree on the order.
+    await newMessageRef.set({
+      ...message.toJson(),
+      'timestamp': ServerValue.timestamp,
+    });
   }
 
   Stream<List<ChatMessage>> streamMessages(String roomId) {
     final messagesRef = _database.ref('rooms/$roomId/messages');
 
-    // Order by timestamp implies we rely on push ID generating chronological order or we should use orderByChild
-    // Firebase push keys are chronologically ordered.
-    return messagesRef.orderByChild('timestamp').onValue.map((event) {
+    // Push keys are chronological, so ordering by key needs no index and
+    // lets the server send only the latest messages.
+    return messagesRef.orderByKey().limitToLast(historyLimit).onValue.map((
+      event,
+    ) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       if (data == null) return [];
 
@@ -45,8 +54,11 @@ class ChatRepository {
         }
       });
 
-      // Sort again locally just in case map iteration is unordered
-      messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      // Map iteration order isn't guaranteed; the key breaks timestamp ties.
+      messages.sort((a, b) {
+        final byTime = a.timestamp.compareTo(b.timestamp);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
       return messages;
     });
   }

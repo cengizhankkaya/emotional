@@ -32,6 +32,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>emoti</string>
+				<string>emotional</string>
 			</array>
 		</dict>
 		<dict>

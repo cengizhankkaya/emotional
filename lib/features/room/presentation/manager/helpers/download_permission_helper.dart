@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:emotional/core/services/permission_service.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
@@ -9,7 +11,7 @@ class DownloadPermissionHelper {
     : _permissionService = permissionService ?? PermissionService();
 
   Future<void> requestInitialPermissions() async {
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       await _permissionService.requestNotificationPermission();
 
       // Storage permissions
@@ -29,7 +31,7 @@ class DownloadPermissionHelper {
 
   Future<bool> _isAndroid13OrHigher() async {
     // SDK 33 is Android 13
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       // Simple check using device info or just trusting permission_handler's adaptation
       // permission_handler handles SDK checks internally usually, but 'videos' only exists on 13+
       // To be safe and explicit:
@@ -40,7 +42,7 @@ class DownloadPermissionHelper {
   }
 
   Future<bool> requestNotificationPermission() async {
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       return await _permissionService.requestNotificationPermission();
     }
     return true;

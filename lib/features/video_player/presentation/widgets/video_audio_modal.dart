@@ -148,70 +148,74 @@ class _VideoAudioModalState extends State<VideoAudioModal> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: filteredTracks.length,
-                    itemBuilder: (context, index) {
-                      final track = filteredTracks[index];
-                      final isSelected = track.id == currentTrackId;
-                      final displayName = _getTrackDisplayName(track);
+                : RadioGroup<String>(
+                    groupValue: currentTrackId,
+                    onChanged: (id) => _selectTrack(
+                      filteredTracks.firstWhere((track) => track.id == id),
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: filteredTracks.length,
+                      itemBuilder: (context, index) {
+                        final track = filteredTracks[index];
+                        final isSelected = track.id == currentTrackId;
+                        final displayName = _getTrackDisplayName(track);
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Colors.blue.withOpacity(0.15)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
                             color: isSelected
-                                ? Colors.blue
+                                ? Colors.blue.withValues(alpha: 0.15)
                                 : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: ListTile(
-                          leading: Radio<String>(
-                            value: track.id,
-                            groupValue: currentTrackId,
-                            activeColor: Colors.blue,
-                            onChanged: (_) => _selectTrack(track),
-                          ),
-                          title: Text(
-                            displayName,
-                            style: TextStyle(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
                               color: isSelected
-                                  ? Colors.blue[300]
-                                  : Colors.white,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              fontSize: 16,
+                                  ? Colors.blue
+                                  : Colors.transparent,
+                              width: 2,
                             ),
                           ),
-                          subtitle: track.id != displayName
-                              ? Text(
-                                  track.id,
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 12,
-                                  ),
-                                )
-                              : null,
-                          trailing: isSelected
-                              ? Icon(
-                                  Icons.check_circle,
-                                  color: Colors.blue[300],
-                                )
-                              : null,
-                          onTap: () => _selectTrack(track),
-                        ),
-                      );
-                    },
+                          child: ListTile(
+                            leading: Radio<String>(
+                              value: track.id,
+                              activeColor: Colors.blue,
+                            ),
+                            title: Text(
+                              displayName,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.blue[300]
+                                    : Colors.white,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: track.id != displayName
+                                ? Text(
+                                    track.id,
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  )
+                                : null,
+                            trailing: isSelected
+                                ? Icon(
+                                    Icons.check_circle,
+                                    color: Colors.blue[300],
+                                  )
+                                : null,
+                            onTap: () => _selectTrack(track),
+                          ),
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -239,7 +243,7 @@ class _VideoAudioModalState extends State<VideoAudioModal> {
     // Close and reopen settings modal
     Navigator.pop(context);
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (context.mounted) {
+      if (mounted) {
         VideoSettingsModal.show(context, widget.player);
       }
     });

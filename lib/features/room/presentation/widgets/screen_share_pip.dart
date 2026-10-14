@@ -1,6 +1,7 @@
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/room/presentation/widgets/screen_share_video_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -82,7 +83,7 @@ class _ScreenSharePiPState extends State<ScreenSharePiP> {
           border: Border.all(color: Colors.white24, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 1,
             ),
@@ -93,11 +94,7 @@ class _ScreenSharePiPState extends State<ScreenSharePiP> {
             // Video Preview
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: RTCVideoView(
-                renderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-                mirror: false, // Screen share should NOT be mirrored
-              ),
+              child: ScreenShareVideoView(renderer),
             ),
 
             // "You are sharing" Label

@@ -188,7 +188,10 @@ Because this project is open-source, API keys are completely stripped from the r
 You need to connect the app to your own Firebase project for Auth and WebRTC signaling to function.
 1. Create a project on the [Firebase Console](https://console.firebase.google.com/).
 2. Enable **Google Sign-In** in the Authentication tab.
-3. Create a **Realtime Database** (Start in Test Mode or configure proper rules).
+3. Create a **Realtime Database** and deploy the rules in this repository (don't use Test Mode: it lets anyone read and write everything):
+   ```bash
+   firebase deploy --only database
+   ```
 4. Use the [FlutterFire CLI](https://firebase.google.com/docs/flutter/setup) to automatically configure your active project:
    ```bash
    dart pub global activate flutterfire_cli
@@ -199,6 +202,34 @@ You need to connect the app to your own Firebase project for Auth and WebRTC sig
 ```bash
 flutter run
 ```
+
+### 6️⃣ Remote Config Keys
+All optional; the app runs without them.
+
+| Key | Value | Effect |
+|---|---|---|
+| `version` | Oldest allowed version, e.g. `1.2.0` | Older apps must update: phones go to the store, web reloads the page. |
+| `webrtcIceServers` | JSON list of ICE servers, e.g. `[{"urls": ["turn:turn.example.com:3478"], "username": "u", "credential": "p"}]` | Adds TURN relays. Without them, calls fail behind strict NATs (corporate, campus, some mobile networks). |
+| `iosStoreUrl` | App Store link, e.g. `https://apps.apple.com/app/id1234567890` | Where the update button goes on iOS. |
+
+### 7️⃣ Web
+```bash
+flutter build web
+firebase deploy --only hosting:web
+```
+Open tabs notice a new deploy within 10 minutes (or when the tab comes back into view) and offer to reload.
+
+### 🧪 Tests
+```bash
+flutter test                                    # unit and widget tests
+CHROME_EXECUTABLE=tool/chrome_with_fake_media.sh \
+  flutter test --platform chrome                # all of it in Chrome: WebRTC, camera, microphone
+node tool/drive_stream_sw_test.mjs              # Drive streaming service worker
+node tool/landing_join_test.mjs                 # landing page invite links
+firebase emulators:exec --only database --project demo-test \
+  "python3 tool/database_rules_test.py"         # Realtime Database rules
+```
+`tool/chrome_with_fake_media.sh` starts Chrome with a fake camera and microphone and lets audio play without a click; set `REAL_CHROME` if Chrome isn't in `/Applications`. Without it, the tests that need devices or sound are skipped and say why.
 
 ---
 

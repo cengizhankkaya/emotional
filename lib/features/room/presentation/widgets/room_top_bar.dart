@@ -8,7 +8,7 @@ import 'package:emotional/features/room/presentation/manager/room_decoration_cub
 import 'package:emotional/features/room/presentation/widgets/armchair_selector_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:emotional/features/room/presentation/invite/room_invite.dart';
 
 import 'package:emotional/product/widget/network_status_header.dart';
 
@@ -17,11 +17,15 @@ class RoomTopBar extends StatelessWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
   final VoidCallback? onLeave;
 
+  /// Overrides the chat drawer, e.g. to focus the web side panel's chat tab.
+  final VoidCallback? onChatPressed;
+
   const RoomTopBar({
     super.key,
     required this.roomId,
     required this.scaffoldKey,
     this.onLeave,
+    this.onChatPressed,
   });
 
   @override
@@ -100,10 +104,7 @@ class RoomTopBar extends StatelessWidget {
     return _buildGlassButton(
       context: context,
       onPressed: () {
-        Share.share(
-          LocaleKeys.room_inviteMessage.tr(args: [roomId, roomId]),
-          subject: LocaleKeys.room_inviteTitle.tr(),
-        );
+        RoomInvite.share(context, roomId);
       },
       icon: Icons.share,
       tooltip: LocaleKeys.room_tooltips_invite.tr(),
@@ -176,9 +177,8 @@ class RoomTopBar extends StatelessWidget {
   Widget _buildChatButton(BuildContext context) {
     return _buildGlassButton(
       context: context,
-      onPressed: () {
-        scaffoldKey.currentState?.openEndDrawer();
-      },
+      onPressed:
+          onChatPressed ?? () => scaffoldKey.currentState?.openEndDrawer(),
       icon: Icons.chat_bubble_outline,
       tooltip: LocaleKeys.room_tooltips_chat.tr(),
     );

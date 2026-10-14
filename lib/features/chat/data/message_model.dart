@@ -32,7 +32,8 @@ class ChatMessage {
       senderId: map['senderId'] as String? ?? '',
       senderName: map['senderName'] as String? ?? 'Unknown',
       text: map['text'] as String? ?? '',
-      timestamp: map['timestamp'] as int? ?? 0,
+      // Web delivers numbers as num; a pending server timestamp may be absent.
+      timestamp: (map['timestamp'] as num?)?.toInt() ?? 0,
     );
   }
 }

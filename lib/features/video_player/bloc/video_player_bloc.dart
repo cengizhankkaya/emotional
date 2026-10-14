@@ -130,6 +130,8 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         );
         return;
       }
+    } else if (event.streamUrl != null) {
+      openPath = event.streamUrl;
     } else if (event.file != null) {
       openPath = event.file!.path;
     }
@@ -146,6 +148,7 @@ class VideoPlayerBloc extends Bloc<VideoPlayerEvent, VideoPlayerState> {
         controller: controller,
         videoFile: event.file,
         youtubeUrl: event.url,
+        streamUrl: event.streamUrl,
         isMinimized: false,
         isBuffering: _videoService.isBuffering,
         isInitializing: false,

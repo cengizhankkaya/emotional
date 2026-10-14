@@ -20,7 +20,7 @@ class DownloadService {
   Completer<void>? _initCompleter;
 
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (kIsWeb || _isInitialized) return;
 
     if (_initCompleter != null) {
       await _initCompleter!.future;
@@ -80,7 +80,7 @@ class DownloadService {
 
   /// Requests necessary permissions for a "professional" background download experience.
   Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       final permissionService = PermissionService();
 
       // 1. Notifications

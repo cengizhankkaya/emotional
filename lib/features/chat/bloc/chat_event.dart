@@ -41,3 +41,13 @@ class MessagesUpdated extends ChatEvent {
   @override
   List<Object> get props => [messages];
 }
+
+class _MessagesFailed extends ChatEvent {
+  final String message;
+  final bool silent;
+
+  const _MessagesFailed(this.message, {this.silent = false});
+
+  @override
+  List<Object> get props => [message, silent];
+}

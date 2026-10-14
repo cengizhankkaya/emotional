@@ -13,7 +13,7 @@ import 'package:emotional/features/room/presentation/manager/helpers/download_pe
 import 'package:emotional/features/room/presentation/manager/helpers/download_recovery_helper.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_task_helper.dart';
 import 'package:emotional/core/services/download/download_model.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class DownloadManager extends ChangeNotifier {
   static final DownloadManager _instance = DownloadManager._internal();
@@ -73,6 +73,8 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    // Web has no file system or background downloader; videos are streamed.
+    if (kIsWeb) return;
     if (_isInitialized) {
       await refreshTasks();
       return;
@@ -311,6 +313,7 @@ class DownloadManager extends ChangeNotifier {
     DriveService driveService, {
     bool force = false,
   }) async {
+    if (kIsWeb) return;
     if (_hasPreScanned && !force && _downloadedVideos.isNotEmpty) {
       debugPrint('DownloadManager: Skipping scan, already pre-scanned.');
       return;
@@ -329,6 +332,7 @@ class DownloadManager extends ChangeNotifier {
     String fileName, {
     bool forceRecheck = false,
   }) async {
+    if (kIsWeb) return;
     // If switching to a different file, clear the old cache
     if (_localVideoFile != null &&
         _localVideoFile!.path.split('/').last != fileName) {
@@ -404,7 +408,7 @@ class DownloadManager extends ChangeNotifier {
       await deleteDownloadedVideo(fileName);
 
       bool showNotification = true;
-      if (Platform.isAndroid && requestNotificationPermission) {
+      if ((!kIsWeb && Platform.isAndroid) && requestNotificationPermission) {
         final isGranted = await _permissionHelper
             .requestNotificationPermission();
         if (!isGranted) {

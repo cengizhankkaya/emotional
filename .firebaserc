@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "emotional-app-b42af"
-  }
+  },
+  "targets": {
+    "emotional-app-b42af": {
+      "hosting": {
+        "landing": [
+          "emotional-app-b42af"
+        ],
+        "web": [
+          "emoti-izle"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

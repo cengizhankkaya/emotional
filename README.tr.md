@@ -188,7 +188,10 @@ Bu proje açık kaynaklı olduğu için API anahtarları güvenlik gayesiyle pro
 Auth (Kimlik Doğrulama) ve WebRTC sinyalleşmesinin çalışabilmesi için uygulamayı kendi uyguladığınız Firebase projenize bağlamanız gerekir.
 1. [Firebase Konsolu](https://console.firebase.google.com/) üzerinden bir proje oluşturun.
 2. Kimlik Doğrulama (Authentication) sekmesinde **Google Sign-In**'i aktif (Enable) hale getirin.
-3. Bir **Gerçek Zamanlı Veritabanı (Realtime Database)** oluşturun (Başlamak için Test Modunda başlatın ya da test edilecek uygun kuralları ayarlayın).
+3. Bir **Gerçek Zamanlı Veritabanı (Realtime Database)** oluşturun ve bu repodaki kuralları yükleyin (Test Modu'nu kullanmayın: herkesin her şeyi okuyup yazmasına izin verir):
+   ```bash
+   firebase deploy --only database
+   ```
 4. Aktif projenizi otomatik olarak konfigüre etmek için [FlutterFire CLI](https://firebase.google.com/docs/flutter/setup) kullanın:
    ```bash
    dart pub global activate flutterfire_cli
@@ -199,6 +202,34 @@ Auth (Kimlik Doğrulama) ve WebRTC sinyalleşmesinin çalışabilmesi için uygu
 ```bash
 flutter run
 ```
+
+### 6️⃣ Remote Config Anahtarları
+Hepsi isteğe bağlıdır; uygulama bunlar olmadan da çalışır.
+
+| Anahtar | Değer | Etkisi |
+|---|---|---|
+| `version` | İzin verilen en eski sürüm, örn. `1.2.0` | Daha eski uygulamalar güncellemek zorunda kalır: telefonlar mağazaya yönlenir, web sayfayı yeniler. |
+| `webrtcIceServers` | ICE sunucularının JSON listesi, örn. `[{"urls": ["turn:turn.example.com:3478"], "username": "u", "credential": "p"}]` | TURN sunucusu ekler. Bunlar olmadan katı NAT arkasındaki (kurumsal, kampüs, bazı mobil ağlar) görüşmeler kurulamaz. |
+| `iosStoreUrl` | App Store bağlantısı, örn. `https://apps.apple.com/app/id1234567890` | iOS'ta güncelle butonunun açacağı sayfa. |
+
+### 7️⃣ Web
+```bash
+flutter build web
+firebase deploy --only hosting:web
+```
+Açık sekmeler yeni yayını 10 dakika içinde (ya da sekmeye geri dönüldüğünde) fark eder ve yenilemeyi önerir.
+
+### 🧪 Testler
+```bash
+flutter test                                    # birim ve widget testleri
+CHROME_EXECUTABLE=tool/chrome_with_fake_media.sh \
+  flutter test --platform chrome                # hepsi Chrome'da: WebRTC, kamera, mikrofon
+node tool/drive_stream_sw_test.mjs              # Drive yayın service worker'ı
+node tool/landing_join_test.mjs                 # tanıtım sayfasındaki davet bağlantıları
+firebase emulators:exec --only database --project demo-test \
+  "python3 tool/database_rules_test.py"         # Realtime Database kuralları
+```
+`tool/chrome_with_fake_media.sh`, Chrome'u sahte bir kamera ve mikrofonla, tıklamadan ses çalabilecek şekilde açar; Chrome `/Applications` altında değilse `REAL_CHROME` değişkenini ayarlayın. Bu betik olmadan, cihaz veya ses gerektiren testler nedenini yazarak atlanır.
 
 ---
 

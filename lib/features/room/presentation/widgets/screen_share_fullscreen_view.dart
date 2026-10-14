@@ -6,6 +6,7 @@ import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:emotional/features/room/presentation/widgets/screen_share_video_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -59,7 +60,7 @@ class _ScreenShareFullscreenViewState extends State<ScreenShareFullscreenView> {
                 opacity: 0.6,
                 child: ImageFiltered(
                   imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: RTCVideoView(
+                  child: ScreenShareVideoView(
                     renderer,
                     objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                   ),
@@ -68,12 +69,7 @@ class _ScreenShareFullscreenViewState extends State<ScreenShareFullscreenView> {
             ),
 
             // 2. Main Content layer
-            Center(
-              child: RTCVideoView(
-                renderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-              ),
-            ),
+            Center(child: ScreenShareVideoView(renderer)),
 
             // 3. Floating Glass Control Bar
             AnimatedPositioned(
@@ -153,7 +149,7 @@ class _FloatingControlBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black45.withOpacity(0.6),
+            color: Colors.black45.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(30),
             border: Border.all(color: Colors.white10),
           ),
@@ -209,10 +205,10 @@ class _FloatingControlBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 _ControlButton(
-                  icon: callState.isVideoEnabled
+                  icon: callState.isCameraOn
                       ? Icons.videocam
                       : Icons.videocam_off,
-                  color: callState.isVideoEnabled
+                  color: callState.isCameraOn
                       ? Colors.blueAccent
                       : Colors.redAccent,
                   onPressed: () => context.read<CallBloc>().add(ToggleVideo()),
@@ -257,7 +253,7 @@ class _FloatingControlBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white10),
         ),
@@ -286,7 +282,7 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? Colors.white.withOpacity(0.15);
+    final effectiveColor = color ?? Colors.white.withValues(alpha: 0.15);
     final isTransparent = color == Colors.transparent;
 
     return label != null
@@ -296,12 +292,14 @@ class _ControlButton extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: effectiveColor.withOpacity(0.15),
+                color: effectiveColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: effectiveColor.withOpacity(0.3)),
+                border: Border.all(
+                  color: effectiveColor.withValues(alpha: 0.3),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: effectiveColor.withOpacity(0.05),
+                    color: effectiveColor.withValues(alpha: 0.05),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -310,7 +308,11 @@ class _ControlButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: effectiveColor.withOpacity(0.9), size: 18),
+                  Icon(
+                    icon,
+                    color: effectiveColor.withValues(alpha: 0.9),
+                    size: 18,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     label!,
@@ -320,7 +322,7 @@ class _ControlButton extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       shadows: [
                         Shadow(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
@@ -335,12 +337,12 @@ class _ControlButton extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: !isTransparent
-                  ? Border.all(color: effectiveColor.withOpacity(0.3))
+                  ? Border.all(color: effectiveColor.withValues(alpha: 0.3))
                   : null,
               boxShadow: !isTransparent
                   ? [
                       BoxShadow(
-                        color: effectiveColor.withOpacity(0.1),
+                        color: effectiveColor.withValues(alpha: 0.1),
                         blurRadius: 4,
                         spreadRadius: 1,
                       ),
@@ -351,12 +353,12 @@ class _ControlButton extends StatelessWidget {
               onPressed: onPressed,
               icon: Icon(
                 icon,
-                color: effectiveColor.withOpacity(0.9),
+                color: effectiveColor.withValues(alpha: 0.9),
                 size: 20,
               ),
               style: IconButton.styleFrom(
                 backgroundColor: !isTransparent
-                    ? effectiveColor.withOpacity(0.15)
+                    ? effectiveColor.withValues(alpha: 0.15)
                     : Colors.transparent,
                 padding: const EdgeInsets.all(8),
                 shape: RoundedRectangleBorder(

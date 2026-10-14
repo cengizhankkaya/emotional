@@ -5,6 +5,7 @@ import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/constants/project_radius.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -89,15 +90,22 @@ class _PlayDownloadButton extends StatelessWidget {
     final youtubeService = YouTubeService();
     final isLocalFile = fileId.startsWith('local://');
     final isYouTube = youtubeService.isValidYouTubeUrl(fileId);
-    final isMissingLocalFile = isLocalFile && !state.isVideoDownloaded;
-    final isReadyToPlay = state.isVideoDownloaded || isYouTube;
+    // Browsers can't reach YouTube streams (CORS) or a phone's local files.
+    final isWebUnplayable = kIsWeb && (isYouTube || isLocalFile);
+    final isMissingLocalFile =
+        isLocalFile && !state.isVideoDownloaded && !isWebUnplayable;
+    // Web streams Drive files directly instead of downloading them.
+    final canStream = kIsWeb && !isLocalFile && !isYouTube;
+    final isReadyToPlay =
+        !isWebUnplayable && (state.isVideoDownloaded || isYouTube || canStream);
 
     return ElevatedButton.icon(
-      onPressed: (isDownloading || isMissingLocalFile) && !isYouTube
+      onPressed:
+          isWebUnplayable || (isDownloading || isMissingLocalFile) && !isYouTube
           ? null
           : () {
               if (isReadyToPlay) {
-                if (isYouTube || state.localVideoFile != null) {
+                if (isYouTube || canStream || state.localVideoFile != null) {
                   onPlay();
                 } else {
                   debugPrint(
@@ -129,7 +137,7 @@ class _PlayDownloadButton extends StatelessWidget {
           : Icon(
               isReadyToPlay
                   ? Icons.play_arrow
-                  : isMissingLocalFile
+                  : isMissingLocalFile || isWebUnplayable
                   ? Icons.error_outline
                   : Icons.download,
             ),
@@ -140,6 +148,8 @@ class _PlayDownloadButton extends StatelessWidget {
             ? LocaleKeys.video_downloading.tr(
                 args: ['${(state.downloadProgress! * 100).toInt()}'],
               )
+            : isWebUnplayable
+            ? LocaleKeys.video_webUnplayable.tr()
             : isMissingLocalFile
             ? LocaleKeys.video_localFileMissing.tr()
             : LocaleKeys.button_download.tr(),

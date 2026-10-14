@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:bloc/bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/core/services/content_filter_service.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
@@ -15,12 +15,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _chatRepository;
   StreamSubscription? _messagesSubscription;
 
+  /// Room the subscription is for; repeat loads for it are ignored so the
+  /// list doesn't flash back to a spinner on every room update.
+  String? _roomId;
+  int _sendErrorCount = 0;
+
   ChatBloc({required ChatRepository chatRepository})
     : _chatRepository = chatRepository,
       super(ChatInitial()) {
     on<LoadMessages>(_onLoadMessages);
     on<SendMessage>(_onSendMessage);
     on<MessagesUpdated>(_onMessagesUpdated);
+    on<_MessagesFailed>(_onMessagesFailed);
   }
 
   @override
@@ -33,21 +39,53 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     LoadMessages event,
     Emitter<ChatState> emit,
   ) async {
+    final alreadyListening =
+        event.roomId == _roomId &&
+        _messagesSubscription != null &&
+        state is! ChatError;
+    if (alreadyListening) return;
+
+    _roomId = event.roomId;
     emit(ChatLoading());
-    _messagesSubscription?.cancel();
+    await _messagesSubscription?.cancel();
     _messagesSubscription = _chatRepository
         .streamMessages(event.roomId)
         .listen(
           (messages) => add(MessagesUpdated(messages)),
-          onError: (error) {
-            // Ignore permission denied errors that happen during logout
-            if (error.toString().contains('permission-denied') ||
-                error.toString().contains('Client is offline')) {
-              return;
-            }
-            emit(ChatError(error.toString()));
+          onError: (Object error) {
+            final message = error.toString();
+            // Permission denied happens during logout; don't show it, but
+            // drop the dead listener so the next join subscribes again.
+            final silent =
+                message.contains('permission-denied') ||
+                message.contains('Client is offline');
+            add(_MessagesFailed(message, silent: silent));
           },
         );
+  }
+
+  void _onMessagesFailed(_MessagesFailed event, Emitter<ChatState> emit) {
+    // Next LoadMessages for the same room should subscribe again.
+    _messagesSubscription?.cancel();
+    _messagesSubscription = null;
+    _roomId = null;
+    if (!event.silent) emit(ChatError(event.message));
+  }
+
+  /// Reports a failed send without hiding the conversation.
+  void _emitSendError(String message, Emitter<ChatState> emit) {
+    final current = state;
+    if (current is ChatLoaded) {
+      emit(
+        ChatLoaded(
+          current.messages,
+          sendError: message,
+          sendErrorId: ++_sendErrorCount,
+        ),
+      );
+    } else {
+      emit(ChatError(message));
+    }
   }
 
   Future<void> _onSendMessage(
@@ -60,9 +98,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
       // If the message is entirely profanity, block it
       if (filter.shouldBlockMessage(text)) {
-        emit(
-          ChatError(LocaleKeys.moderation_filter_blocked.tr()),
-        );
+        _emitSendError(LocaleKeys.moderation_filter_blocked.tr(), emit);
         return;
       }
 
@@ -76,8 +112,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         event.userName,
       );
     } catch (e) {
-      emit(
-        ChatError(LocaleKeys.chat_error_sendFailed.tr(args: [e.toString()])),
+      _emitSendError(
+        LocaleKeys.chat_error_sendFailed.tr(args: [e.toString()]),
+        emit,
       );
     }
   }

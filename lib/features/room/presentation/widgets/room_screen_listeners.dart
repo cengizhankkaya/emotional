@@ -1,5 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
+import 'package:emotional/core/services/permission_service.dart';
+import 'package:emotional/features/call/bloc/call_bloc.dart';
+import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:emotional/features/chat/bloc/chat_bloc.dart';
 import 'package:emotional/features/room/bloc/download_cubit.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
@@ -24,6 +27,38 @@ class RoomScreenListeners extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
+        BlocListener<CallBloc, CallState>(
+          listenWhen: (previous, current) =>
+              current is CallConnected &&
+              current.mediaIssue != null &&
+              (previous is! CallConnected ||
+                  previous.mediaIssueCount != current.mediaIssueCount),
+          listener: (context, state) {
+            final issue = (state as CallConnected).mediaIssue!;
+            final message = switch (issue) {
+              MediaIssue.cameraPermissionDenied =>
+                LocaleKeys.call_cameraPermissionDenied,
+              MediaIssue.cameraUnavailable => LocaleKeys.call_cameraUnavailable,
+              MediaIssue.cameraLost => LocaleKeys.call_cameraLost,
+              MediaIssue.microphoneSwitched =>
+                LocaleKeys.call_microphoneSwitched,
+              MediaIssue.microphoneLost => LocaleKeys.call_microphoneLost,
+            };
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message.tr()),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(16),
+                action: issue == MediaIssue.cameraPermissionDenied
+                    ? SnackBarAction(
+                        label: LocaleKeys.call_openSettings.tr(),
+                        onPressed: () => PermissionService().openAppSettings(),
+                      )
+                    : null,
+              ),
+            );
+          },
+        ),
         BlocListener<RoomBloc, RoomState>(
           listenWhen: (previous, current) {
             if (previous is RoomJoined && current is RoomJoined) {

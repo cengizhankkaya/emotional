@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:bloc/bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:emotional/core/services/drive_service.dart';
 import 'package:emotional/features/room/presentation/manager/download_manager.dart';
 import 'package:equatable/equatable.dart';

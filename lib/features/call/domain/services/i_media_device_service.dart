@@ -1,4 +1,5 @@
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
+import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 abstract class IMediaDeviceService {
@@ -38,6 +39,19 @@ abstract class IMediaDeviceService {
   Future<void> selectAudioOutput(MediaDeviceInfo device);
 
   /// Toggle video track enabled/disabled
+  /// A device stopped on its own (unplugged, headset disconnected).
+  void Function()? onMicrophoneLost;
+  void Function()? onCameraLost;
+
+  /// Switches to the default microphone; null if there is none.
+  Future<MediaStreamTrack?> restartMicrophone();
+
+  /// Opens the camera into the local stream; null if that isn't possible.
+  Future<MediaStreamTrack?> startCamera();
+
+  /// Releases the camera; the microphone keeps running.
+  Future<void> stopCamera();
+
   void toggleVideo(bool enabled);
 
   /// Toggle audio track enabled/disabled
@@ -52,8 +66,9 @@ abstract class IMediaDeviceService {
   /// Enable/Disable speakerphone (Mobile specific)
   Future<void> enableSpeakerphone(bool enabled);
 
-  /// Start screen sharing
-  Future<void> startScreenShare();
+  /// Start screen sharing. [options] tune the browser capture on web and are
+  /// ignored on mobile.
+  Future<void> startScreenShare({ScreenShareOptions? options});
 
   /// Stop screen sharing and revert to camera
   Future<void> stopScreenShare();

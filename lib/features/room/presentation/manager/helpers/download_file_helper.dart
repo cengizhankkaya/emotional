@@ -73,7 +73,7 @@ class DownloadFileHelper {
           '${extDir.path}/$fileName',
         ],
         '${appDir.parent.path}/app_flutter/$fileName',
-        if (Platform.isAndroid) ...[
+        if ((!kIsWeb && Platform.isAndroid)) ...[
           '/storage/emulated/0/Download/$safeName',
           '/storage/emulated/0/Download/$fileName',
         ],
@@ -88,7 +88,7 @@ class DownloadFileHelper {
       appDir.path,
       if (extDir != null) extDir.path,
       '${appDir.parent.path}/app_flutter',
-      if (Platform.isAndroid) ...[
+      if ((!kIsWeb && Platform.isAndroid)) ...[
         '/storage/emulated/0/Download',
         '/storage/emulated/0/Movies',
         '/storage/emulated/0/DCIM/Camera', // Common for camera videos
@@ -162,7 +162,7 @@ class DownloadFileHelper {
 
     final dirsToScan = <String>[];
     dirsToScan.add(appDir.path);
-    if (Platform.isAndroid) {
+    if ((!kIsWeb && Platform.isAndroid)) {
       dirsToScan.add('/storage/emulated/0/Download');
     }
     if (extDir != null) {

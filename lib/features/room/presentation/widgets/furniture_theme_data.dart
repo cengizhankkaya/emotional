@@ -126,26 +126,6 @@ class FurnitureThemeData {
     image: Assets.images.armchair.unnamed3,
   );
 
-  static final _cozyTheme = FurnitureThemeData(
-    baseColor: const Color(0xFFFFB74D), // Orange 300
-    backrestColor: const Color(0xFFF57C00), // Orange 700
-    armrestColor: const Color(0xFFEF6C00),
-    armrestGradient: [const Color(0xFFFFB74D), const Color(0xFFE65100)],
-    cushionColor: const Color(0xFFFFF3E0), // Orange 50
-    shadowColor: Colors.black12,
-    backrestRadius: const BorderRadius.only(
-      topLeft: Radius.circular(25),
-      topRight: Radius.circular(25),
-    ),
-    armrestRadius: const BorderRadius.all(Radius.circular(15)),
-    armrestWidth: 20.0,
-    armrestHeight: 40.0,
-    backrestHeight: 45.0,
-    hasLegs: false,
-    cushionShape: BoxShape.circle,
-    image: Assets.images.armchair.unnamed3,
-  );
-
   static final _vintageTheme = FurnitureThemeData(
     baseColor: const Color(0xFF5D4037), // Brown 700
     backrestColor: const Color(0xFF4E342E), // Brown 800

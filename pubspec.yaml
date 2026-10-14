@@ -2,7 +2,7 @@ name: emotional
 description: "A new Flutter project."
 publish_to: 'none' 
 
-version: 1.1.0+22
+version: 1.1.0+23
 
 environment:
   sdk: ^3.10.4
@@ -39,6 +39,9 @@ dependencies:
   url_launcher: ^6.3.2
   camera: ^0.12.0+1
   flutter_webrtc: ^1.5.2
+  # Web-only access to browser tracks (screen share hints, audio mixing).
+  dart_webrtc: ^1.8.2
+  web: ^1.1.1
   easy_localization: ^3.0.8
   google_fonts: ^8.0.0
   connectivity_watcher: ^3.0.6
@@ -72,11 +75,7 @@ flutter:
 
   assets:
     - assets/translations/
-    - assets/icons/
-    - assets/docs/
-    - assets/lottie/
     - assets/images/
-    - assets/svg/
     - assets/logo/
     - assets/app/
     - assets/images/armchair/

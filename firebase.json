@@ -2,6 +2,14 @@
     "database": {
         "rules": "database.rules.json"
     },
+    "emulators": {
+        "database": {
+            "port": 9123
+        },
+        "ui": {
+            "enabled": false
+        }
+    },
     "firestore": {
         "rules": "firestore.rules"
     },
@@ -24,18 +32,76 @@
             }
         }
     },
-    "hosting": {
-        "public": "public",
-        "ignore": [
-            "firebase.json",
-            "**/.*",
-            "**/node_modules/**"
-        ],
-        "rewrites": [
-            {
-                "source": "**",
-                "destination": "/index.html"
-            }
-        ]
-    }
+    "hosting": [
+        {
+            "target": "landing",
+            "public": "public",
+            "ignore": [
+                "firebase.json",
+                "**/.*",
+                "**/node_modules/**"
+            ],
+            "rewrites": [
+                {
+                    "source": "**",
+                    "destination": "/index.html"
+                }
+            ]
+        },
+        {
+            "target": "web",
+            "public": "build/web",
+            "ignore": [
+                "firebase.json",
+                "**/.*",
+                "**/node_modules/**"
+            ],
+            "rewrites": [
+                {
+                    "source": "**",
+                    "destination": "/index.html"
+                }
+            ],
+            "headers": [
+                {
+                    "source": "**",
+                    "headers": [
+                        {
+                            "key": "Cache-Control",
+                            "value": "no-cache"
+                        },
+                        {
+                            "key": "Content-Security-Policy",
+                            "value": "frame-ancestors 'none'"
+                        },
+                        {
+                            "key": "X-Frame-Options",
+                            "value": "DENY"
+                        },
+                        {
+                            "key": "X-Content-Type-Options",
+                            "value": "nosniff"
+                        },
+                        {
+                            "key": "Referrer-Policy",
+                            "value": "strict-origin-when-cross-origin"
+                        },
+                        {
+                            "key": "Permissions-Policy",
+                            "value": "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()"
+                        }
+                    ]
+                },
+                {
+                    "source": "**/*.@(png|jpg|jpeg|webp|svg|ttf|otf|woff|woff2)",
+                    "headers": [
+                        {
+                            "key": "Cache-Control",
+                            "value": "public, max-age=86400"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }

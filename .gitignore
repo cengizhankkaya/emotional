@@ -51,3 +51,12 @@ secrets.json
 # Local configuration
 local.properties
 backup_files/
+
+# Firebase CLI deploy cache
+.firebase/
+
+# Real values for envied (see README); never commit them
+assets/env/
+
+# Firebase emulator logs
+*-debug.log

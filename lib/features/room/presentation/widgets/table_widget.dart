@@ -14,13 +14,13 @@ class TableWidget extends StatelessWidget {
         boxShadow: [
           // Deep shadow for ground separation
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
           // Slight reflection/highlight on top
           BoxShadow(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
@@ -42,10 +42,10 @@ class TableWidget extends StatelessWidget {
             width: 180,
             height: 60,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),

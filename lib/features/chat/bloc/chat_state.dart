@@ -14,10 +14,16 @@ class ChatLoading extends ChatState {}
 class ChatLoaded extends ChatState {
   final List<ChatMessage> messages;
 
-  const ChatLoaded(this.messages);
+  /// Set once when sending failed; the list stays on screen.
+  final String? sendError;
+
+  /// Makes repeated identical errors distinct states.
+  final int sendErrorId;
+
+  const ChatLoaded(this.messages, {this.sendError, this.sendErrorId = 0});
 
   @override
-  List<Object> get props => [messages];
+  List<Object> get props => [messages, sendError ?? '', sendErrorId];
 }
 
 class ChatError extends ChatState {

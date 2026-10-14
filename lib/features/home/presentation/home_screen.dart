@@ -1,3 +1,5 @@
+import 'package:emotional/features/home/presentation/widgets/web_home_body.dart';
+import 'package:emotional/product/utility/responsiveness/web_layout.dart';
 import 'package:app_links/app_links.dart';
 import 'package:emotional/features/room/presentation/manager/helpers/download_permission_helper.dart';
 import 'package:emotional/core/services/permission_service.dart';
@@ -9,6 +11,7 @@ import 'package:emotional/features/home/presentation/widgets/home_app_bar.dart';
 import 'package:emotional/features/home/presentation/widgets/home_download_card.dart';
 import 'package:emotional/features/home/presentation/widgets/join_room_card.dart';
 import 'package:emotional/features/home/presentation/widgets/permission_sheet.dart';
+import 'package:emotional/features/home/presentation/widgets/web_permission_dialog.dart';
 import 'package:emotional/features/home/presentation/widgets/room_divider.dart';
 import 'package:emotional/features/room/bloc/download_cubit.dart';
 import 'package:emotional/features/room/bloc/room_bloc.dart';
@@ -17,6 +20,8 @@ import 'package:emotional/features/room/presentation/room_screen.dart';
 import 'package:emotional/product/utility/constants/project_padding.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
 import 'package:emotional/product/utility/responsiveness/responsive_extension.dart';
+import 'package:flutter/foundation.dart';
+import 'package:emotional/features/room/presentation/invite/room_invite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -41,7 +46,11 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Clean up unused rooms when app starts/home loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndRequestPermissions();
+      if (kIsWeb) {
+        WebCallPermissions.introduceOnce(context);
+      } else {
+        _checkAndRequestPermissions();
+      }
       _initDeepLinkListener();
       _loadLastRoomId();
     });
@@ -77,38 +86,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleDeepLink(Uri uri) {
-    String? roomId;
-
-    // 1. Custom Scheme: emotional://join/123 or emotional://room/123
-    if (uri.scheme == 'emotional') {
-      if (uri.pathSegments.contains('join') ||
-          uri.pathSegments.contains('room')) {
-        // Find segment after 'join' or 'room'
-        final index = uri.pathSegments.indexWhere(
-          (s) => s == 'join' || s == 'room',
-        );
-        if (index != -1 && uri.pathSegments.length > index + 1) {
-          roomId = uri.pathSegments[index + 1];
-        }
-      } else if (uri.host == 'join' || uri.host == 'room') {
-        // emotional://join?id=123 or emotional://join/123 (where join is host)
-        if (uri.pathSegments.isNotEmpty) {
-          roomId = uri.pathSegments.first;
-        } else {
-          roomId = uri.queryParameters['id'];
-        }
-      }
-    }
-    // 2. Universal Link: https://emotional-app-b42af.web.app/join/123
-    else if ((uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host == 'emotional-app-b42af.web.app') {
-      if (uri.pathSegments.contains('join')) {
-        final index = uri.pathSegments.indexOf('join');
-        if (uri.pathSegments.length > index + 1) {
-          roomId = uri.pathSegments[index + 1];
-        }
-      }
-    }
+    // On web the "link" is the page address, e.g. emoti-izle.web.app/join/1.
+    final roomId = RoomInvite.roomIdFrom(
+      uri,
+      ownHost: kIsWeb ? Uri.base.host : null,
+    );
 
     if (roomId != null && roomId.trim().isNotEmpty) {
       final cleanRoomId = roomId.trim();
@@ -126,10 +108,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     // 2. Kalıcı olarak reddedilmişse → Ayarlar'a yönlendir
-    if (await permissionService.isCameraOrMicPermanentlyDenied) {
+    if (await permissionService.isCallPermissionPermanentlyDenied) {
       _showPermanentlyDeniedDialog();
       return;
     }
+    if (!mounted) return;
 
     // 3. Henüz verilmemiş → PermissionSheet göster
     showModalBottomSheet(
@@ -137,12 +120,13 @@ class _HomeScreenState extends State<HomeScreen> {
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) => PermissionSheet(
+      builder: (sheetContext) => PermissionSheet(
         onGrant: () async {
-          Navigator.pop(context);
+          Navigator.pop(sheetContext);
           await permissionService.requestCameraAndMicrophonePermissions();
           await DownloadPermissionHelper().requestInitialPermissions();
 
+          // The sheet is gone by now; join with the screen's own context.
           if (_pendingDeepLinkRoomId != null && mounted) {
             _joinRoom(context);
           }
@@ -211,13 +195,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _hasRequiredPermissions() async {
+    // Browsers ask in one prompt and need no app settings or storage.
+    if (kIsWeb) return WebCallPermissions.ensure(context);
+
     final permissionService = PermissionService();
 
     // Zaten verilmişse geç
     if (await permissionService.areCallPermissionsGranted) return true;
 
     // Kalıcı red → diyalog göster, false döndür
-    if (await permissionService.isCameraOrMicPermanentlyDenied) {
+    if (await permissionService.isCallPermissionPermanentlyDenied) {
       _showPermanentlyDeniedDialog();
       return false;
     }
@@ -228,10 +215,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _createRoom(BuildContext context) async {
-    if (!await _hasRequiredPermissions()) {
-      _checkAndRequestPermissions();
-      return;
-    }
+    // Shows whatever explanation is needed itself.
+    if (!await _hasRequiredPermissions()) return;
+    if (!context.mounted) return;
 
     final user = (context.read<AuthBloc>().state as AuthAuthenticated).user;
     final userName = UserHelper.getUserDisplayName(user);
@@ -250,9 +236,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!await _hasRequiredPermissions()) {
       _pendingDeepLinkRoomId = _roomIdController.text.trim();
-      _checkAndRequestPermissions();
       return;
     }
+    if (!context.mounted) return;
 
     // Clear pending ID as we are proceeding with join
     _pendingDeepLinkRoomId = null;
@@ -355,34 +341,45 @@ class _HomeScreenState extends State<HomeScreen> {
             if (state is RoomLoading || state is RoomCreated) {
               return const Center(child: CircularProgressIndicator());
             }
+            if (WebLayout.isWide(context)) {
+              return WebHomeBody(
+                userName: userName,
+                roomIdController: _roomIdController,
+                onCreateRoom: () => _createRoom(context),
+                onJoinRoom: () => _joinRoom(context),
+              );
+            }
             return Center(
               child: SingleChildScrollView(
                 padding: const ProjectPadding.allLarge(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      LocaleKeys.home_welcome.tr(args: [userName]),
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontSize: context.dynamicValue(24),
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: context.dynamicHeight(0.05)),
-                    CreateRoomCard(onCreateRoom: () => _createRoom(context)),
-                    SizedBox(height: context.dynamicHeight(0.03)),
-                    const RoomDivider(),
-                    SizedBox(height: context.dynamicHeight(0.03)),
-                    JoinRoomCard(
-                      roomIdController: _roomIdController,
-                      onJoinRoom: () => _joinRoom(context),
-                    ),
-                    SizedBox(height: context.dynamicHeight(0.03)),
-                    const HomeDownloadCard(),
-                  ],
+                child: WebContentWidth(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        LocaleKeys.home_welcome.tr(args: [userName]),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontSize: context.dynamicValue(24),
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: context.dynamicHeight(0.05)),
+                      CreateRoomCard(onCreateRoom: () => _createRoom(context)),
+                      SizedBox(height: context.dynamicHeight(0.03)),
+                      const RoomDivider(),
+                      SizedBox(height: context.dynamicHeight(0.03)),
+                      JoinRoomCard(
+                        roomIdController: _roomIdController,
+                        onJoinRoom: () => _joinRoom(context),
+                      ),
+                      SizedBox(height: context.dynamicHeight(0.03)),
+                      // Browsers stream videos; there is nothing to download.
+                      if (!kIsWeb) const HomeDownloadCard(),
+                    ],
+                  ),
                 ),
               ),
             );

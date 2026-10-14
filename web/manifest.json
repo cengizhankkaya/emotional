@@ -1,12 +1,11 @@
 {
-    "name": "emotional",
-    "short_name": "emotional",
+    "name": "Emoti",
+    "short_name": "Emoti",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#1A1D21",
+    "theme_color": "#1A1D21",
+    "description": "Arkadaşlarınla aynı anda video izle, görüntülü konuş ve ekranını paylaş.",
     "prefer_related_applications": false,
     "icons": [
         {

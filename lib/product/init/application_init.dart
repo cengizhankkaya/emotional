@@ -32,8 +32,8 @@ final class ApplicationInit {
       AppEnviroment.setup(config: ProdEnv());
     }
 
-    // 1.5 Initialize Connectivity Watcher
-    ZoConnectivityWatcher().setUp();
+    // 1.5 Initialize Connectivity Watcher (uses dart:io, unavailable on web)
+    if (!kIsWeb) ZoConnectivityWatcher().setUp();
 
     // 2. Initialize Localization
     await EasyLocalization.ensureInitialized();
@@ -47,7 +47,9 @@ final class ApplicationInit {
     // 7. Initialize Background Services (Non-blocking for UI)
     unawaited(backgroundStart());
 
-    // 8. Initialize Google Sign-In singleton
+    // 8. Initialize Google Sign-In singleton. Web signs in through the
+    // Firebase Auth popup instead, so it needs no Google Sign-In client.
+    if (kIsWeb) return;
     GoogleSignIn.instance.initialize(
       clientId: defaultTargetPlatform == TargetPlatform.iOS
           ? '739508543260-rvk20tdapl68r0ae5vkas3r438peqfuv.apps.googleusercontent.com'
@@ -57,6 +59,10 @@ final class ApplicationInit {
 
   /// Initializations that don't need to block the initial UI render
   Future<void> backgroundStart() async {
+    // Web streams videos instead of downloading them, and browsers
+    // don't support orientation locking.
+    if (kIsWeb) return;
+
     // Download services
     await DownloadService().initialize();
     await DownloadManager().initialize();

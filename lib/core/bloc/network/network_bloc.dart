@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:connectivity_watcher/connectivity_watcher.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -108,6 +109,10 @@ class NetworkBloc extends Bloc<NetworkEvent, NetworkState>
   }
 
   void _init() {
+    // Both checks rely on dart:io (DNS lookup, HttpClient), which browsers
+    // don't provide; web keeps the default "connected" state.
+    if (kIsWeb) return;
+
     debugPrint('NetworkBloc: Initializing connection monitors...');
 
     // Immediate initial check
@@ -121,7 +126,7 @@ class NetworkBloc extends Bloc<NetworkEvent, NetworkState>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && !kIsWeb) {
       debugPrint(
         'NetworkBloc: App resumed, triggering immediate network check',
       );

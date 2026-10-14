@@ -1,37 +1,63 @@
+import 'package:emotional/core/services/web_version/web_version.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
 import '../../model/enum/firebase_remote_enums.dart';
+import 'app_build.dart';
 
 final class VersionValidator {
   VersionValidator._init();
 
-  static Future<bool> check() async {
-    // Mevcut uygulamanın versiyonu (pubspec.yaml'dan)
-    final packageInfo = await PackageInfo.fromPlatform();
-    final currentVersion = packageInfo.version;
+  static Future<AppBuild?>? _running;
 
-    // Remote Config'den gelen minimum versiyon
-    final remoteVersion = FirebaseRemoteEnums.version.valueString;
+  /// This build. On web, what the server handed out when the page loaded:
+  /// the page keeps running that code until it reloads.
+  static Future<AppBuild?> runningBuild() => _running ??= _loadRunningBuild();
 
-    if (remoteVersion.isEmpty) return false;
-
-    // Versiyonları sayıya çevirip karşılaştırır (Örn: 1.0.1 -> 101)
-    // Not: Bu basit karşılaştırma 1.0.10 ile 1.1.0 durumunda hatalı olabilir.
-    // Daha sağlam bir karşılaştırma için parçalara bölüp karşılaştırmak daha iyidir.
-
-    return _isNewVersionAvailable(currentVersion, remoteVersion);
+  static Future<AppBuild?> _loadRunningBuild() async {
+    if (kIsWeb) return fetchDeployedBuild();
+    final info = await PackageInfo.fromPlatform();
+    return AppBuild.tryParse(info.version, info.buildNumber);
   }
 
-  static bool _isNewVersionAvailable(String current, String remote) {
-    final currentParts = current.split('.').map(int.parse).toList();
-    final remoteParts = remote.split('.').map(int.parse).toList();
+  /// Remote Config's `version`: the oldest version allowed to run.
+  static AppBuild? get minimumBuild =>
+      AppBuild.tryParse(FirebaseRemoteEnums.version.valueString);
 
-    for (var i = 0; i < 3; i++) {
-      final remoteVal = i < remoteParts.length ? remoteParts[i] : 0;
-      final currentVal = i < currentParts.length ? currentParts[i] : 0;
-
-      if (remoteVal > currentVal) return true;
-      if (remoteVal < currentVal) return false;
+  /// [refreshConfig]: also fetch Remote Config again, for tabs that stay
+  /// open for days (Remote Config's own interval still applies).
+  static Future<({UpdateDecision decision, AppBuild? deployed})> check({
+    bool refreshConfig = false,
+  }) async {
+    const none = (decision: UpdateDecision.none, deployed: null);
+    try {
+      final running = await runningBuild();
+      if (running == null) return none;
+      if (refreshConfig) await _refreshConfig();
+      final deployed = kIsWeb ? await fetchDeployedBuild() : null;
+      return (
+        decision: decideUpdate(
+          running: running,
+          minimum: minimumBuild,
+          deployed: deployed,
+        ),
+        deployed: deployed,
+      );
+    } catch (e) {
+      debugPrint('[VersionValidator] Check failed: $e');
+      return none;
     }
-    return false;
+  }
+
+  /// Offline or slow: decide with the values we already have.
+  static Future<void> _refreshConfig() async {
+    try {
+      await FirebaseRemoteConfig.instance.fetchAndActivate().timeout(
+        const Duration(seconds: 5),
+      );
+    } catch (e) {
+      debugPrint('[VersionValidator] Remote Config refresh failed: $e');
+    }
   }
 }

@@ -3,8 +3,10 @@ import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
 import 'package:flutter/material.dart';
+import 'package:emotional/features/call/presentation/participant_video.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+
 // import 'package:emotional/features/call/domain/enums/call_video_size.dart';
 
 class CallWidget extends StatefulWidget {
@@ -38,25 +40,33 @@ class _CallWidgetState extends State<CallWidget> {
                   final userName = entries[index].value;
                   final isMe = userId == context.read<CallBloc>().userId;
 
+                  // While sharing, the camera comes separately (or not).
+                  final shareCamera = state.shareCameraOf(
+                    userId,
+                    localUserId: context.read<CallBloc>().userId ?? '',
+                  );
+
                   if (isMe) {
                     return _buildMiniCameraItem(
                       name: LocaleKeys.room_me.tr(),
                       isLocal: true,
-                      hasVideo: state.isVideoEnabled && !state.isScreenSharing,
-                      renderer: state.localRenderer,
+                      hasVideo: state.isScreenSharing
+                          ? shareCamera != null
+                          : state.isVideoEnabled,
+                      renderer: shareCamera ?? state.localRenderer,
                     );
                   }
 
-                  final renderer = state.remoteRenderers[userId];
-                  final hasVideo = state.userVideoStates[userId] ?? false;
                   final isScreenSharing =
                       state.userScreenSharingStates[userId] ?? false;
 
                   return _buildMiniCameraItem(
                     name: userName,
                     isLocal: false,
-                    hasVideo: hasVideo && !isScreenSharing,
-                    renderer: renderer,
+                    hasVideo: isScreenSharing
+                        ? shareCamera != null
+                        : state.userVideoStates[userId] ?? false,
+                    renderer: shareCamera ?? state.remoteRenderers[userId],
                   );
                 },
               ),
@@ -92,16 +102,12 @@ class _CallWidgetState extends State<CallWidget> {
       decoration: BoxDecoration(
         color: Colors.white12,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(11),
         child: hasVideo && renderer != null
-            ? RTCVideoView(
-                renderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                mirror: isLocal,
-              )
+            ? ParticipantVideo(renderer: renderer, mirror: isLocal)
             : Center(
                 child: Text(
                   name.isNotEmpty ? name[0].toUpperCase() : '?',
