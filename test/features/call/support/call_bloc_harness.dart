@@ -120,6 +120,9 @@ class FakeRoom implements RoomRepository {
       StreamController<RoomEntity?>.broadcast();
   int _clock = 0;
 
+  /// Sees every media state write as it lands.
+  void Function(String userId, UserMediaState state)? onMediaStateWrite;
+
   void addUser(String userId) {
     users[userId] = userId;
     _publish();
@@ -173,6 +176,7 @@ class FakeRoom implements RoomRepository {
       acceptsShareCamera:
           acceptsShareCamera ?? previous?.acceptsShareCamera ?? false,
     );
+    onMediaStateWrite?.call(userId, mediaState[userId]!);
     _publish();
   }
 

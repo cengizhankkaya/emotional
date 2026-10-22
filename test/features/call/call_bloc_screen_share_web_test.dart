@@ -5,6 +5,7 @@ import 'package:dart_webrtc/dart_webrtc.dart' show MediaStreamTrackWeb;
 import 'package:emotional/features/call/bloc/call_bloc.dart';
 import 'package:emotional/features/call/bloc/call_event.dart';
 import 'package:emotional/features/call/bloc/call_state.dart';
+import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -81,6 +82,16 @@ void main() {
     return null;
   }
 
+  Future<int?> audioBitrate(CallUser user, String peer) async {
+    final pc = user.rtc.peerConnectionFor(peer)!;
+    for (final transceiver in await pc.getTransceivers()) {
+      if (transceiver.receiver.track?.kind == 'audio') {
+        return transceiver.sender.parameters.encodings?.firstOrNull?.maxBitrate;
+      }
+    }
+    return null;
+  }
+
   Future<(CallUser, CallUser)> twoInACall() async {
     final a = await harness.join('a');
     final b = await harness.join('b');
@@ -123,6 +134,28 @@ void main() {
       'the room to know the share ended',
     );
     expect(b.rtc.peerConnectionFor('a'), same(connection));
+  });
+
+  test('viewers learn the share ended before the camera is back', () async {
+    if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+    final (a, _) = await twoInACall();
+    a.bloc.add(ToggleVideo());
+    await settle(a.bloc, (s) => s.isVideoEnabled, 'camera on');
+    await startShare(a);
+
+    // Stopping reopens the camera and microphone, which can take long (or
+    // hang); until the room hears, viewers watch a stopped, black screen.
+    bool? captureStillOpen;
+    harness.room.onMediaStateWrite = (userId, state) {
+      if (userId == 'a' && !state.isScreenSharing) {
+        captureStillOpen ??= a.media.screenStream != null;
+      }
+    };
+    await stopShare(a);
+
+    expect(captureStillOpen, isTrue);
+    expect(harness.room.mediaState['a']?.isScreenSharing, isFalse);
+    expect(harness.room.mediaState['a']?.isVideoEnabled, isTrue);
   });
 
   test('sharing with the camera off goes back to camera off', () async {
@@ -397,10 +430,42 @@ void main() {
         () => audioBytesReceived(b.rtc.peerConnectionFor('a')!),
         'audio at b during the share',
       );
+      expect(await audioBitrate(a, 'b'), 128000, reason: 'room for music');
 
       await stopShare(a);
       final after = a.media.localStream!.getAudioTracks().single;
       await waitForSent(a, 'b', 'audio', after.id, 'the plain microphone');
+      expect(await audioBitrate(a, 'b'), isNull, reason: 'speech default');
+    });
+
+    test('a quality change keeps sending the same mix', () async {
+      if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+      if (!await audioCanRun()) return markTestSkipped(needsAutoplay);
+      final (a, _) = await twoInACall();
+      a.bloc.add(ToggleVideo());
+      await settle(a.bloc, (s) => s.isVideoEnabled, 'camera on');
+      await startShare(a, shareAudio: true);
+      expect(stateOf(a.bloc).activeScreenShare!.hasAudio, isTrue);
+
+      Future<String?> sentAudio() async {
+        final senders = await a.rtc.peerConnectionFor('b')!.getSenders();
+        return senders.where((s) => s.track?.kind == 'audio').single.track?.id;
+      }
+
+      final microphone = a.media.localStream!.getAudioTracks().single;
+      String? mix;
+      await waitForAsync(() async {
+        mix = await sentAudio();
+        return mix != null && mix != microphone.id;
+      }, 'the mix on the audio sender');
+
+      a.bloc.add(const ChangeQuality(CallQualityPreset.low));
+      await settle(
+        a.bloc,
+        (s) => s.currentQuality == CallQualityPreset.low,
+        'the quality change',
+      );
+      expect(await sentAudio(), mix, reason: 'no gap in the sound');
     });
 
     test('mute is kept across a share with audio', () async {

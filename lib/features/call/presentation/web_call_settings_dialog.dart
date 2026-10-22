@@ -219,12 +219,15 @@ class _WebCallSettingsDialogState extends State<WebCallSettingsDialog> {
           const SizedBox(height: 24),
           _Field(
             label: LocaleKeys.call_speaker.tr(),
-            child: _DeviceSelect(
-              icon: Icons.volume_up_outlined,
-              devices: state.audioOutputs,
-              selectedId: state.selectedAudioOutputId,
-              onSelected: (d) => callBloc.add(ChangeAudioOutput(d)),
-            ),
+            // Safari has no speaker choice: say so instead of "not found".
+            child: state.audioOutputs.isEmpty
+                ? _Hint(LocaleKeys.call_speakerFollowsSystem.tr())
+                : _DeviceSelect(
+                    icon: Icons.volume_up_outlined,
+                    devices: state.audioOutputs,
+                    selectedId: state.selectedAudioOutputId,
+                    onSelected: (d) => callBloc.add(ChangeAudioOutput(d)),
+                  ),
           ),
         ],
       ),

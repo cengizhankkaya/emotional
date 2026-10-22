@@ -105,6 +105,7 @@ abstract class  LocaleKeys {
   static const call_camera = 'call.camera';
   static const call_microphone = 'call.microphone';
   static const call_speaker = 'call.speaker';
+  static const call_speakerFollowsSystem = 'call.speakerFollowsSystem';
   static const call_cameraSelect = 'call.cameraSelect';
   static const call_microphoneSelect = 'call.microphoneSelect';
   static const call_speakerSelect = 'call.speakerSelect';
@@ -151,6 +152,7 @@ abstract class  LocaleKeys {
   static const call_screenShare_shareAudio = 'call.screenShare.shareAudio';
   static const call_screenShare_shareAudioDesc = 'call.screenShare.shareAudioDesc';
   static const call_screenShare_shareAudioUnsupported = 'call.screenShare.shareAudioUnsupported';
+  static const call_screenShare_headphonesHint = 'call.screenShare.headphonesHint';
   static const call_screenShare_start = 'call.screenShare.start';
   static const call_screenShare_sharingNow = 'call.screenShare.sharingNow';
   static const call_screenShare_withAudio = 'call.screenShare.withAudio';
@@ -442,6 +444,10 @@ abstract class  LocaleKeys {
   static const web_showCameras = 'web.showCameras';
   static const web_hideCameras = 'web.hideCameras';
   static const web_cameraOffWhileSharing = 'web.cameraOffWhileSharing';
+  static const web_fullscreen = 'web.fullscreen';
+  static const web_exitFullscreen = 'web.exitFullscreen';
+  static const web_showChat = 'web.showChat';
+  static const web_hideChat = 'web.hideChat';
   static const web = 'web';
   static const update_title = 'update.title';
   static const update_requiredStore = 'update.requiredStore';

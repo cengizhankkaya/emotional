@@ -8,6 +8,7 @@ import 'package:emotional/product/model/enum/firebase_remote_enums.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
 import 'package:emotional/features/call/domain/screen_share/outgoing_video_stats.dart';
 import 'package:emotional/features/call/service/outgoing_video_stats_sampler.dart';
+import 'package:emotional/features/call/service/opus_sdp.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class WebRTCService implements ICallService {
@@ -133,6 +134,7 @@ class WebRTCService implements ICallService {
 
         bool replaced = false;
         for (var t in transceivers) {
+          if (_isShareCameraSender(t.sender)) continue;
           if (t.sender.track?.kind == 'video' ||
               t.receiver.track?.kind == 'video') {
             debugPrint(
@@ -163,6 +165,11 @@ class WebRTCService implements ICallService {
           if (_peerConnections[userId] != pc) continue;
           await connect(userId);
         }
+        if (_isDisposed || _sessionToken != token) return;
+        if (_peerConnections[userId] != pc) continue;
+        // An idle transceiver may have had no encodings when the profile
+        // was selected. Apply it again once the video track is attached.
+        if (_videoSenderLimits != null) await _applyVideoSenderLimits(pc);
       } catch (e) {
         debugPrint("[WebRTC] Error replacing video track for $userId: $e");
       }
@@ -181,6 +188,7 @@ class WebRTCService implements ICallService {
         final transceivers = await pc.getTransceivers();
         if (_isDisposed || _sessionToken != token) return;
         for (final t in transceivers) {
+          if (_isShareCameraSender(t.sender)) continue;
           if (t.sender.track?.kind == 'video' ||
               t.receiver.track?.kind == 'video') {
             await t.sender.replaceTrack(null);
@@ -241,6 +249,48 @@ class WebRTCService implements ICallService {
 
   // ─── Sender tuning ────────────────────────────────────────────────────────
 
+  /// See [withStereoOpus]: lets peers send us a shared tab's sound in
+  /// stereo.
+  RTCSessionDescription _withStereoOpus(RTCSessionDescription description) {
+    final sdp = description.sdp;
+    if (sdp == null) return description;
+    return RTCSessionDescription(withStereoOpus(sdp), description.type);
+  }
+
+  /// Outgoing audio target; null keeps the encoder default (about 32 kbps,
+  /// tuned for speech). Kept so peers that join mid-share get it too.
+  int? _audioMaxBitrate;
+
+  @override
+  Future<void> setAudioSenderBitrate(int? maxBitrate) async {
+    if (_isDisposed) return;
+    _audioMaxBitrate = maxBitrate;
+    for (final pc in _peerConnections.values.toList()) {
+      await _applyAudioSenderBitrate(pc);
+    }
+  }
+
+  Future<void> _applyAudioSenderBitrate(RTCPeerConnection pc) async {
+    try {
+      for (final transceiver in await pc.getTransceivers()) {
+        final sender = transceiver.sender;
+        final isAudio =
+            sender.track?.kind == 'audio' ||
+            transceiver.receiver.track?.kind == 'audio';
+        if (!isAudio) continue;
+        final parameters = sender.parameters;
+        final encodings = parameters.encodings;
+        if (encodings == null || encodings.isEmpty) continue;
+        for (final encoding in encodings) {
+          encoding.maxBitrate = _audioMaxBitrate;
+        }
+        await sender.setParameters(parameters);
+      }
+    } catch (e) {
+      debugPrint("[WebRTC] Failed to apply audio sender bitrate: $e");
+    }
+  }
+
   /// Outgoing video caps; null keeps the encoder defaults. Kept so peers that
   /// join mid-share get the same limits.
   ({int? maxBitrate, int? maxFramerate})? _videoSenderLimits;
@@ -259,7 +309,19 @@ class WebRTCService implements ICallService {
     }
   }
 
+  /// The camera next to a share is a thumbnail: it gets a small budget and
+  /// a low priority, so the screen keeps the bandwidth.
+  static const ({int? maxBitrate, int? maxFramerate}) _shareCameraLimits = (
+    maxBitrate: 700000,
+    maxFramerate: null,
+  );
+
+  bool _isShareCameraSender(RTCRtpSender sender) => _shareCameraTransceivers
+      .values
+      .any((transceiver) => transceiver.sender.senderId == sender.senderId);
+
   Future<void> _applyVideoSenderLimits(RTCPeerConnection pc) async {
+    final limits = _videoSenderLimits;
     try {
       // Find the video sender by its transceiver, not its track: dart_webrtc
       // doesn't wait for replaceTrack, so right after a track switch (as at
@@ -271,18 +333,38 @@ class WebRTCService implements ICallService {
             sender.track?.kind == 'video' ||
             transceiver.receiver.track?.kind == 'video';
         if (!isVideo) continue;
-        final parameters = sender.parameters;
-        final encodings = parameters.encodings;
-        if (encodings == null || encodings.isEmpty) continue;
-        for (final encoding in encodings) {
-          encoding.maxBitrate = _videoSenderLimits?.maxBitrate;
-          encoding.maxFramerate = _videoSenderLimits?.maxFramerate;
+        // The camera next to a share keeps its own budget.
+        if (_isShareCameraSender(sender)) {
+          continue;
         }
-        await sender.setParameters(parameters);
+        await _setVideoSenderLimits(
+          sender,
+          // Each connection adapts to its own available bandwidth. Dividing
+          // this ceiling by the room size lowered quality even on fast links.
+          limits,
+          // While sharing, the screen comes first when bandwidth is short.
+          priority: limits == null ? RTCPriorityType.low : RTCPriorityType.high,
+        );
       }
     } catch (e) {
       debugPrint("[WebRTC] Failed to apply video sender limits: $e");
     }
+  }
+
+  Future<void> _setVideoSenderLimits(
+    RTCRtpSender sender,
+    ({int? maxBitrate, int? maxFramerate})? limits, {
+    RTCPriorityType priority = RTCPriorityType.low,
+  }) async {
+    final parameters = sender.parameters;
+    final encodings = parameters.encodings;
+    if (encodings == null || encodings.isEmpty) return;
+    for (final encoding in encodings) {
+      encoding.maxBitrate = limits?.maxBitrate;
+      encoding.maxFramerate = limits?.maxFramerate;
+      encoding.priority = priority;
+    }
+    await sender.setParameters(parameters);
   }
 
   final OutgoingVideoStatsSampler _outgoingVideoStats =
@@ -291,7 +373,10 @@ class WebRTCService implements ICallService {
   @override
   Future<OutgoingVideoStats?> getOutgoingVideoStats() async {
     if (_isDisposed) return null;
-    return _outgoingVideoStats.sample(_peerConnections);
+    return _outgoingVideoStats.sample(
+      _peerConnections,
+      excludedTrackIds: {if (_shareCameraTrack?.id case final String id) id},
+    );
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
@@ -462,6 +547,7 @@ class WebRTCService implements ICallService {
     }
 
     if (_videoSenderLimits != null) await _applyVideoSenderLimits(pc);
+    if (_audioMaxBitrate != null) await _applyAudioSenderBitrate(pc);
 
     pc.onIceCandidate = (candidate) {
       if (_isDisposed || _sessionToken != token) return;
@@ -654,6 +740,11 @@ class WebRTCService implements ICallService {
       final existing = _shareCameraTransceivers[peer];
       if (existing != null) {
         await existing.sender.replaceTrack(track);
+        // An idle share-camera sender also got the share's caps; give it
+        // the camera's own.
+        if (track != null) {
+          await _setVideoSenderLimits(existing.sender, _shareCameraLimits);
+        }
         return;
       }
       final stream = _shareCameraStream;
@@ -661,7 +752,7 @@ class WebRTCService implements ICallService {
       // An answer can't add a video the offer lacks, so add it to a
       // connection that is up and offer again.
       if (peerStatus(peer).status != PeerStatus.connected) return;
-      _shareCameraTransceivers[peer] = await pc.addTransceiver(
+      final transceiver = await pc.addTransceiver(
         track: track,
         kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
         init: RTCRtpTransceiverInit(
@@ -669,6 +760,8 @@ class WebRTCService implements ICallService {
           streams: [stream],
         ),
       );
+      _shareCameraTransceivers[peer] = transceiver;
+      await _setVideoSenderLimits(transceiver.sender, _shareCameraLimits);
       await _renegotiate(peer);
     } catch (e) {
       debugPrint("[WebRTC] Share camera for $peer failed: $e");
@@ -694,7 +787,9 @@ class WebRTCService implements ICallService {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       if (isStale()) return;
     }
-    final offer = await pc.createOffer({}).timeout(_sdpTimeout);
+    final offer = _withStereoOpus(
+      await pc.createOffer({}).timeout(_sdpTimeout),
+    );
     if (isStale()) return;
     await pc.setLocalDescription(offer).timeout(_sdpTimeout);
     if (isStale()) return;
@@ -750,12 +845,14 @@ class WebRTCService implements ICallService {
       }
 
       try {
-        final offer = await pc
-            .createOffer({
-              'offerToReceiveAudio': true,
-              'offerToReceiveVideo': true,
-            })
-            .timeout(_sdpTimeout);
+        final offer = _withStereoOpus(
+          await pc
+              .createOffer({
+                'offerToReceiveAudio': true,
+                'offerToReceiveVideo': true,
+              })
+              .timeout(_sdpTimeout),
+        );
         if (_isDisposed ||
             _sessionToken != token ||
             _peerConnections[targetUserId] != pc) {
@@ -789,13 +886,15 @@ class WebRTCService implements ICallService {
     if (pc == null) return;
 
     try {
-      final offer = await pc
-          .createOffer({
-            'offerToReceiveAudio': true,
-            'offerToReceiveVideo': true,
-            'iceRestart': true,
-          })
-          .timeout(_sdpTimeout);
+      final offer = _withStereoOpus(
+        await pc
+            .createOffer({
+              'offerToReceiveAudio': true,
+              'offerToReceiveVideo': true,
+              'iceRestart': true,
+            })
+            .timeout(_sdpTimeout),
+      );
       if (_isDisposed ||
           _sessionToken != token ||
           _peerConnections[targetUserId] != pc) {
@@ -906,16 +1005,20 @@ class WebRTCService implements ICallService {
     await _signalingService?.clearOutgoingToUser(fromUserId);
     if (isStale()) return;
 
-    final answer = await pc
-        .createAnswer({
-          'offerToReceiveAudio': true,
-          'offerToReceiveVideo': true,
-        })
-        .timeout(_sdpTimeout);
+    final answer = _withStereoOpus(
+      await pc
+          .createAnswer({
+            'offerToReceiveAudio': true,
+            'offerToReceiveVideo': true,
+          })
+          .timeout(_sdpTimeout),
+    );
     if (isStale()) return;
     await pc.setLocalDescription(answer).timeout(_sdpTimeout);
     if (isStale()) return;
 
+    if (_videoSenderLimits != null) await _applyVideoSenderLimits(pc);
+    if (isStale()) return;
     await sendAnswer(fromUserId, answer);
     debugPrint("[WebRTC] Answer sent to $fromUserId.");
   }
@@ -965,6 +1068,12 @@ class WebRTCService implements ICallService {
     }
 
     await pc.setRemoteDescription(description).timeout(_sdpTimeout);
+    if (_isDisposed ||
+        _sessionToken != token ||
+        _peerConnections[fromUserId] != pc) {
+      return;
+    }
+    if (_videoSenderLimits != null) await _applyVideoSenderLimits(pc);
     if (_isDisposed ||
         _sessionToken != token ||
         _peerConnections[fromUserId] != pc) {

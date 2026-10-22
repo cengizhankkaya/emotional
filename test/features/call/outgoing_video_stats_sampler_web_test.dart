@@ -61,6 +61,12 @@ void main() {
       expect(stats.width, greaterThan(0));
       expect(stats.bitrate, greaterThan(0));
       expect(stats.framesPerSecond, isNotNull);
+      // Excluding this track must remove its report, not merely its bitrate.
+      expect(
+        await sampler.sample(connections, excludedTrackIds: {track.id!}),
+        isNull,
+      );
+      expect(await sampler.sample(connections), isNotNull);
       // Chrome only names the encoder once the page holds camera permission,
       // which a test page doesn't.
       // ignore: avoid_print

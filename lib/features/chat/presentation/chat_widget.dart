@@ -38,6 +38,13 @@ class _ChatWidgetState extends State<ChatWidget> {
   // ... (existing state methods: initState, dispose, _scrollToBottom, _sendMessage, _formatTimestamp)
 
   final TextEditingController _textController = TextEditingController();
+
+  /// Stays on the input after sending, so the next message can be typed
+  /// right away.
+  final FocusNode _inputFocus = FocusNode();
+
+  /// The last message sent, put back in the input if sending fails.
+  String? _lastSentText;
   final ScrollController _scrollController = ScrollController();
   bool _isAtBottom = true;
   bool _hasNewMessages = false;
@@ -56,6 +63,7 @@ class _ChatWidgetState extends State<ChatWidget> {
   @override
   void dispose() {
     _textController.dispose();
+    _inputFocus.dispose();
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -104,9 +112,11 @@ class _ChatWidgetState extends State<ChatWidget> {
           userName: authState.user.displayName ?? LocaleKeys.room_someone.tr(),
         ),
       );
+      _lastSentText = text;
       _textController.clear();
       _scrollToBottom();
     }
+    _inputFocus.requestFocus();
   }
 
   String _formatTimestamp(int timestamp) {
@@ -385,6 +395,8 @@ class _ChatWidgetState extends State<ChatWidget> {
                     Expanded(
                       child: TextField(
                         controller: _textController,
+                        focusNode: _inputFocus,
+                        textInputAction: TextInputAction.send,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           hintText: LocaleKeys.chat_typeMessage.tr(),
@@ -395,12 +407,21 @@ class _ChatWidgetState extends State<ChatWidget> {
                             borderRadius: ProjectRadius.large(),
                             borderSide: BorderSide.none,
                           ),
+                          // Shows at a glance that typing goes here.
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: ProjectRadius.large(),
+                            borderSide: const BorderSide(
+                              color: ColorsCustom.skyBlue,
+                              width: 1.5,
+                            ),
+                          ),
                           contentPadding: const ProjectPadding.symmetric(
                             horizontal: 16,
                             vertical: 12,
                           ),
                         ),
-                        onSubmitted: (_) => _sendMessage(),
+                        // Without this, Enter also takes the focus away.
+                        onEditingComplete: _sendMessage,
                       ),
                     ),
                     SizedBox(width: context.dynamicWidth(0.02)),
@@ -423,6 +444,15 @@ class _ChatWidgetState extends State<ChatWidget> {
 
     final sendError = state.sendError;
     if (sendError != null) {
+      // Don't lose what was written; unless something new is being typed.
+      final unsent = _lastSentText;
+      if (unsent != null && _textController.text.isEmpty) {
+        _textController.value = TextEditingValue(
+          text: unsent,
+          selection: TextSelection.collapsed(offset: unsent.length),
+        );
+      }
+      _lastSentText = null;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

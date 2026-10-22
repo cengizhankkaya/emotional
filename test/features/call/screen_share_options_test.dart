@@ -2,6 +2,10 @@ import 'package:emotional/features/call/domain/screen_share/screen_share_options
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('default sharing protects detail while motion is opt-in', () {
+    expect(const ScreenShareOptions().profile.contentHint, 'detail');
+    expect(ScreenShareProfile.motion.contentHint, 'motion');
+  });
   group('ScreenShareOptions.toDisplayMediaConstraints', () {
     test('maps the profile to capture size and frame rate', () {
       const options = ScreenShareOptions(profile: ScreenShareProfile.detail);

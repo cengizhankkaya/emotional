@@ -3,9 +3,10 @@ import 'package:emotional/features/call/domain/screen_share/screen_share_options
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 abstract class IMediaDeviceService {
-  /// Initialize media devices (request permissions, get initial stream)
+  /// Initialize media devices (request permissions, get initial stream).
+  /// Without [quality] the camera keeps the quality picked last.
   Future<void> initialize({
-    CallQualityPreset quality = CallQualityPreset.balanced,
+    CallQualityPreset? quality,
     bool enableVideo = true,
     bool enableAudio = true,
   });
@@ -15,6 +16,9 @@ abstract class IMediaDeviceService {
 
   /// Get the current screen share stream
   MediaStream? get screenStream;
+
+  /// The camera quality the user picked.
+  CallQualityPreset get currentQuality;
 
   String? get selectedVideoDeviceId;
   String? get selectedAudioDeviceId;

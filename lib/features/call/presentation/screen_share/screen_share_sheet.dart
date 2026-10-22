@@ -453,6 +453,29 @@ class _AudioTile extends StatelessWidget {
                     fontSize: 12.5,
                   ),
                 ),
+                if (supported && value) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.headphones_outlined,
+                        size: 14,
+                        color: ColorsCustom.skyBlue,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          LocaleKeys.call_screenShare_headphonesHint.tr(),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

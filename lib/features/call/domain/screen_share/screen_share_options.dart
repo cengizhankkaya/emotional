@@ -28,12 +28,13 @@ enum ScreenShareProfile {
     maxBitrate: 6000000,
   ),
 
-  /// Lets the browser decide; a sensible default for mixed content.
+  /// Default sharing protects readable detail when resources are limited.
+  /// Prefer fewer frames to a blurry desktop; motion remains opt-in.
   balanced(
     width: 1920,
     height: 1080,
     frameRate: 24,
-    contentHint: '',
+    contentHint: 'detail',
     maxBitrate: 4500000,
   );
 
@@ -52,8 +53,9 @@ enum ScreenShareProfile {
   /// `MediaStreamTrack.contentHint` value; empty means no hint.
   final String contentHint;
 
-  /// Upper bound for the video sender, in bits per second. Only a ceiling:
-  /// the browser still sends less when the connection can't carry it.
+  /// Upper bound per viewer, in bits per second. Each viewer receives a
+  /// separate copy, so total upload grows with the audience. The browser
+  /// can send less when the connection cannot carry this ceiling.
   final int maxBitrate;
 
   String get title => switch (this) {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:emotional/core/services/browser_fullscreen/browser_fullscreen.dart';
 import 'package:emotional/features/call/domain/client_platform.dart';
 import 'package:emotional/features/call/presentation/participant_video.dart';
 import 'package:emotional/features/call/bloc/call_bloc.dart';
@@ -15,6 +16,7 @@ import 'package:emotional/features/room/presentation/widgets/room_top_bar.dart';
 import 'package:emotional/features/room/presentation/widgets/screen_share_video_view.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet.dart';
 import 'package:emotional/features/room/presentation/widgets/video_control_sheet/call_controls_bar.dart';
+import 'package:emotional/features/room/presentation/widgets/web/floating_camera_window.dart';
 import 'package:emotional/features/room/presentation/widgets/web/web_camera_strip.dart';
 import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/product/utility/decorations/colors_custom.dart';
@@ -26,6 +28,10 @@ import 'package:googleapis/drive/v3.dart' as drive;
 /// Room screen for wide browser windows: a stage on the left (seating or the
 /// live screen share) with a floating call dock, and a side panel on the
 /// right with chat, video picking and the participant list.
+///
+/// A screen share can go fullscreen in place: the browser hides its own
+/// chrome, the top bar goes, and the share keeps its cameras and the chat
+/// beside it.
 class WebRoomLayout extends StatefulWidget {
   const WebRoomLayout({
     super.key,
@@ -44,7 +50,6 @@ class WebRoomLayout extends StatefulWidget {
     required this.onPickVideo,
     required this.onSelectVideo,
     required this.onPlayVideo,
-    required this.onEnterFullscreen,
   });
 
   final String roomId;
@@ -64,7 +69,6 @@ class WebRoomLayout extends StatefulWidget {
   final VoidCallback onPickVideo;
   final void Function(drive.File) onSelectVideo;
   final VoidCallback onPlayVideo;
-  final VoidCallback onEnterFullscreen;
 
   @override
   State<WebRoomLayout> createState() => _WebRoomLayoutState();
@@ -96,6 +100,47 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
   /// Camera strip beside a screen share.
   bool _showCameras = true;
 
+  /// The share fills the window; only while someone is sharing.
+  bool _fullscreen = false;
+
+  /// The side panel (chat first) next to a fullscreen share.
+  bool _showPanelInFullscreen = true;
+  StreamSubscription<bool>? _browserFullscreen;
+
+  bool get _panelVisible => !_fullscreen || _showPanelInFullscreen;
+
+  bool get _chatVisible => _panelVisible && _tabs.index == _chatTab;
+
+  @override
+  void initState() {
+    super.initState();
+    // Esc leaves the browser's fullscreen without reaching Flutter.
+    _browserFullscreen = onBrowserFullscreenChange.listen((isFullscreen) {
+      if (!isFullscreen && _fullscreen && mounted) {
+        setState(() => _fullscreen = false);
+      }
+    });
+  }
+
+  void _setFullscreen(bool fullscreen) {
+    if (fullscreen == _fullscreen) return;
+    setState(() => _fullscreen = fullscreen);
+    if (fullscreen) {
+      unawaited(enterBrowserFullscreen());
+    } else {
+      unawaited(exitBrowserFullscreen());
+    }
+  }
+
+  void _togglePanel() {
+    final show = !_showPanelInFullscreen;
+    setState(() {
+      _showPanelInFullscreen = show;
+      if (show && _tabs.index == _chatTab) _hasUnreadChat = false;
+    });
+    if (show) _tabs.animateTo(_chatTab);
+  }
+
   void _wakeDock({Duration delay = _dockIdleDelay}) {
     if (!_dockVisible) setState(() => _dockVisible = true);
     _dockTimer?.cancel();
@@ -118,6 +163,11 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
     if ((widget.sharingUserId == null) != (oldWidget.sharingUserId == null)) {
       _wakeDock(delay: _dockShareStartDelay);
     }
+    // Nothing left to show fullscreen; build() follows anyway.
+    if (widget.sharingUserId == null && _fullscreen) {
+      _fullscreen = false;
+      unawaited(exitBrowserFullscreen());
+    }
   }
 
   void _onTabChanged() {
@@ -134,7 +184,7 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
     final isFirstLoad = _lastSeenMessageId == null;
     _lastSeenMessageId = last.id;
     final fromOthers = last.senderId != widget.currentUserId;
-    if (!isFirstLoad && fromOthers && _tabs.index != _chatTab) {
+    if (!isFirstLoad && fromOthers && !_chatVisible) {
       setState(() => _hasUnreadChat = true);
     }
   }
@@ -142,6 +192,8 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
   @override
   void dispose() {
     _dockTimer?.cancel();
+    _browserFullscreen?.cancel();
+    if (_fullscreen) unawaited(exitBrowserFullscreen());
     _tabs.dispose();
     super.dispose();
   }
@@ -153,28 +205,36 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
       child: SafeArea(
         child: Column(
           children: [
-            RoomTopBar(
-              roomId: widget.roomId,
-              scaffoldKey: widget.scaffoldKey,
-              onLeave: widget.onLeave,
-              onChatPressed: () => _tabs.animateTo(_chatTab),
-            ),
+            if (!_fullscreen)
+              RoomTopBar(
+                roomId: widget.roomId,
+                scaffoldKey: widget.scaffoldKey,
+                onLeave: widget.onLeave,
+                onChatPressed: () => _tabs.animateTo(_chatTab),
+              ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                padding: _fullscreen
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(child: _buildStage()),
-                    const SizedBox(width: 16),
-                    SizedBox(
-                      width: WebLayout.fluidWidth(
-                        context,
-                        fraction: 0.26,
-                        min: 320,
-                        max: 420,
+                    SizedBox(width: _fullscreen ? 0 : 16),
+                    // Hidden rather than removed, so the chat keeps its
+                    // draft and scroll position.
+                    Offstage(
+                      offstage: !_panelVisible,
+                      child: SizedBox(
+                        width: WebLayout.fluidWidth(
+                          context,
+                          fraction: 0.26,
+                          min: 320,
+                          max: 420,
+                        ),
+                        child: _buildSidePanel(),
                       ),
-                      child: _buildSidePanel(),
                     ),
                   ],
                 ),
@@ -191,6 +251,7 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
   Widget _buildStage() {
     final sharingUserId = widget.sharingUserId;
     return _Surface(
+      square: _fullscreen,
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerHover: (_) => _wakeDock(),
@@ -210,7 +271,11 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
                       sharerName:
                           widget.userNames[sharingUserId] ??
                           LocaleKeys.room_someone.tr(),
-                      onEnterFullscreen: widget.onEnterFullscreen,
+                      isFullscreen: _fullscreen,
+                      onToggleFullscreen: () => _setFullscreen(!_fullscreen),
+                      showChat: _showPanelInFullscreen,
+                      hasUnreadChat: _hasUnreadChat,
+                      onToggleChat: _togglePanel,
                     )
                   : _SeatingStage(widget: widget),
             ),
@@ -248,6 +313,7 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
 
   Widget _buildSidePanel() {
     return _Surface(
+      square: _fullscreen,
       child: Column(
         children: [
           TabBar(
@@ -313,11 +379,13 @@ class _WebRoomLayoutState extends State<WebRoomLayout>
   }
 }
 
-/// Rounded dark card used for the stage and the side panel.
+/// Rounded dark card used for the stage and the side panel; edge to edge
+/// ([square]) in fullscreen.
 class _Surface extends StatelessWidget {
-  const _Surface({required this.child});
+  const _Surface({required this.child, this.square = false});
 
   final Widget child;
+  final bool square;
 
   @override
   Widget build(BuildContext context) {
@@ -325,8 +393,8 @@ class _Surface extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: ColorsCustom.darkABlue,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ColorsCustom.white10),
+        borderRadius: square ? null : BorderRadius.circular(20),
+        border: square ? null : Border.all(color: ColorsCustom.white10),
       ),
       child: child,
     );
@@ -414,11 +482,12 @@ class _ShareStage extends StatelessWidget {
     required this.showCameras,
     required this.onToggleCameras,
     required this.sharerName,
-    required this.onEnterFullscreen,
+    required this.isFullscreen,
+    required this.onToggleFullscreen,
+    required this.showChat,
+    required this.hasUnreadChat,
+    required this.onToggleChat,
   });
-
-  /// Below this stage width the cameras go in a row above the share.
-  static const double _sideStripMinWidth = 720;
 
   final String sharingUserId;
   final String currentUserId;
@@ -427,7 +496,13 @@ class _ShareStage extends StatelessWidget {
   final bool showCameras;
   final VoidCallback onToggleCameras;
   final String sharerName;
-  final VoidCallback onEnterFullscreen;
+  final bool isFullscreen;
+  final VoidCallback onToggleFullscreen;
+
+  /// The chat panel beside a fullscreen share.
+  final bool showChat;
+  final bool hasUnreadChat;
+  final VoidCallback onToggleChat;
 
   @override
   Widget build(BuildContext context) {
@@ -441,99 +516,91 @@ class _ShareStage extends StatelessWidget {
         // Alone in the room there is nobody else's camera to show.
         final hasOthers = participants.length > 1;
 
-        final share = Stack(
-          children: [
-            if (renderer != null)
-              Positioned.fill(child: ScreenShareVideoView(renderer)),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Row(
-                children: [
-                  _Badge(
-                    icon: Icons.screen_share,
-                    text: LocaleKeys.call_sharing.tr(args: [sharerName]),
-                  ),
-                  // Only the sharer can see what is actually sent.
-                  if (sharingUserId == currentUserId) ...[
-                    const SizedBox(width: 8),
-                    const ScreenShareQualityChip(),
-                  ],
-                ],
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Row(
-                children: [
-                  if (hasOthers)
-                    _StageButton(
-                      tooltip: showCameras
-                          ? LocaleKeys.web_hideCameras.tr()
-                          : LocaleKeys.web_showCameras.tr(),
-                      icon: showCameras
-                          ? Icons.videocam_off_outlined
-                          : Icons.video_camera_front_outlined,
-                      onPressed: onToggleCameras,
-                    ),
-                  const SizedBox(width: 6),
-                  _StageButton(
-                    tooltip: null,
-                    icon: Icons.fullscreen,
-                    onPressed: onEnterFullscreen,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-
-        return Container(
+        // The share uses the whole stage: the cameras float over it and
+        // the dock hides itself while the pointer rests.
+        return ColoredBox(
           color: Colors.black,
-          padding: const EdgeInsets.only(bottom: 88),
-          child: state is! CallConnected || !showCameras || !hasOthers
-              ? share
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final side = constraints.maxWidth >= _sideStripMinWidth;
-                    final strip = WebCameraStrip(
+          child: Stack(
+            children: [
+              if (renderer != null)
+                Positioned.fill(child: ScreenShareVideoView(renderer)),
+              if (state is CallConnected && showCameras && hasOthers)
+                Positioned.fill(
+                  // Keeps where the window was put when the share above it
+                  // comes and goes.
+                  key: const ValueKey('cameras'),
+                  child: FloatingCameraWindow(
+                    cameraCount: participants.length,
+                    builder: (context, axis) => WebCameraStrip(
                       callState: state,
                       participants: participants,
                       userNames: userNames,
                       currentUserId: currentUserId,
                       sharingUserId: sharingUserId,
-                      axis: side ? Axis.vertical : Axis.horizontal,
-                    );
-                    if (side) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(child: share),
-                          SizedBox(
-                            width: (constraints.maxWidth * 0.2).clamp(160, 240),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
-                              child: strip,
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        SizedBox(
-                          height: 144,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                            child: strip,
-                          ),
-                        ),
-                        Expanded(child: share),
-                      ],
-                    );
-                  },
+                      axis: axis,
+                    ),
+                  ),
                 ),
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Row(
+                  children: [
+                    _Badge(
+                      icon: Icons.screen_share,
+                      text: LocaleKeys.call_sharing.tr(args: [sharerName]),
+                    ),
+                    // Only the sharer can see what is actually sent.
+                    if (sharingUserId == currentUserId) ...[
+                      const SizedBox(width: 8),
+                      const ScreenShareQualityChip(),
+                    ],
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Row(
+                  children: [
+                    if (isFullscreen) ...[
+                      _StageButton(
+                        tooltip: showChat
+                            ? LocaleKeys.web_hideChat.tr()
+                            : LocaleKeys.web_showChat.tr(),
+                        icon: showChat
+                            ? Icons.speaker_notes_off_outlined
+                            : Icons.chat_bubble_outline,
+                        showDot: hasUnreadChat && !showChat,
+                        onPressed: onToggleChat,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    if (hasOthers)
+                      _StageButton(
+                        tooltip: showCameras
+                            ? LocaleKeys.web_hideCameras.tr()
+                            : LocaleKeys.web_showCameras.tr(),
+                        icon: showCameras
+                            ? Icons.videocam_off_outlined
+                            : Icons.video_camera_front_outlined,
+                        onPressed: onToggleCameras,
+                      ),
+                    const SizedBox(width: 6),
+                    _StageButton(
+                      tooltip: isFullscreen
+                          ? LocaleKeys.web_exitFullscreen.tr()
+                          : LocaleKeys.web_fullscreen.tr(),
+                      icon: isFullscreen
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                      onPressed: onToggleFullscreen,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -545,18 +612,27 @@ class _StageButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.showDot = false,
   });
 
   final String? tooltip;
   final IconData icon;
   final VoidCallback onPressed;
 
+  /// Something new behind the button, e.g. an unread message.
+  final bool showDot;
+
   @override
   Widget build(BuildContext context) {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, color: Colors.white),
+      icon: Badge(
+        isLabelVisible: showDot,
+        smallSize: 8,
+        backgroundColor: ColorsCustom.cream,
+        child: Icon(icon, color: Colors.white),
+      ),
       style: IconButton.styleFrom(backgroundColor: Colors.black54),
     );
   }

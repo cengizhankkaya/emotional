@@ -276,6 +276,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           selectedVideoInputId: _mediaDeviceService.selectedVideoDeviceId,
           selectedAudioInputId: _mediaDeviceService.selectedAudioDeviceId,
           selectedAudioOutputId: _mediaDeviceService.selectedAudioOutputId,
+          currentQuality: _mediaDeviceService.currentQuality,
           isVideoEnabled: false,
           isMuted: false,
         ),
@@ -685,7 +686,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     //   callService.dispose → mediaDevice.dispose → compositeStream.dispose
     //   → audioSession.deactivate  (session released last, cleanly)
     await _callService.dispose();
-    await _screenAudioMixer.dispose();
+    await _disposeScreenAudioMix();
     await _mediaDeviceService.dispose();
     await _compositeStream?.dispose();
     _compositeStream = null;
@@ -997,6 +998,37 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   /// track while a share with audio is live.
   final ScreenAudioMixer _screenAudioMixer = ScreenAudioMixer();
 
+  /// The live mix and the microphone in it: a camera or quality change
+  /// keeps sending it instead of rebuilding it (a gap in the sound).
+  MediaStreamTrack? _mixedAudio;
+  String? _mixedMicrophoneId;
+
+  Future<MediaStreamTrack> _mixScreenAudio(
+    MediaStreamTrack? microphone,
+    MediaStreamTrack display,
+  ) async {
+    final mixed = _mixedAudio;
+    if (mixed != null && _mixedMicrophoneId == microphone?.id) return mixed;
+    await _disposeScreenAudioMix();
+    final track = await _screenAudioMixer.mix(
+      microphone: microphone,
+      display: display,
+    );
+    _mixedAudio = track;
+    _mixedMicrophoneId = microphone?.id;
+    return track;
+  }
+
+  Future<void> _disposeScreenAudioMix() async {
+    _mixedAudio = null;
+    _mixedMicrophoneId = null;
+    await _screenAudioMixer.dispose();
+  }
+
+  /// Outgoing audio while a share's sound is mixed in: stereo music and
+  /// film sound at the speech default (about 32 kbps) sound muffled.
+  static const int _sharedAudioBitrate = 128000;
+
   Future<void> _onScreenShareEnded(
     ScreenShareEnded event,
     Emitter<CallState> emit,
@@ -1041,66 +1073,10 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     int sessionId,
   ) async {
     final shouldRestoreCamera = _isVideoEnabledBeforeScreenShare;
-    // The camera moves back to the main video below.
-    await _stopShareCamera();
-
-    if (_localRenderer != null) {
-      _localRenderer!.srcObject = null;
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-
-    await _mediaDeviceService.stopScreenShare();
-    if (kIsWeb) {
-      await _screenAudioMixer.dispose();
-      await _callService.setVideoSenderLimits();
-    }
-
-    if ((!kIsWeb && Platform.isAndroid)) {
-      try {
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (!_isCallActive || _sessionId != sessionId) return;
-        await channel.invokeMethod('stopService');
-        await channel.invokeMethod('startVoiceService');
-      } catch (e) {
-        debugPrint("[CallBloc] Failed to stop Android FGS: $e");
-      }
-    }
-
-    await _mediaDeviceService.initialize(enableVideo: shouldRestoreCamera);
-    await _compositeStream?.dispose();
-    _compositeStream = null;
-
-    _callService.updateLocalStream(_mediaDeviceService.localStream);
-    if (shouldRestoreCamera) _mediaDeviceService.toggleVideo(true);
-    // initialize() opens a fresh microphone; keep the user's mute choice.
-    _mediaDeviceService.toggleMute(s.isMuted);
-    if (_localRenderer != null) {
-      _localRenderer!.srcObject = _mediaDeviceService.localStream;
-    }
-
-    final localStream = _mediaDeviceService.localStream;
-    final videoTrack = localStream?.getVideoTracks().firstOrNull;
-    if (videoTrack != null) {
-      await _callService.replaceLocalAllVideoTrack(videoTrack);
-    } else {
-      // Camera off: don't leave peers on the share or a stopped camera.
-      await _callService.removeLocalVideoTrack();
-    }
-    // Peers still hold the previous, now stopped, microphone track (or the
-    // screen audio mix), so they need the new one too or they'd hear nothing.
-    final audioTrack = localStream?.getAudioTracks().firstOrNull;
-    if (audioTrack != null) {
-      await _callService.replaceLocalAllAudioTrack(audioTrack);
-    }
-
-    emit(
-      s.copyWith(
-        isScreenSharing: false,
-        isVideoEnabled: shouldRestoreCamera,
-        activeScreenShare: null,
-        localShareCameraRenderer: null,
-      ),
-    );
+    // Tell the room first: the screen track stops right away, and viewers
+    // would watch it black until the camera and microphone are back (or
+    // for good if reopening them hangs).
+    _isStoppingScreenShare = true;
     if (_roomId != null && userId != null) {
       _syncState(
         _roomId!,
@@ -1109,6 +1085,86 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         audio: !s.isMuted,
         screen: false,
       );
+    }
+
+    try {
+      try {
+        // The camera moves back to the main video below.
+        await _stopShareCamera();
+
+        if (_localRenderer != null) {
+          _localRenderer!.srcObject = null;
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+
+        await _mediaDeviceService.stopScreenShare();
+        if (kIsWeb) {
+          await _disposeScreenAudioMix();
+          await _callService.setVideoSenderLimits();
+          await _callService.setAudioSenderBitrate(null);
+        }
+
+        if ((!kIsWeb && Platform.isAndroid)) {
+          try {
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (!_isCallActive || _sessionId != sessionId) return;
+            await channel.invokeMethod('stopService');
+            await channel.invokeMethod('startVoiceService');
+          } catch (e) {
+            debugPrint("[CallBloc] Failed to stop Android FGS: $e");
+          }
+        }
+
+        await _mediaDeviceService.initialize(enableVideo: shouldRestoreCamera);
+        await _compositeStream?.dispose();
+        _compositeStream = null;
+
+        _callService.updateLocalStream(_mediaDeviceService.localStream);
+        if (shouldRestoreCamera) _mediaDeviceService.toggleVideo(true);
+        // initialize() opens a fresh microphone; keep the user's mute choice.
+        _mediaDeviceService.toggleMute(s.isMuted);
+        if (_localRenderer != null) {
+          _localRenderer!.srcObject = _mediaDeviceService.localStream;
+        }
+
+        final localStream = _mediaDeviceService.localStream;
+        final videoTrack = localStream?.getVideoTracks().firstOrNull;
+        if (videoTrack != null) {
+          await _callService.replaceLocalAllVideoTrack(videoTrack);
+        } else {
+          // Camera off: don't leave peers on the share or a stopped camera.
+          await _callService.removeLocalVideoTrack();
+        }
+        // Peers still hold the previous, now stopped, microphone track (or the
+        // screen audio mix), so they need the new one too or they'd hear nothing.
+        final audioTrack = localStream?.getAudioTracks().firstOrNull;
+        if (audioTrack != null) {
+          await _callService.replaceLocalAllAudioTrack(audioTrack);
+        }
+      } catch (e) {
+        // The share is over either way; don't leave the UI on it.
+        debugPrint('[CallBloc] Restoring the camera after a share failed: $e');
+      }
+
+      emit(
+        s.copyWith(
+          isScreenSharing: false,
+          isVideoEnabled: shouldRestoreCamera,
+          activeScreenShare: null,
+          localShareCameraRenderer: null,
+        ),
+      );
+      if (_roomId != null && userId != null) {
+        _syncState(
+          _roomId!,
+          userId!,
+          video: shouldRestoreCamera,
+          audio: !s.isMuted,
+          screen: false,
+        );
+      }
+    } finally {
+      _isStoppingScreenShare = false;
     }
   }
 
@@ -1178,9 +1234,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         final displayAudioTrack = screenStream.getAudioTracks().firstOrNull;
         if (displayAudioTrack != null) {
           try {
-            outgoingAudio = await _screenAudioMixer.mix(
-              microphone: microphoneTrack,
-              display: displayAudioTrack,
+            outgoingAudio = await _mixScreenAudio(
+              microphoneTrack,
+              displayAudioTrack,
             );
             isMixingAudio = true;
           } catch (e) {
@@ -1205,6 +1261,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       await _callService.replaceLocalAllVideoTrack(screenVideoTrack);
       if (isMixingAudio) {
         await _callService.replaceLocalAllAudioTrack(outgoingAudio!);
+        // Music and film sound need more than the speech default.
+        await _callService.setAudioSenderBitrate(_sharedAudioBitrate);
       }
       if (kIsWeb) {
         await _callService.setVideoSenderLimits(
@@ -1242,8 +1300,9 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         await _stopShareCamera();
         await _mediaDeviceService.stopScreenShare();
         if (kIsWeb) {
-          await _screenAudioMixer.dispose();
+          await _disposeScreenAudioMix();
           await _callService.setVideoSenderLimits();
+          await _callService.setAudioSenderBitrate(null);
         }
         await _compositeStream?.dispose();
         _compositeStream = null;
@@ -1434,10 +1493,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
           : null;
       if (displayAudio != null) {
         try {
-          outgoingAudio = await _screenAudioMixer.mix(
-            microphone: microphone,
-            display: displayAudio,
-          );
+          outgoingAudio = await _mixScreenAudio(microphone, displayAudio);
         } catch (e) {
           debugPrint('[CallBloc] Screen audio mixing unavailable: $e');
         }
@@ -1453,6 +1509,13 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       if (screenVideo != null) {
         if (_localRenderer != null) _localRenderer!.srcObject = screenStream;
         await _callService.replaceLocalAllVideoTrack(screenVideo);
+      }
+
+      // The camera next to the share was reopened too; keep sending it.
+      final camera = stream.getVideoTracks().firstOrNull;
+      if (_shareCameraOn && camera != null) {
+        await _callService.setShareCamera(camera);
+        _localShareCameraRenderer?.srcObject = stream;
       }
     } else {
       _mediaDeviceService.toggleVideo(s.isVideoEnabled);
@@ -1479,6 +1542,11 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
   // ─── State sync ───────────────────────────────────────────────────────────
 
+  /// A share is being torn down: writes from handlers still holding the
+  /// sharing state (or the share-start resync timers) must not bring the
+  /// share back for viewers.
+  bool _isStoppingScreenShare = false;
+
   Future<void> _syncState(
     String roomId,
     String userId, {
@@ -1486,6 +1554,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     required bool audio,
     required bool screen,
   }) async {
+    if (_isStoppingScreenShare) screen = false;
     try {
       await roomRepository.updateUserMediaState(
         roomId,

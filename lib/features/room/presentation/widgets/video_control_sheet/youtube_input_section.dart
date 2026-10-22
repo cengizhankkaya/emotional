@@ -97,6 +97,10 @@ class _YoutubeInputSectionState extends State<YoutubeInputSection> {
                     borderRadius: ProjectRadius.medium(),
                     borderSide: BorderSide.none,
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: ProjectRadius.medium(),
+                    borderSide: const BorderSide(color: ColorsCustom.skyBlue),
+                  ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,

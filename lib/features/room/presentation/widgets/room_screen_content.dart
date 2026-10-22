@@ -101,9 +101,15 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
         builder: (context, state) {
           if (state is! RoomJoined) return const SizedBox.shrink();
 
-          // 1. Check if anyone is screen sharing
+          // 1. Check if anyone is screen sharing. Only people still in the
+          // room: a sharer whose connection dropped (tab closed, crash) is
+          // removed from it, but their media state keeps `screen: true`.
           final sharingUserEntry = state.usersState.entries
-              .where((entry) => entry.value.isScreenSharing)
+              .where(
+                (entry) =>
+                    entry.value.isScreenSharing &&
+                    widget.participants.contains(entry.key),
+              )
               .firstOrNull;
           final isAnyoneSharing = sharingUserEntry != null;
 
@@ -165,11 +171,6 @@ class _RoomScreenContentState extends State<RoomScreenContent> {
                     onPickVideo: widget.onPickVideo,
                     onSelectVideo: widget.onSelectVideo,
                     onPlayVideo: widget.onPlayVideo,
-                    onEnterFullscreen: () {
-                      setState(() {
-                        _currentLayoutMode = RoomLayoutMode.immersive;
-                      });
-                    },
                   );
                 }
 

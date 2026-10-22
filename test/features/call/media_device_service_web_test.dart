@@ -120,6 +120,88 @@ void main() {
     expect(media.localStream!.getAudioTracks(), hasLength(1));
   });
 
+  test('the picked quality opens the camera at that size and stays', () async {
+    if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+    (int?, int?, String?) camera() {
+      final track =
+          (media.localStream!.getVideoTracks().single as MediaStreamTrackWeb)
+              .jsTrack;
+      final settings = track.getSettings();
+      return (settings.width, settings.height, track.contentHint);
+    }
+
+    await media.initialize(enableVideo: false);
+    await media.setQuality(CallQualityPreset.high);
+    await media.startCamera();
+    expect(camera(), (1280, 720, 'detail'));
+
+    // Reopening, as after a screen share, keeps the pick.
+    await media.initialize(enableVideo: true);
+    expect(media.currentQuality, CallQualityPreset.high);
+    expect(camera(), (1280, 720, 'detail'));
+
+    await media.setQuality(CallQualityPreset.low);
+    expect(camera(), (480, 360, 'detail'));
+  });
+
+  test('a quality change resizes the camera, leaving the microphone', () async {
+    if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+    await media.initialize(enableVideo: false);
+    final camera = (await media.startCamera())!;
+    final micId = microphone().id;
+
+    await media.setQuality(CallQualityPreset.low);
+
+    expect(microphone().id, micId, reason: 'no gap in the sound');
+    expect(readyState(microphone()), 'live');
+    expect(media.localStream!.getVideoTracks().single.id, camera.id);
+    final settings = (camera as MediaStreamTrackWeb).jsTrack.getSettings();
+    expect((settings.width, settings.height), (480, 360));
+  });
+
+  test(
+    'switching camera keeps the microphone, and the other way round',
+    () async {
+      if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+      await media.initialize(enableVideo: false);
+      final camera = (await media.startCamera())!;
+      final micId = microphone().id;
+
+      await media.selectVideoInput((await media.getVideoInputs()).first);
+      final newCamera = media.localStream!.getVideoTracks().single;
+      expect(newCamera.id, isNot(camera.id));
+      expect(readyState(camera), 'ended', reason: 'old camera released');
+      expect(microphone().id, micId);
+
+      await media.selectAudioInput((await media.getAudioInputs()).first);
+      expect(microphone().id, isNot(micId));
+      expect(readyState(microphone()), 'live');
+      expect(media.localStream!.getVideoTracks().single.id, newCamera.id);
+    },
+  );
+
+  test('a camera that is off is not opened by a camera choice', () async {
+    if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+    await media.initialize(enableVideo: false);
+    final micId = microphone().id;
+
+    await media.selectVideoInput((await media.getVideoInputs()).first);
+
+    expect(media.localStream!.getVideoTracks(), isEmpty);
+    expect(microphone().id, micId);
+  });
+
+  test('speakers come from the browser only', () async {
+    if (!await devicesAvailable()) return markTestSkipped(needsDevices);
+    await media.initialize(enableVideo: false);
+    final outputs = await media.getAudioOutputs();
+    expect(
+      outputs.map((d) => d.deviceId),
+      isNot(anyOf(contains('speaker'), contains('earpiece'))),
+      reason: 'the phone placeholders do nothing in a browser',
+    );
+  });
+
   test('device lists include the camera and microphone', () async {
     if (!await devicesAvailable()) return markTestSkipped(needsDevices);
     await media.initialize(enableVideo: false);

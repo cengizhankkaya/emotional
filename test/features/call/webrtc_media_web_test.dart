@@ -253,14 +253,162 @@ void main() {
       expect(encoding?.maxFramerate, isNull);
     });
 
+    test('the camera next to a share gets a small budget, the screen '
+        'comes first', () async {
+      final (a, _, _) = await callWithTone();
+      await a.replaceLocalAllVideoTrack(camera());
+      final shareCamera = camera();
+      await a.setShareCameraPeers({'b'});
+      await a.setShareCamera(shareCamera);
+
+      Future<Map<String, RTCRtpEncoding?>> encodings() async => {
+        for (final sender in await a.peerConnectionFor('b')!.getSenders())
+          if (sender.track?.kind == 'video')
+            sender.track!.id!: sender.parameters.encodings?.first,
+      };
+
+      // A second share: its caps are set while the share camera is idle.
+      await a.setShareCamera(null);
+      await a.setVideoSenderLimits(maxBitrate: 3000000, maxFramerate: 10);
+      await a.setShareCamera(shareCamera);
+      await waitForAsync(
+        () async => (await encodings()).containsKey(shareCamera.id),
+        'share camera sending',
+      );
+
+      final sent = await encodings();
+      final cameraEncoding = sent[shareCamera.id]!;
+      final screenEncoding = sent.entries
+          .where((e) => e.key != shareCamera.id)
+          .single
+          .value!;
+      expect(cameraEncoding.maxBitrate, 700000);
+      expect(cameraEncoding.maxFramerate, isNull, reason: "not the share's");
+      expect(cameraEncoding.priority, RTCPriorityType.low);
+      expect(screenEncoding.maxBitrate, 3000000);
+      expect(screenEncoding.priority, RTCPriorityType.high);
+
+      await a.setVideoSenderLimits();
+      final screen = (await encodings()).entries
+          .where((e) => e.key != shareCamera.id)
+          .single
+          .value!;
+      expect(screen.priority, RTCPriorityType.low, reason: 'share over');
+    });
+
+    test(
+      'each viewer keeps the profile ceiling when others join or leave',
+      () async {
+        final a = await peers.join(
+          'a',
+          isHost: true,
+          localStream: tone().stream,
+        );
+        final b = await peers.join('b', localStream: tone().stream);
+        // Set before connecting: peers joining mid-share inherit the cap.
+        await a.setVideoSenderLimits(maxBitrate: 4000000);
+        final c = await peers.join('c', localStream: tone().stream);
+        for (final (other, id) in [(b, 'b'), (c, 'c')]) {
+          await a.connect(id);
+          await waitConnected(a, id);
+          await waitConnected(other, 'a');
+        }
+        await a.replaceLocalAllVideoTrack(camera());
+
+        Future<int?> budgetFor(String peer) async {
+          for (final sender in await a.peerConnectionFor(peer)!.getSenders()) {
+            if (sender.track?.kind == 'video') {
+              return sender.parameters.encodings?.first.maxBitrate;
+            }
+          }
+          return null;
+        }
+
+        expect(await budgetFor('b'), 4000000);
+        expect(await budgetFor('c'), 4000000);
+
+        a.forgetUser('c');
+        await waitForAsync(
+          () async => await budgetFor('b') == 4000000,
+          'b to retain its profile ceiling',
+        );
+      },
+    );
+
+    test('both sides ask for stereo Opus; the audio bitrate can be raised '
+        'and restored', () async {
+      final (a, b, _) = await callWithTone();
+      for (final (side, peer) in [(a, 'b'), (b, 'a')]) {
+        final pc = side.peerConnectionFor(peer)!;
+        for (final description in [
+          await pc.getLocalDescription(),
+          await pc.getRemoteDescription(),
+        ]) {
+          expect(description?.sdp, contains('stereo=1'));
+        }
+      }
+
+      Future<int?> audioBitrate() async {
+        for (final sender in await a.peerConnectionFor('b')!.getSenders()) {
+          if (sender.track?.kind == 'audio') {
+            return sender.parameters.encodings?.firstOrNull?.maxBitrate;
+          }
+        }
+        return null;
+      }
+
+      await a.setAudioSenderBitrate(128000);
+      expect(await audioBitrate(), 128000);
+      await a.setAudioSenderBitrate(null);
+      expect(await audioBitrate(), isNull);
+    });
+
+    test(
+      'replacing or removing the main video preserves the share camera',
+      () async {
+        final (a, _, _) = await callWithTone();
+        await a.replaceLocalAllVideoTrack(camera());
+        final face = camera();
+        await a.setShareCameraPeers({'b'});
+        await a.setShareCamera(face);
+        await waitForAsync(
+          () async => (await a.peerConnectionFor('b')!.getSenders()).any(
+            (s) => s.track?.id == face.id,
+          ),
+          'share camera',
+        );
+        final screen = camera();
+        await a.replaceLocalAllVideoTrack(screen);
+        await waitForAsync(
+          () async => (await a.peerConnectionFor('b')!.getSenders()).any(
+            (s) => s.track?.id == screen.id,
+          ),
+          'screen replacement',
+        );
+        var senders = await a.peerConnectionFor('b')!.getSenders();
+        expect(senders.where((s) => s.track?.id == face.id), hasLength(1));
+        expect(senders.where((s) => s.track?.id == screen.id), hasLength(1));
+        await a.removeLocalVideoTrack();
+        await waitForAsync(
+          () async => !(await a.peerConnectionFor('b')!.getSenders()).any(
+            (s) => s.track?.id == screen.id,
+          ),
+          'screen removal',
+        );
+        senders = await a.peerConnectionFor('b')!.getSenders();
+        expect(senders.where((s) => s.track?.id == face.id), hasLength(1));
+        expect(senders.where((s) => s.track?.id == screen.id), isEmpty);
+      },
+    );
+
     test('a peer joining mid-share gets the same limits', () async {
-      final a = await peers.join('a', isHost: true, localStream: tone().stream);
+      final stream = tone().stream;
+      await stream.addTrack(camera());
+      final a = await peers.join('a', isHost: true, localStream: stream);
       await a.setVideoSenderLimits(maxBitrate: 250000);
       final b = await peers.join('b', localStream: tone().stream);
       await a.connect('b');
       await waitConnected(a, 'b');
-      await a.replaceLocalAllVideoTrack(camera());
-      await a.setVideoSenderLimits(maxBitrate: 250000);
 
       final senders = await a.peerConnectionFor('b')!.getSenders();
       final video = senders.firstWhere((s) => s.track?.kind == 'video');

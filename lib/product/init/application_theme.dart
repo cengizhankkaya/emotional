@@ -78,6 +78,14 @@ final class ApplicationTheme {
         backgroundColor: ColorsCustom.black,
         contentTextStyle: TextStyle(color: ColorsCustom.white),
       ),
+      // The primary colour is nearly the room's background: a cursor and
+      // selection in it vanish on the dark screens. Sky blue reads on both
+      // the dark rooms and the light pages.
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: ColorsCustom.skyBlue,
+        selectionColor: ColorsCustom.skyBlue.withValues(alpha: 0.45),
+        selectionHandleColor: ColorsCustom.skyBlue,
+      ),
       scrollbarTheme: const ScrollbarThemeData(
         thickness: WidgetStatePropertyAll(1.0),
       ),

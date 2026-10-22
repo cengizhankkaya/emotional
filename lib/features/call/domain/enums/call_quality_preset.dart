@@ -22,6 +22,22 @@ extension CallQualityExtension on CallQualityPreset {
     }
   }
 
+  /// Camera constraints for the browser. Browsers ignore the legacy
+  /// `minWidth` keys above and would open the camera at their default size.
+  Map<String, dynamic> toWebConstraints() {
+    final (width, height, frameRate) = switch (this) {
+      CallQualityPreset.low => (480, 360, 15),
+      CallQualityPreset.balanced => (640, 480, 24),
+      CallQualityPreset.high => (1280, 720, 30),
+      CallQualityPreset.ultra => (1920, 1080, 30),
+    };
+    return {
+      'width': {'ideal': width},
+      'height': {'ideal': height},
+      'frameRate': {'ideal': frameRate, 'max': frameRate},
+    };
+  }
+
   Map<String, dynamic> toScreenConstraints() {
     switch (this) {
       case CallQualityPreset.low:

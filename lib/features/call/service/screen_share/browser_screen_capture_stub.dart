@@ -12,6 +12,10 @@ abstract final class BrowserScreenCapture {
 }
 
 class ScreenAudioMixer {
+  static const double duckedGain = 0.3;
+
+  double get displayGain => 1;
+
   /// Throws [StateError] if the browser won't start audio processing.
   Future<MediaStreamTrack> mix({
     MediaStreamTrack? microphone,

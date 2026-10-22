@@ -42,6 +42,11 @@ abstract class ICallService {
   /// Passing no limits restores the default encoder behaviour.
   Future<void> setVideoSenderLimits({int? maxBitrate, int? maxFramerate});
 
+  /// Target bitrate for outgoing audio on all current and future peer
+  /// connections, e.g. for music in a shared tab; null restores the
+  /// speech default.
+  Future<void> setAudioSenderBitrate(int? maxBitrate);
+
   /// What the video senders currently transmit, for the weakest peer; null
   /// when there is no connection to measure.
   Future<OutgoingVideoStats?> getOutgoingVideoStats();

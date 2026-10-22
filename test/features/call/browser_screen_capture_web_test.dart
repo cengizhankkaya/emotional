@@ -10,6 +10,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:web/web.dart' as web;
 
+import 'support/call_test_support.dart';
+
 /// A live video track without camera or screen permissions.
 MediaStreamTrackWeb _canvasTrack() {
   final canvas = web.HTMLCanvasElement()
@@ -96,4 +98,44 @@ void main() {
     () => expectMixSettles(withMicrophone: false),
     timeout: const Timeout(Duration(seconds: 5)),
   );
+
+  test('turns the shared sound down while someone speaks', () async {
+    if (!await audioCanRun()) return markTestSkipped(needsAutoplay);
+    final sources = web.AudioContext();
+    final mixer = ScreenAudioMixer();
+    try {
+      final microphone = _toneTrack(sources);
+      await mixer.mix(microphone: microphone, display: _toneTrack(sources));
+
+      // The tone is far louder than speech needs to be.
+      await waitFor(
+        () => mixer.displayGain < ScreenAudioMixer.duckedGain + 0.1,
+        'the shared sound to go down',
+      );
+
+      // Muted (or silent), the shared sound comes back.
+      microphone.enabled = false;
+      await waitFor(
+        () => mixer.displayGain > 0.9,
+        'the shared sound to come back',
+      );
+    } finally {
+      await mixer.dispose();
+      await sources.close().toDart;
+    }
+  });
+
+  test('without a microphone the shared sound stays as it is', () async {
+    if (!await audioCanRun()) return markTestSkipped(needsAutoplay);
+    final sources = web.AudioContext();
+    final mixer = ScreenAudioMixer();
+    try {
+      await mixer.mix(display: _toneTrack(sources));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(mixer.displayGain, 1);
+    } finally {
+      await mixer.dispose();
+      await sources.close().toDart;
+    }
+  });
 }

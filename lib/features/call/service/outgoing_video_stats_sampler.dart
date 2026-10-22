@@ -9,8 +9,9 @@ class OutgoingVideoStatsSampler {
   final Map<String, ({num bytes, double timestamp})> _previous = {};
 
   Future<OutgoingVideoStats?> sample(
-    Map<String, RTCPeerConnection> connections,
-  ) async {
+    Map<String, RTCPeerConnection> connections, {
+    Set<String> excludedTrackIds = const {},
+  }) async {
     OutgoingVideoStats? weakest;
     var limit = VideoQualityLimit.none;
     final seen = <String>{};
@@ -23,10 +24,20 @@ class OutgoingVideoStatsSampler {
       } catch (_) {
         continue;
       }
+      final excludedSources = {
+        for (final report in reports)
+          if (report.type == 'media-source' &&
+              excludedTrackIds.contains(report.values['trackIdentifier']))
+            report.id,
+      };
       for (final report in reports) {
         final values = report.values;
         final kind = values['kind'] ?? values['mediaType'];
         if (report.type != 'outbound-rtp' || kind != 'video') continue;
+        if (excludedSources.contains(values['mediaSourceId']) ||
+            excludedTrackIds.contains(values['trackIdentifier'])) {
+          continue;
+        }
 
         final key = '$peerId/${report.id}';
         seen.add(key);

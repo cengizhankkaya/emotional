@@ -3,6 +3,7 @@ import 'package:emotional/product/init/language/locale_keys.g.dart';
 import 'package:emotional/features/call/domain/enums/call_quality_preset.dart';
 import 'package:emotional/features/call/domain/screen_share/screen_share_options.dart';
 import 'package:emotional/features/call/domain/services/i_media_device_service.dart';
+import 'package:emotional/features/call/service/screen_share/browser_screen_capture.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:audio_session/audio_session.dart';
@@ -27,6 +28,9 @@ class MediaDeviceService implements IMediaDeviceService {
   void Function()? onCameraLost;
 
   @override
+  CallQualityPreset get currentQuality => _currentQuality;
+
+  @override
   String? get selectedVideoDeviceId => _selectedVideoDeviceId;
   @override
   String? get selectedAudioDeviceId => _selectedAudioDeviceId;
@@ -41,14 +45,16 @@ class MediaDeviceService implements IMediaDeviceService {
 
   @override
   Future<void> initialize({
-    CallQualityPreset quality = CallQualityPreset.balanced,
+    CallQualityPreset? quality,
     bool enableVideo = true,
     bool enableAudio = true,
   }) async {
-    _currentQuality = quality;
+    // Reopening the camera (after a screen share or a suspend) keeps the
+    // quality the user picked.
+    if (quality != null) _currentQuality = quality;
 
     try {
-      await _tryStartStream(quality, requireVideo: enableVideo);
+      await _tryStartStream(_currentQuality, requireVideo: enableVideo);
     } catch (e) {
       debugPrint(
         "CRITICAL: Failed to initialize media stream even after fallback: $e",
@@ -90,7 +96,9 @@ class MediaDeviceService implements IMediaDeviceService {
         mediaConstraints,
       );
       _watch(_cameraStream);
-      _currentQuality = quality; // Success, update current quality
+      _holdResolution(_cameraStream);
+      // _currentQuality stays the user's pick even when a lower one opened,
+      // so the next reopen tries the picked quality again.
       debugPrint(
         "MediaDeviceService: Stream started successfully with ${quality.name}",
       );
@@ -139,6 +147,16 @@ class MediaDeviceService implements IMediaDeviceService {
     'deviceId': ?_selectedAudioDeviceId,
   };
 
+  /// Browsers lower a camera's resolution first when the connection or the
+  /// computer can't keep up. 'detail' makes them drop frames instead, so
+  /// the picked quality stays.
+  void _holdResolution(MediaStream? stream) {
+    if (!kIsWeb || stream == null) return;
+    for (final track in stream.getVideoTracks()) {
+      BrowserScreenCapture.applyContentHint(track, 'detail');
+    }
+  }
+
   void _watch(MediaStream? stream) {
     if (stream == null) return;
     for (final track in stream.getAudioTracks()) {
@@ -170,6 +188,12 @@ class MediaDeviceService implements IMediaDeviceService {
   Future<MediaStreamTrack?> restartMicrophone() async {
     // The selected device is most likely the one that went away.
     _selectedAudioDeviceId = null;
+    return _replaceMicrophone();
+  }
+
+  /// Opens the selected microphone in place of the current one, leaving
+  /// the camera running. Null (and the old microphone kept) on failure.
+  Future<MediaStreamTrack?> _replaceMicrophone() async {
     try {
       final microphone = await navigator.mediaDevices.getUserMedia({
         'audio': _audioConstraints(),
@@ -196,7 +220,9 @@ class MediaDeviceService implements IMediaDeviceService {
   }
 
   Map<String, dynamic> _videoConstraints(CallQualityPreset quality) {
-    final constraints = quality.toConstraints();
+    final constraints = kIsWeb
+        ? quality.toWebConstraints()
+        : quality.toConstraints();
     if (_selectedVideoDeviceId != null) {
       constraints['deviceId'] = _selectedVideoDeviceId;
     } else {
@@ -216,6 +242,22 @@ class MediaDeviceService implements IMediaDeviceService {
       return existing;
     }
 
+    final opened = await _openCamera();
+    if (opened == null) return null;
+    final (camera, track) = opened;
+    final stream = _cameraStream;
+    if (stream == null) {
+      _cameraStream = camera;
+    } else {
+      await stream.addTrack(track);
+    }
+    _watchTrack(track);
+    return track;
+  }
+
+  /// The selected camera at the picked quality, or the best lower one it
+  /// manages; null when none opens.
+  Future<(MediaStream, MediaStreamTrack)?> _openCamera() async {
     for (
       CallQualityPreset? quality = _currentQuality;
       quality != null;
@@ -228,14 +270,8 @@ class MediaDeviceService implements IMediaDeviceService {
         });
         final track = camera.getVideoTracks().firstOrNull;
         if (track == null) return null;
-        final stream = _cameraStream;
-        if (stream == null) {
-          _cameraStream = camera;
-        } else {
-          await stream.addTrack(track);
-        }
-        _watchTrack(track);
-        return track;
+        _holdResolution(camera);
+        return (camera, track);
       } catch (e) {
         debugPrint(
           "MediaDeviceService: Camera failed with ${quality.name}: $e",
@@ -243,6 +279,22 @@ class MediaDeviceService implements IMediaDeviceService {
       }
     }
     return null;
+  }
+
+  /// Opens the selected camera in place of the running one, leaving the
+  /// microphone alone; the old camera stays if the new one won't open.
+  Future<void> _replaceCamera() async {
+    final stream = _cameraStream;
+    final old = stream?.getVideoTracks().firstOrNull;
+    if (stream == null || old == null) return;
+    final opened = await _openCamera();
+    if (opened == null) return;
+    final (_, track) = opened;
+    track.enabled = old.enabled;
+    await stream.removeTrack(old);
+    await old.stop();
+    await stream.addTrack(track);
+    _watchTrack(track);
   }
 
   /// Releases the camera (its light goes off); the microphone keeps running.
@@ -280,6 +332,21 @@ class MediaDeviceService implements IMediaDeviceService {
     debugPrint("[MediaDeviceService] Changing quality to ${preset.name}...");
 
     try {
+      if (kIsWeb) {
+        // Resize the running camera; the microphone (and a share's audio
+        // mix) keep going. A camera that's off opens at the new quality.
+        final camera = _cameraStream?.getVideoTracks().firstOrNull;
+        if (camera == null) return;
+        try {
+          await camera.applyConstraints(preset.toWebConstraints());
+          return;
+        } catch (e) {
+          debugPrint('[MediaDeviceService] Reopening the camera: $e');
+          await _replaceCamera();
+          return;
+        }
+      }
+
       // 1. If camera is active, re-start it
       if (_cameraStream != null) {
         final hasVideo =
@@ -312,8 +379,25 @@ class MediaDeviceService implements IMediaDeviceService {
     return devices.where((d) => d.kind == 'videoinput').toList();
   }
 
+  /// The browser's own list; the phone-oriented refinements below (and
+  /// their made-up "speaker"/"earpiece" entries) don't apply to it.
+  Future<List<MediaDeviceInfo>> _browserDevices(String kind) async {
+    try {
+      final devices = await navigator.mediaDevices.enumerateDevices();
+      final seen = <String>{};
+      return [
+        for (final device in devices)
+          if (device.kind == kind && seen.add(device.deviceId)) device,
+      ];
+    } catch (e) {
+      debugPrint('MediaDeviceService: Could not list $kind devices: $e');
+      return [];
+    }
+  }
+
   @override
   Future<List<MediaDeviceInfo>> getAudioInputs() async {
+    if (kIsWeb) return _browserDevices('audioinput');
     List<MediaDeviceInfo> devices = [];
     try {
       final allDevices = await navigator.mediaDevices.enumerateDevices();
@@ -373,8 +457,11 @@ class MediaDeviceService implements IMediaDeviceService {
     return uniqueDevices.values.toList();
   }
 
+  /// Empty on browsers that can't pick a speaker (Safari): sound then
+  /// follows the system's output.
   @override
   Future<List<MediaDeviceInfo>> getAudioOutputs() async {
+    if (kIsWeb) return _browserDevices('audiooutput');
     List<MediaDeviceInfo> devices = [];
     try {
       final allDevices = await navigator.mediaDevices.enumerateDevices();
@@ -457,6 +544,10 @@ class MediaDeviceService implements IMediaDeviceService {
     _isBusy = true;
     try {
       _selectedVideoDeviceId = device.deviceId;
+      if (kIsWeb) {
+        await _replaceCamera();
+        return;
+      }
       // With the camera off, only remember the choice for when it's on.
       final hasVideo =
           _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? false;
@@ -472,6 +563,10 @@ class MediaDeviceService implements IMediaDeviceService {
     _isBusy = true;
     try {
       _selectedAudioDeviceId = device.deviceId;
+      if (kIsWeb) {
+        await _replaceMicrophone();
+        return;
+      }
       final hasVideo =
           _cameraStream?.getVideoTracks().any((t) => t.enabled) ?? false;
       await _tryStartStream(_currentQuality, requireVideo: hasVideo);
